@@ -1,0 +1,40 @@
+# Narua Premier League (NPL) - Official T20 Cricket Tournament Website
+
+Established Since 2024 • "Where Local Cricket Becomes History."
+
+This project is a broadcast-grade sports tournament web platform for **Narua Premier League (NPL)** built with **React**, **Vite**, **Tailwind CSS v4**, and **Lucide React**.
+
+## Getting Started
+
+1. **Install Dependencies:**
+   ```bash
+   npm install
+   ```
+
+2. **Start Development Server:**
+   ```bash
+   npm run dev
+   ```
+   Open `http://localhost:5173/` in your browser.
+
+3. **Build for Production:**
+   ```bash
+   npm run build
+   ```
+
+## Features
+
+- **Broadcast Live Score Ticker:** Sticky strip across top of viewport with real-time match status.
+- **Cinematic Stadium Hero:** Floodlit stadium visual with animated counters (Teams, Seasons, Champions, Matches).
+- **The Story of NPL:** Narrative & milestone timeline (2024, 2025, 2026).
+- **NPL Champions Showcase:** Previous winners carousel (NSK, RCN) with scorecards and trophy visual.
+- **Tournament History:** Archive with team counts, matches, Orange Cap, Purple Cap, and MVP.
+- **NPL Match Center:** Live scores with commentary, upcoming countdown timers, and completed scorecards.
+- **Points Table:** Standings with top 4 playoff qualification indicators and recent form guide.
+- **8 Franchise Clubs:** Detailed team cards and full squad modal with player stats.
+- **Player Roster:** Search by name/team and filter by Batters, Bowlers, All-rounders, and Keepers.
+- **Top Performers & Records:** Orange Cap, Purple Cap, Max Sixes, Best Bowling, and All-Time Records.
+- **Photo Gallery & Video Highlights:** Masonry gallery with fullscreen lightbox and broadcast video player.
+- **Auction Registration:** Public registration form that generates an official digital **NPL Player Pass** with ID & QR code.
+- **Live Auction Arena Simulator:** Interactive bidding simulator with team paddles, audio gavel strike, confetti, and purse tracking.
+- **Organizer Admin Console:** PIN-protected portal (`admin123`) to manage registrations, score live matches, and export CSV data.

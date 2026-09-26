@@ -1,0 +1,144 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --color-npl-blue: #080E1E;
+    --color-npl-navy: #050B17;
+    --color-npl-card: #0D172A;
+    --color-npl-border: #1E293B;
+    --color-npl-gold: #F59E0B;
+    --color-npl-amber: #FBBF24;
+    --color-npl-accent: #EF4444;
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background-color: #050B17;
+    color: #F8FAFC;
+    overflow-x: hidden;
+  }
+
+  /* Custom sports typography utilities */
+  .font-sports {
+    font-family: 'Bebas Neue', cursive, sans-serif;
+    letter-spacing: 0.05em;
+  }
+
+  .font-display {
+    font-family: 'Oswald', sans-serif;
+    letter-spacing: 0.03em;
+  }
+
+  .font-heading {
+    font-family: 'Outfit', sans-serif;
+  }
+}
+
+/* Glassmorphism & sports broadcast styles */
+.glass-panel {
+  background: rgba(13, 23, 42, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-panel-gold {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(13, 23, 42, 0.85) 100%);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.glass-panel-card {
+  background: linear-gradient(180deg, rgba(17, 28, 51, 0.9) 0%, rgba(10, 18, 36, 0.95) 100%);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.glass-panel-card:hover {
+  border-color: rgba(245, 158, 11, 0.4);
+  box-shadow: 0 10px 30px -10px rgba(245, 158, 11, 0.15), 0 0 20px 0 rgba(0, 0, 0, 0.4);
+}
+
+/* Gold gradient text */
+.text-gold-gradient {
+  background: linear-gradient(135deg, #FDE68A 0%, #F59E0B 50%, #D97706 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-silver-gradient {
+  background: linear-gradient(135deg, #FFFFFF 0%, #CBD5E1 50%, #94A3B8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-fire-gradient {
+  background: linear-gradient(135deg, #FDE047 0%, #F97316 50%, #EF4444 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Subtle broadcast grid & mesh background */
+.sports-grid-bg {
+  background-image: radial-gradient(rgba(245, 158, 11, 0.08) 1px, transparent 1px),
+                    radial-gradient(rgba(59, 130, 246, 0.05) 1px, transparent 1px);
+  background-size: 32px 32px;
+  background-position: 0 0, 16px 16px;
+}
+
+/* Custom Scrollbar for sports feel */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #050B17;
+}
+::-webkit-scrollbar-thumb {
+  background: #1E293B;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #F59E0B;
+}
+
+/* Animations */
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.02); }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 3s infinite ease-in-out;
+}
+
+@keyframes float-trophy {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-8px) rotate(1deg); }
+}
+
+.animate-float-trophy {
+  animation: float-trophy 5s ease-in-out infinite;
+}
+
+@keyframes shine {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+.animate-shine {
+  position: relative;
+  overflow: hidden;
+}
+
+.animate-shine::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+  transform: skewX(-20deg);
+  animation: shine 4s infinite;
+}
