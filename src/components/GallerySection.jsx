@@ -3,7 +3,7 @@ import { useNpl } from '../context/NplContext';
 import { Image, Maximize2, Tag, Calendar } from 'lucide-react';
 
 export const GallerySection = () => {
-  const { gallery, openModal } = useNpl();
+  const { gallery, openModal, siteMedia } = useNpl();
   const [selectedCategory, setSelectedCategory] = useState('ALL');
 
   const categories = [
@@ -21,7 +21,10 @@ export const GallerySection = () => {
   const filteredGallery = gallery.filter(item => {
     if (selectedCategory === 'ALL') return true;
     return item.category === selectedCategory;
-  });
+  }).map(item => ({
+    ...item,
+    image: siteMedia[`gallery:${item.id}`] || item.image
+  }));
 
   return (
     <section id="gallery" className="py-20 bg-[#050B17] border-t border-slate-800">

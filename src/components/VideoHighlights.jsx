@@ -3,10 +3,14 @@ import { useNpl } from '../context/NplContext';
 import { Play, Eye, Clock, Calendar, Film } from 'lucide-react';
 
 export const VideoHighlights = () => {
-  const { highlights, openModal } = useNpl();
+  const { highlights, openModal, siteMedia } = useNpl();
   const [activeVideoIndex, setActiveVideoIndex] = useState(0);
 
-  const featuredVideo = highlights[activeVideoIndex] || highlights[0];
+  const activeVideo = highlights[activeVideoIndex] || highlights[0];
+  const featuredVideo = activeVideo ? {
+    ...activeVideo,
+    thumbnail: siteMedia[`highlight:${activeVideo.id}`] || activeVideo.thumbnail
+  } : null;
   const playlist = highlights.filter((_, idx) => idx !== activeVideoIndex);
 
   return (
@@ -117,7 +121,7 @@ export const VideoHighlights = () => {
                     {/* Small thumbnail */}
                     <div className="relative w-24 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-slate-950">
                       <img
-                        src={video.thumbnail}
+                        src={siteMedia[`highlight:${video.id}`] || video.thumbnail}
                         alt={video.title}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                       />

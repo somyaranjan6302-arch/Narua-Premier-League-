@@ -17,6 +17,8 @@ This project is a broadcast-grade sports tournament web platform for **Narua Pre
    ```
    Open `http://localhost:5173/` in your browser.
 
+   On the first start, the server prints a randomly generated developer admin password in the terminal. Save it securely; it is shown only once. The developer account ID is `developer`. The developer can create additional admin accounts from the Admin Portal's **Admin Accounts** tab.
+
 3. **Build for Production:**
    ```bash
    npm run build
@@ -37,4 +39,7 @@ This project is a broadcast-grade sports tournament web platform for **Narua Pre
 - **Photo Gallery & Video Highlights:** Masonry gallery with fullscreen lightbox and broadcast video player.
 - **Auction Registration:** Public registration form that generates an official digital **NPL Player Pass** with ID & QR code.
 - **Live Auction Arena Simulator:** Interactive bidding simulator with team paddles, audio gavel strike, confetti, and purse tracking.
-- **Organizer Admin Console:** PIN-protected portal (`admin123`) to manage registrations, score live matches, and export CSV data.
+- **Organizer Admin Console:** Server-authenticated admin portal with a developer owner account, owner-managed admin accounts, salted password hashes, and HTTP-only sessions.
+- **Developer Media Library:** The owner-only Admin Portal tab can replace the public logo, stadium and trophy art, champion/team photos, news images, gallery photos, highlight thumbnails, and top-performer portraits using server-stored uploads.
+
+Admin account hashes and the session signing key are stored under `server/data/`, which is excluded from Git. Back up this directory securely for deployments using local file storage. Production deployments must use HTTPS and persistent private storage for `server/data/`; deleting it will generate a new developer password and invalidate all existing accounts.

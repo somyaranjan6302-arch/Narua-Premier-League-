@@ -3,7 +3,7 @@ import { useNpl } from '../context/NplContext';
 import { Trophy, Sparkles, Award, Shield } from 'lucide-react';
 
 export const TrophySection = () => {
-  const { champions, seasons } = useNpl();
+  const { siteMedia } = useNpl();
 
   return (
     <section id="trophy" className="py-24 relative bg-gradient-to-b from-[#050B17] via-[#0B152F] to-[#050B17] overflow-hidden border-t border-slate-800">
@@ -67,7 +67,7 @@ export const TrophySection = () => {
             <div className="relative w-64 h-80 sm:w-80 sm:h-96 flex-shrink-0 order-1 md:order-2">
               <div className="absolute inset-0 bg-gradient-to-t from-amber-500/30 to-transparent rounded-full blur-2xl animate-pulse" />
               <img
-                src="/assets/trophy.jpg"
+                src={siteMedia.trophy || "/assets/trophy.jpg"}
                 alt="Narua Premier League Championship Trophy"
                 className="w-full h-full object-contain relative z-10 drop-shadow-[0_15px_35px_rgba(245,158,11,0.5)] animate-float-trophy"
               />

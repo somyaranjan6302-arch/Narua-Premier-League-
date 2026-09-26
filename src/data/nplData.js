@@ -82,7 +82,9 @@ export const initialChampions = [
 export const initialSeasons = [
   {
     season: "2026",
-    edition: "Season 3",
+    year: "2026",
+    edition: "Season 5",
+    sampleData: true,
     status: "ONGOING / MEGA AUCTION AHEAD",
     teamsCount: 8,
     matchesCount: 28,
@@ -95,7 +97,9 @@ export const initialSeasons = [
   },
   {
     season: "2025",
-    edition: "Season 2",
+    year: "2025",
+    edition: "Season 4",
+    sampleData: true,
     status: "COMPLETED",
     teamsCount: 8,
     matchesCount: 28,
@@ -108,7 +112,9 @@ export const initialSeasons = [
   },
   {
     season: "2024",
-    edition: "Season 1",
+    year: "2024",
+    edition: "Season 3",
+    sampleData: true,
     status: "COMPLETED",
     teamsCount: 6,
     matchesCount: 16,
@@ -118,6 +124,36 @@ export const initialSeasons = [
     topWicketTaker: "Subhajit Pal (18 wickets)",
     playerOfTournament: "Rajesh Roy (NSK - 385 runs & 9 wickets)",
     description: "The foundation year where grassroots cricketers from Narua and surrounding districts came together."
+  },
+  {
+    season: "2023",
+    year: "2023",
+    edition: "Season 2",
+    sampleData: true,
+    status: "COMPLETED",
+    teamsCount: 6,
+    matchesCount: 18,
+    champion: "Narua Warriors",
+    runnerUp: "Delta Strikers",
+    topScorer: "Arindam Ghosh (354 runs)",
+    topWicketTaker: "Bikram Dutta (16 wickets)",
+    playerOfTournament: "Arindam Ghosh (354 runs & 8 wickets)",
+    description: "Placeholder archive summary. Replace these sample values with official 2023 records."
+  },
+  {
+    season: "2022",
+    year: "2022",
+    edition: "Season 1",
+    sampleData: true,
+    status: "COMPLETED",
+    teamsCount: 6,
+    matchesCount: 16,
+    champion: "Bay Coastal Titans",
+    runnerUp: "Narua Tigers",
+    topScorer: "Pritam Mondal (318 runs)",
+    topWicketTaker: "Koushik Sen (14 wickets)",
+    playerOfTournament: "Pritam Mondal (318 runs & 7 wickets)",
+    description: "Placeholder archive summary. Replace these sample values with official 2022 records."
   }
 ];
 
@@ -519,6 +555,46 @@ export const initialPointsTable = [
   { pos: 7, teamId: "ds", team: "Delta Strikers", short: "DS", p: 6, w: 2, l: 4, nr: 0, nrr: "-0.810", pts: 4, form: ["W", "L", "L", "L", "W"], qualified: false, color: "#10B981" },
   { pos: 8, teamId: "np", team: "Narua Panthers", short: "NP", p: 7, w: 1, l: 6, nr: 0, nrr: "-1.210", pts: 2, form: ["L", "L", "L", "W", "L"], qualified: false, color: "#14B8A6" },
 ];
+
+const buildSampleStandings = (season, teamCount) => {
+  const seed = Number(season);
+  const rows = initialPointsTable.slice(0, teamCount).map((team, index) => {
+    const played = 5 + ((index * 2 + seed) % 4);
+    const noResults = (index + seed) % 7 === 0 ? 1 : 0;
+    const winOptions = Math.max(1, played - noResults);
+    const wins = 1 + ((index * 3 + seed) % winOptions);
+    const losses = played - wins - noResults;
+    const points = wins * 2 + noResults;
+    const netRunRate = ((teamCount - index) * 0.137 - (seed % 5) * 0.041).toFixed(3);
+    const form = Array.from({ length: 5 }, (_, formIndex) =>
+      (index + formIndex + seed) % 3 === 0 ? 'L' : 'W'
+    );
+
+    return {
+      ...team,
+      p: played,
+      w: wins,
+      l: losses,
+      nr: noResults,
+      nrr: Number(netRunRate) >= 0 ? `+${netRunRate}` : netRunRate,
+      pts: points,
+      form
+    };
+  });
+
+  return rows
+    .sort((left, right) => right.pts - left.pts || right.w - left.w || Number(right.nrr) - Number(left.nrr))
+    .map((row, index) => ({ ...row, pos: index + 1 }));
+};
+
+export const initialSeasonStandings = Object.fromEntries(
+  initialSeasons.map((season) => [
+    season.edition,
+    season.season === initialSeasons[0].season
+      ? initialPointsTable
+      : buildSampleStandings(season.season, season.teamsCount)
+  ])
+);
 
 export const initialTopPerformers = {
   orangeCap: {

@@ -8,6 +8,9 @@ dist/
 dist-ssr/
 build/
 
+# Private admin credentials and session signing key
+server/data/
+
 # Environment and secrets
 .env
 .env.local

@@ -4,7 +4,7 @@ import { TeamBadge } from './TeamBadge';
 import { Trophy, Award, ChevronLeft, ChevronRight, Sparkles, Eye, Medal } from 'lucide-react';
 
 export const ChampionsSection = () => {
-  const { champions, teams, openModal } = useNpl();
+  const { champions, teams, openModal, siteMedia } = useNpl();
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const prevChampion = () => {
@@ -72,7 +72,7 @@ export const ChampionsSection = () => {
               <div className="lg:col-span-6 relative">
                 <div className="relative rounded-2xl overflow-hidden shadow-2xl border-2 border-amber-500/30">
                   <img
-                    src={activeChampion.teamPhoto}
+                    src={siteMedia[`champion:${currentIndex}`] || activeChampion.teamPhoto}
                     alt={`${activeChampion.championTeam} Champions`}
                     className="w-full h-[320px] sm:h-[400px] object-cover group-hover:scale-105 transition-transform duration-700"
                     onError={(e) => {
@@ -93,7 +93,7 @@ export const ChampionsSection = () => {
                   {/* Trophy floating badge */}
                   <div className="absolute bottom-4 right-4 flex items-center gap-3 bg-slate-950/90 border border-amber-500/50 p-2.5 rounded-2xl shadow-xl backdrop-blur-md">
                     <img
-                      src="/assets/trophy.jpg"
+                      src={siteMedia.trophy || "/assets/trophy.jpg"}
                       alt="NPL Trophy"
                       className="w-12 h-14 object-cover rounded-lg border border-amber-500/40"
                     />

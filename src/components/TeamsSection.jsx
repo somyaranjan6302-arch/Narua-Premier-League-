@@ -4,7 +4,8 @@ import { TeamBadge } from './TeamBadge';
 import { Users, Trophy, Shield, ChevronRight, UserCheck, MapPin } from 'lucide-react';
 
 export const TeamsSection = () => {
-  const { teams, openModal } = useNpl();
+  const { teams, openModal, seasons, selectedSeason, setSelectedSeason } = useNpl();
+  const seasonInfo = seasons.find((season) => season.edition === selectedSeason) || seasons[0];
 
   return (
     <section id="teams" className="py-20 bg-[#050B17] border-t border-slate-800">
@@ -24,8 +25,23 @@ export const TeamsSection = () => {
             </p>
           </div>
 
-          <div className="text-xs text-slate-400 font-semibold bg-slate-900 px-4 py-2 rounded-xl border border-slate-800 self-start md:self-auto">
-            Click on any team to view complete roster & player statistics
+          <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+            <label className="relative z-10 flex flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Session
+              <select
+                value={seasonInfo?.edition || ''}
+                onChange={(event) => setSelectedSeason(event.target.value)}
+                className="relative z-20 min-w-36 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-semibold normal-case text-white focus:border-amber-500 focus:outline-none"
+              >
+                {seasons.map((season) => (
+                  <option key={season.edition} value={season.edition}>{season.edition} ({season.year || season.season})</option>
+                ))}
+              </select>
+            </label>
+
+            <div className="text-xs text-slate-400 font-semibold bg-slate-900 px-4 py-2 rounded-xl border border-slate-800 self-start md:self-auto">
+              Click on any team to view complete roster & player statistics
+            </div>
           </div>
         </div>
 

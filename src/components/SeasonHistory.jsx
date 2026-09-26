@@ -1,12 +1,11 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNpl } from '../context/NplContext';
 import { Calendar, Trophy, Award, Users, Flame, ChevronRight } from 'lucide-react';
 
 export const SeasonHistory = () => {
-  const { seasons } = useNpl();
-  const [selectedSeason, setSelectedSeason] = useState(seasons[0]?.season || "2026");
+  const { seasons, selectedSeason, setSelectedSeason } = useNpl();
 
-  const currentSeasonData = seasons.find(s => s.season === selectedSeason) || seasons[0];
+  const currentSeasonData = seasons.find(s => s.edition === selectedSeason) || seasons[0];
 
   return (
     <section id="history" className="py-20 bg-[#060D1E] border-t border-slate-800/80">
@@ -25,23 +24,20 @@ export const SeasonHistory = () => {
           </p>
         </div>
 
-        {/* Season Selector Tabs */}
+        {/* Season Selector */}
         <div className="flex justify-center mb-10">
-          <div className="inline-flex p-1.5 rounded-2xl bg-slate-900 border border-slate-800 gap-2">
-            {seasons.map((s) => (
-              <button
-                key={s.season}
-                onClick={() => setSelectedSeason(s.season)}
-                className={`px-5 py-2.5 rounded-xl font-sports text-lg sm:text-xl tracking-wider transition-all duration-200 ${
-                  selectedSeason === s.season
-                    ? "bg-amber-500 text-slate-950 font-black shadow-lg shadow-amber-500/20"
-                    : "text-slate-400 hover:text-white hover:bg-slate-800/60"
-                }`}
-              >
-                NPL {s.season}
-              </button>
-            ))}
-          </div>
+          <label className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+            Session
+            <select
+              value={currentSeasonData?.edition || ''}
+              onChange={(event) => setSelectedSeason(event.target.value)}
+              className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-semibold normal-case text-white focus:border-amber-500 focus:outline-none"
+            >
+              {seasons.map((season) => (
+                <option key={season.edition} value={season.edition}>{season.edition} ({season.year || season.season})</option>
+              ))}
+            </select>
+          </label>
         </div>
 
         {/* Season Information Board */}
@@ -51,10 +47,10 @@ export const SeasonHistory = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-slate-800/80 gap-4">
               <div>
                 <span className="text-xs font-bold text-amber-400 tracking-widest uppercase block">
-                  {currentSeasonData.edition}
+                  {currentSeasonData.edition} • {currentSeasonData.year || currentSeasonData.season}
                 </span>
                 <h3 className="font-sports text-4xl sm:text-5xl text-white tracking-wider mt-1">
-                  NPL {currentSeasonData.season} SEASON SUMMARY
+                  NPL {currentSeasonData.edition.toUpperCase()} SUMMARY
                 </h3>
               </div>
 
@@ -73,6 +69,12 @@ export const SeasonHistory = () => {
                 </div>
               </div>
             </div>
+
+            {currentSeasonData.sampleData && (
+              <p className="mt-5 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-xs font-semibold text-amber-300">
+                Sample {currentSeasonData.edition} records — replace with official data when available.
+              </p>
+            )}
 
             {/* Grid of Season Honors & Awards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-8">

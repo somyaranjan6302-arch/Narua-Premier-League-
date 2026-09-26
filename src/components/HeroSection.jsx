@@ -3,7 +3,7 @@ import { useNpl } from '../context/NplContext';
 import { Flame, Trophy, Play, ChevronRight, Award, Shield, Sparkles } from 'lucide-react';
 
 export const HeroSection = ({ scrollToSection }) => {
-  const { tournamentInfo, openModal } = useNpl();
+  const { tournamentInfo, openModal, siteMedia } = useNpl();
 
   // Animated counter simulation
   const [counts, setCounts] = useState({
@@ -42,7 +42,7 @@ export const HeroSection = ({ scrollToSection }) => {
       {/* Background Stadium Photo with multi-layered broadcast overlays */}
       <div className="absolute inset-0 z-0">
         <img
-          src="/assets/stadium.jpg"
+          src={siteMedia.stadium || "/assets/stadium.jpg"}
           alt="Narua Premier League Night Stadium"
           className="w-full h-full object-cover object-center scale-105 filter brightness-75 contrast-110"
         />

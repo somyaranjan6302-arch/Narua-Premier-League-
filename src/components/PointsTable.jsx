@@ -4,7 +4,11 @@ import { TeamBadge } from './TeamBadge';
 import { Trophy, CheckCircle2, ChevronRight, Info } from 'lucide-react';
 
 export const PointsTable = () => {
-  const { pointsTable, teams, openModal } = useNpl();
+  const { pointsTable, seasonStandings, seasons, selectedSeason, setSelectedSeason, teams, openModal } = useNpl();
+  const seasonInfo = seasons.find((season) => season.edition === selectedSeason) || seasons[0];
+  const visiblePointsTable = seasonInfo?.season === seasons[0]?.season
+    ? pointsTable
+    : seasonStandings[seasonInfo?.edition] || [];
 
   return (
     <section id="standings" className="py-20 bg-[#060D1E] border-t border-slate-800">
@@ -14,7 +18,7 @@ export const PointsTable = () => {
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold tracking-widest uppercase mb-3">
               <Trophy className="w-3.5 h-3.5" />
-              <span>NPL SEASON STANDINGS</span>
+              <span>NPL {seasonInfo?.edition || 'SEASON'} STANDINGS</span>
             </div>
             <h2 className="font-sports text-4xl sm:text-5xl lg:text-6xl text-white tracking-wide uppercase leading-none">
               POINTS <span className="text-gold-gradient">TABLE</span>
@@ -24,18 +28,35 @@ export const PointsTable = () => {
             </p>
           </div>
 
-          {/* Qualification legend */}
-          <div className="flex items-center gap-4 text-xs font-semibold text-slate-400 bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 self-start md:self-auto">
-            <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded bg-emerald-500/20 border border-emerald-500 inline-block"></span>
-              <span className="text-slate-200">Playoffs (Top 4)</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded bg-slate-800 border border-slate-700 inline-block"></span>
-              <span className="text-slate-400">Eliminated</span>
+          <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+            <label className="flex flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Session
+              <select
+                value={seasonInfo?.edition || ''}
+                onChange={(event) => setSelectedSeason(event.target.value)}
+                className="min-w-36 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-semibold normal-case text-white focus:border-amber-500 focus:outline-none"
+              >
+                {seasons.map((season) => (
+                  <option key={season.edition} value={season.edition}>{season.edition} ({season.year || season.season})</option>
+                ))}
+              </select>
+            </label>
+            <div className="flex items-center gap-4 text-xs font-semibold text-slate-400 bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 self-start md:self-auto">
+              <div className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded bg-emerald-500/20 border border-emerald-500 inline-block"></span>
+                <span className="text-slate-200">Playoffs (Top 4)</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded bg-slate-800 border border-slate-700 inline-block"></span>
+                <span className="text-slate-400">Eliminated</span>
+              </div>
             </div>
           </div>
         </div>
+
+        {seasonInfo?.sampleData && (
+          <p className="mb-3 text-xs font-semibold text-amber-300">Sample {seasonInfo.edition} records — replace with official data when available.</p>
+        )}
 
         {/* Responsive Table Container */}
         <div className="glass-panel-card rounded-3xl border border-slate-800 shadow-2xl overflow-hidden">
@@ -55,7 +76,7 @@ export const PointsTable = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60 text-xs sm:text-sm font-medium">
-                {pointsTable.map((row, index) => {
+                {visiblePointsTable.map((row, index) => {
                   const isTopFour = index < 4;
                   const teamObj = teams.find(t => t.id === row.teamId);
 

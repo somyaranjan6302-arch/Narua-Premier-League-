@@ -16,7 +16,6 @@ export const AuctionRegistrationModal = ({ onClose }) => {
     role: 'All-Rounder',
     battingStyle: 'Right Hand',
     bowlingStyle: 'Right Arm Medium Fast',
-    basePrice: '₹40,000',
     previousExperience: 'Yes',
     previousTeam: 'Local League',
     previousSeason: '2025',
@@ -26,17 +25,53 @@ export const AuctionRegistrationModal = ({ onClose }) => {
     bestPerformance: '54* & 3/19',
     bio: '',
     instagram: '',
-    photo: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=400&q=80',
+    photo: '',
     consent: false
   });
+  const [photoError, setPhotoError] = useState('');
 
-  const samplePhotos = [
-    'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=400&q=80',
-    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80',
-    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
-    'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=400&q=80',
-    'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=400&q=80',
-  ];
+  const handlePhotoUpload = async (event) => {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setPhotoError('Choose an image file.');
+      input.value = '';
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setPhotoError('Choose an image smaller than 8 MB.');
+      input.value = '';
+      return;
+    }
+
+    try {
+      const image = await createImageBitmap(file);
+      const cropSize = Math.min(image.width, image.height);
+      const canvas = document.createElement('canvas');
+      canvas.width = 384;
+      canvas.height = 384;
+      const context = canvas.getContext('2d');
+      context.drawImage(
+        image,
+        (image.width - cropSize) / 2,
+        (image.height - cropSize) / 2,
+        cropSize,
+        cropSize,
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      );
+      image.close();
+      setFormData((current) => ({ ...current, photo: canvas.toDataURL('image/jpeg', 0.8) }));
+      setPhotoError('');
+    } catch {
+      setPhotoError('This photo could not be opened. Try another image.');
+    }
+    input.value = '';
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -157,41 +192,36 @@ export const AuctionRegistrationModal = ({ onClose }) => {
                     />
                   </div>
 
-                  {/* Profile Photo selector */}
+                  {/* Profile Photo upload */}
                   <div className="sm:col-span-2 space-y-2">
                     <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
-                      <span>Profile Photo (Choose Avatar or URL)</span>
-                      <span className="text-[10px] text-amber-400">Photo will appear on Auction Screen</span>
+                      <span>Profile Photo (Optional)</span>
+                      <span className="text-[10px] text-amber-400">Appears on the auction screen</span>
                     </label>
 
                     <div className="flex items-center gap-3">
                       <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-amber-500/50 flex-shrink-0 bg-slate-800">
-                        <img src={formData.photo} alt="Preview" className="w-full h-full object-cover" />
+                        {formData.photo ? (
+                          <img src={formData.photo} alt="Selected player photo preview" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-slate-500">
+                            <Camera className="w-5 h-5" />
+                          </div>
+                        )}
                       </div>
 
-                      <div className="flex-grow space-y-2">
+                      <div className="flex-grow space-y-1.5">
                         <input
-                          type="text"
-                          value={formData.photo}
-                          onChange={(e) => setFormData({ ...formData, photo: e.target.value })}
-                          placeholder="Paste photo URL"
-                          className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500"
+                          type="file"
+                          accept="image/*"
+                          onChange={handlePhotoUpload}
+                          aria-label="Upload player photo from your device"
+                          className="block w-full text-xs text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-amber-500 file:px-3 file:py-2 file:text-xs file:font-bold file:text-slate-950 hover:file:bg-amber-400"
                         />
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-slate-400">Sample Avatars:</span>
-                          {samplePhotos.map((url, i) => (
-                            <button
-                              key={i}
-                              type="button"
-                              onClick={() => setFormData({ ...formData, photo: url })}
-                              className={`w-6 h-6 rounded-full overflow-hidden border ${formData.photo === url ? "border-amber-400 ring-2 ring-amber-400" : "border-slate-700"}`}
-                            >
-                              <img src={url} alt={`sample ${i}`} className="w-full h-full object-cover" />
-                            </button>
-                          ))}
-                        </div>
+                        <p className="text-[10px] text-slate-500">Select a photo from your phone or computer. Images are resized automatically (max 8 MB).</p>
                       </div>
                     </div>
+                    {photoError && <p role="alert" className="text-xs text-rose-400">{photoError}</p>}
                   </div>
                 </div>
               </div>
@@ -377,7 +407,11 @@ export const AuctionRegistrationModal = ({ onClose }) => {
 
                 <div className="flex items-center gap-4 my-4">
                   <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-amber-500/60 flex-shrink-0">
-                    <img src={registeredData?.photo} alt={registeredData?.fullName} className="w-full h-full object-cover" />
+                    {registeredData?.photo ? (
+                      <img src={registeredData.photo} alt={registeredData.fullName} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-500"><User className="w-8 h-8" /></div>
+                    )}
                   </div>
                   <div>
                     <h4 className="font-heading font-bold text-lg text-white">
@@ -392,17 +426,11 @@ export const AuctionRegistrationModal = ({ onClose }) => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-xs bg-slate-950/80 p-3 rounded-xl border border-slate-800">
+                <div className="grid grid-cols-1 gap-2 text-xs bg-slate-950/80 p-3 rounded-xl border border-slate-800">
                   <div>
                     <span className="text-[9px] text-slate-400 uppercase font-bold block">Assigned Reg ID</span>
                     <span className="font-sports text-xl text-amber-400 tracking-wider">
                       {registeredData?.registrationId}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[9px] text-slate-400 uppercase font-bold block">Base Price Bracket</span>
-                    <span className="font-sports text-xl text-white tracking-wider">
-                      {registeredData?.basePrice}
                     </span>
                   </div>
                 </div>

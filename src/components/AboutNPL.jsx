@@ -3,7 +3,7 @@ import { useNpl } from '../context/NplContext';
 import { History, Award, Flag, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
 
 export const AboutNPL = ({ scrollToSection }) => {
-  const { tournamentInfo, seasons } = useNpl();
+  const { tournamentInfo, seasons, siteMedia } = useNpl();
 
   const timelineMilestones = [
     {
@@ -111,7 +111,7 @@ export const AboutNPL = ({ scrollToSection }) => {
           <div className="lg:col-span-5 relative">
             <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-slate-700/80 group">
               <img
-                src="/assets/stadium.jpg"
+                src={siteMedia.stadium || "/assets/stadium.jpg"}
                 alt="Narua Premier League Tournament"
                 className="w-full h-[440px] object-cover group-hover:scale-105 transition-transform duration-700"
               />

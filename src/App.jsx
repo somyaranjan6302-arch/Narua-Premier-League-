@@ -41,20 +41,10 @@ export const App = () => {
 
   const scrollToSection = (sectionId) => {
     setActiveSection(sectionId);
-    const element = document.getElementById(sectionId);
-    if (element) {
-      const offset = 80;
-      const bodyRect = document.body.getBoundingClientRect().top;
-      const elementRect = element.getBoundingClientRect().top;
-      const elementPosition = elementRect - bodyRect;
-      const offsetPosition = elementPosition - offset;
-
-      window.scrollTo({
-        top: offsetPosition,
-        behavior: 'smooth'
-      });
-    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  const topPaddingClass = activeSection === 'home' ? '' : 'pt-28 sm:pt-32 lg:pt-36';
 
   return (
     <div className="min-h-screen bg-[#050B17] text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-black">
@@ -73,52 +63,23 @@ export const App = () => {
       {/* 1. STICKY NAVBAR */}
       <Navbar activeSection={activeSection} setActiveSection={setActiveSection} />
 
-      {/* MAIN HOMEPAGE SECTIONS IN REQUESTED HIERARCHY */}
-      <main className="flex-grow">
-        {/* 2 & 3. HERO & TOURNAMENT STATS */}
-        <HeroSection scrollToSection={scrollToSection} />
-
-        {/* 4. THE STORY OF NARUA PREMIER LEAGUE / INTRODUCTION */}
-        <AboutNPL scrollToSection={scrollToSection} />
-
-        {/* 5. NPL CHAMPIONS */}
-        <ChampionsSection />
-
-        {/* 6. TOURNAMENT HISTORY / SEASONS ARCHIVE */}
-        <SeasonHistory />
-
-        {/* 7. NPL MATCH CENTER (LIVE, UPCOMING, COMPLETED) */}
-        <MatchCenter />
-
-        {/* 8. POINTS TABLE */}
-        <PointsTable />
-
-        {/* 9. NPL FRANCHISE TEAMS */}
-        <TeamsSection />
-
-        {/* 10. NPL PLAYERS ROSTER BROWSER */}
-        <PlayerSection />
-
-        {/* 11. TOP PERFORMERS (ORANGE CAP, PURPLE CAP, AWARDS) */}
-        <TopPerformers />
-
-        {/* 12. NPL RECORDS & MILESTONES */}
-        <NplRecords />
-
-        {/* 13. PHOTO GALLERY */}
-        <GallerySection />
-
-        {/* 14. VIDEO HIGHLIGHTS */}
-        <VideoHighlights />
-
-        {/* 15. LATEST NPL NEWS */}
-        <NewsSection />
-
-        {/* 16. DEDICATED AUCTION SECTION */}
-        <AuctionSection />
-
-        {/* 17. TOURNAMENT TROPHY SECTION */}
-        <TrophySection />
+      {/* Show one destination at a time instead of stacking every section. */}
+      <main className={`flex-grow ${topPaddingClass}`}>
+        {activeSection === 'home' && <HeroSection scrollToSection={scrollToSection} />}
+        {activeSection === 'story' && <AboutNPL scrollToSection={scrollToSection} />}
+        {activeSection === 'champions' && <ChampionsSection />}
+        {activeSection === 'history' && <SeasonHistory />}
+        {activeSection === 'matches' && <MatchCenter />}
+        {activeSection === 'standings' && <PointsTable />}
+        {activeSection === 'teams' && <TeamsSection />}
+        {activeSection === 'players' && <PlayerSection />}
+        {activeSection === 'performers' && <TopPerformers />}
+        {activeSection === 'records' && <NplRecords />}
+        {activeSection === 'gallery' && <GallerySection />}
+        {activeSection === 'highlights' && <VideoHighlights />}
+        {activeSection === 'news' && <NewsSection />}
+        {activeSection === 'auction' && <AuctionSection />}
+        {activeSection === 'trophy' && <TrophySection />}
       </main>
 
       {/* 18. LARGE PROFESSIONAL FOOTER */}

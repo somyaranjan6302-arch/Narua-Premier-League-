@@ -4,7 +4,7 @@ import { useNpl } from '../context/NplContext';
 import { Menu, X, Shield, Award, Calendar, Users, Trophy, Image, Play, Flame, Newspaper, ChevronDown } from 'lucide-react';
 
 export const Navbar = ({ activeSection, setActiveSection }) => {
-  const { matches, openModal, setIsAdminModalOpen, isAdminLoggedIn } = useNpl();
+  const { matches, openModal, setIsAdminModalOpen, isAdminLoggedIn, siteMedia } = useNpl();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMoreOpen, setIsMoreOpen] = useState(false);
@@ -35,6 +35,8 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
   const moreItems = [
     { label: "Tournament Records", target: "records" },
     { label: "About NPL Story", target: "story" },
+    { label: "Season History", target: "history" },
+    { label: "Players", target: "players" },
     { label: "Trophy Showcase", target: "trophy" },
     { label: "Top Performers (Caps)", target: "performers" },
   ];
@@ -43,19 +45,7 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
     setActiveSection(target);
     setIsMobileMenuOpen(false);
     setIsMoreOpen(false);
-    const element = document.getElementById(target);
-    if (element) {
-      const offset = 80;
-      const bodyRect = document.body.getBoundingClientRect().top;
-      const elementRect = element.getBoundingClientRect().top;
-      const elementPosition = elementRect - bodyRect;
-      const offsetPosition = elementPosition - offset;
-
-      window.scrollTo({
-        top: offsetPosition,
-        behavior: 'smooth'
-      });
-    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
@@ -98,18 +88,18 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
       <nav
         className={`w-full transition-all duration-300 border-b ${
           isScrolled
-            ? "bg-[#060D1E]/95 backdrop-blur-md border-slate-800 shadow-2xl py-2.5"
-            : "bg-[#071026]/85 backdrop-blur-sm border-slate-800/60 py-3.5"
+            ? "bg-[#060D1E]/95 backdrop-blur-md border-slate-800 shadow-2xl py-1.5"
+            : "bg-[#071026]/85 backdrop-blur-sm border-slate-800/60 py-2.5"
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           {/* Left: NPL Brand Logo */}
           <div onClick={() => handleNavClick('home')}>
-            <NplLogo size="md" />
+            <NplLogo size="sm" imageSrc={siteMedia.logo} compactOnMobile />
           </div>
 
           {/* Center: Desktop Navigation Links */}
-          <div className="hidden xl:flex items-center gap-1 text-sm font-semibold tracking-wide">
+          <div className="hidden 2xl:flex items-center gap-1 text-sm font-semibold tracking-wide">
             {navItems.map((item) => (
               <button
                 key={item.target}
@@ -166,7 +156,7 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
             {/* Prominent Auction Registration Button */}
             <button
               onClick={() => openModal('auction-register')}
-              className="relative group overflow-hidden rounded-full p-[1.5px] font-sports text-sm tracking-wider uppercase transition-all duration-300 active:scale-95 shadow-[0_0_20px_rgba(245,158,11,0.35)]"
+              className="relative hidden group overflow-hidden rounded-full p-[1.5px] font-sports text-sm tracking-wider uppercase transition-all duration-300 active:scale-95 shadow-[0_0_20px_rgba(245,158,11,0.35)] md:block"
             >
               <span className="absolute inset-0 bg-gradient-to-r from-amber-400 via-yellow-300 to-orange-500 rounded-full animate-pulse"></span>
               <span className="relative block px-4 sm:px-5 py-2 rounded-full bg-[#080F21] group-hover:bg-opacity-80 transition-all duration-200 text-amber-300 font-bold flex items-center gap-2 text-xs sm:text-sm">
@@ -178,7 +168,7 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
             {/* Mobile Menu Hamburger Toggle */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="xl:hidden p-2 rounded-lg bg-slate-800/80 text-slate-200 hover:text-white border border-slate-700/60"
+              className="2xl:hidden p-2 rounded-lg bg-slate-800/80 text-slate-200 hover:text-white border border-slate-700/60"
               aria-label="Toggle menu"
             >
               {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -188,7 +178,7 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
 
         {/* Mobile Navigation Drawer */}
         {isMobileMenuOpen && (
-          <div className="xl:hidden bg-[#070E20] border-t border-slate-800 px-4 pt-4 pb-6 mt-2 space-y-2 shadow-2xl animate-in slide-in-from-top duration-200">
+          <div className="2xl:hidden bg-[#070E20] border-t border-slate-800 px-4 pt-4 pb-6 mt-2 space-y-2 shadow-2xl animate-in slide-in-from-top duration-200">
             <div className="grid grid-cols-2 gap-2 pb-3 border-b border-slate-800/80">
               {navItems.map((item) => (
                 <button

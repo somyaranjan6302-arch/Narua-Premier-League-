@@ -20,7 +20,10 @@ import {
   Edit,
   Save,
   Activity,
-  Award
+  Award,
+  UserPlus,
+  Upload,
+  UserRound
 } from 'lucide-react';
 
 export const AdminDashboardModal = ({ onClose }) => {
@@ -33,6 +36,9 @@ export const AdminDashboardModal = ({ onClose }) => {
     updateMatchLiveScore,
     pointsTable,
     setPointsTable,
+    topPerformers,
+    gallery,
+    highlights,
     auctionRegistrations,
     updateRegistrationStatus,
     champions,
@@ -40,31 +46,304 @@ export const AdminDashboardModal = ({ onClose }) => {
     news,
     setNews,
     isAdminLoggedIn,
+    adminUser,
+    isAdminAuthLoading,
+    siteMedia,
+    refreshSiteMedia,
+    showToast,
     loginAdmin,
     logoutAdmin,
     resetToFactoryDefaults,
     openModal
   } = useNpl();
 
-  const [pinInput, setPinInput] = useState('');
+  const [adminIdInput, setAdminIdInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [newAdminId, setNewAdminId] = useState('');
+  const [newAdminPassword, setNewAdminPassword] = useState('');
+  const [replacementAdminPassword, setReplacementAdminPassword] = useState('');
+  const [confirmAdminPassword, setConfirmAdminPassword] = useState('');
+  const [passwordChangeError, setPasswordChangeError] = useState('');
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [adminAccounts, setAdminAccounts] = useState([]);
+  const [adminAccountError, setAdminAccountError] = useState('');
+  const [mediaError, setMediaError] = useState('');
+  const [uploadingMediaKey, setUploadingMediaKey] = useState('');
+  const [pendingMediaFiles, setPendingMediaFiles] = useState({});
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [tournamentDraft, setTournamentDraft] = useState(() => ({ ...tournamentInfo }));
   const [activeTab, setActiveTab] = useState('registrations'); // 'registrations' | 'livescore' | 'teams' | 'tournament' | 'news'
   const [regSearch, setRegSearch] = useState('');
   const [regStatusFilter, setRegStatusFilter] = useState('ALL');
 
   // Handle Login
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    loginAdmin(pinInput);
+    setLoginError('');
+    const result = await loginAdmin(adminIdInput, passwordInput);
+    if (!result.success) setLoginError(result.error);
   };
 
-  // Quick 1-click test login
-  const handleQuickDemoLogin = () => {
-    loginAdmin('admin123');
+  const loadAdminAccounts = async () => {
+    const response = await fetch('/api/admin/users');
+    if (response.ok) {
+      const result = await response.json();
+      setAdminAccounts(result.users);
+    }
   };
+
+  const handleCreateAdmin = async (event) => {
+    event.preventDefault();
+    setAdminAccountError('');
+    const response = await fetch('/api/admin/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminId: newAdminId, password: newAdminPassword })
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      setAdminAccountError(result.error || 'Could not create admin account.');
+      return;
+    }
+    setNewAdminId('');
+    setNewAdminPassword('');
+    await loadAdminAccounts();
+  };
+
+  const handlePasswordChange = async (event) => {
+    event.preventDefault();
+    setPasswordChangeError('');
+    if (replacementAdminPassword !== confirmAdminPassword) {
+      setPasswordChangeError('The new passwords do not match.');
+      return;
+    }
+
+    setIsSavingPassword(true);
+    try {
+      const response = await fetch('/api/admin/password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          newPassword: replacementAdminPassword
+        })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not change password.');
+      setReplacementAdminPassword('');
+      setConfirmAdminPassword('');
+      showToast('Password changed. Other signed-in sessions have been signed out.');
+    } catch (error) {
+      setPasswordChangeError(error.message || 'Could not change password.');
+    } finally {
+      setIsSavingPassword(false);
+    }
+  };
+
+  const handleMediaSelection = (mediaKey, event) => {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
+      setMediaError('Choose a JPG, PNG, WebP, or GIF image.');
+      input.value = '';
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setMediaError('Images must be 8 MB or smaller.');
+      input.value = '';
+      return;
+    }
+
+    setMediaError('');
+    const previewUrl = URL.createObjectURL(file);
+    setPendingMediaFiles((current) => {
+      if (current[mediaKey]) URL.revokeObjectURL(current[mediaKey].previewUrl);
+      return { ...current, [mediaKey]: { file, previewUrl } };
+    });
+    input.value = '';
+  };
+
+  const handleMediaUpload = async (mediaKey) => {
+    const pendingMedia = pendingMediaFiles[mediaKey];
+    if (!pendingMedia) return;
+
+    setMediaError('');
+    setUploadingMediaKey(mediaKey);
+    const formData = new FormData();
+    formData.append('key', mediaKey);
+    formData.append('image', pendingMedia.file);
+
+    try {
+      const response = await fetch('/api/admin/media', { method: 'POST', body: formData });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Image upload failed.');
+      await refreshSiteMedia();
+      URL.revokeObjectURL(pendingMedia.previewUrl);
+      setPendingMediaFiles((current) => {
+        const next = { ...current };
+        delete next[mediaKey];
+        return next;
+      });
+      showToast('Website image updated successfully.');
+    } catch (error) {
+      setMediaError(error.message || 'Image upload failed.');
+    } finally {
+      setUploadingMediaKey('');
+    }
+  };
+
+  const mediaUploadControl = (mediaKey, title, description, fallbackImage = '') => {
+    const pendingMedia = pendingMediaFiles[mediaKey];
+    return (
+    <div key={mediaKey} className="flex items-center gap-4 border-b border-slate-800 py-4 last:border-0">
+      <div className="h-16 w-20 flex-shrink-0 overflow-hidden rounded-lg border border-slate-700 bg-slate-950">
+        {(pendingMedia?.previewUrl || siteMedia[mediaKey] || fallbackImage) ? (
+          <img src={pendingMedia?.previewUrl || siteMedia[mediaKey] || fallbackImage} alt={`${title} preview`} className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full items-center justify-center text-slate-600"><Image className="h-6 w-6" /></div>
+        )}
+      </div>
+      <div className="min-w-0 flex-grow">
+        <p className="text-sm font-bold text-white">{title}</p>
+        <p className="text-xs text-slate-400">{description}</p>
+      </div>
+      <label className="inline-flex flex-shrink-0 cursor-pointer items-center gap-2 rounded-lg bg-amber-500 px-3 py-2 text-xs font-bold text-slate-950 hover:bg-amber-400">
+        <Upload className="h-4 w-4" />
+        Choose image
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          className="sr-only"
+          disabled={Boolean(uploadingMediaKey)}
+          onChange={(event) => handleMediaSelection(mediaKey, event)}
+        />
+      </label>
+      <button
+        type="button"
+        onClick={() => handleMediaUpload(mediaKey)}
+        disabled={!pendingMedia || Boolean(uploadingMediaKey)}
+        className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-emerald-700 bg-emerald-950 px-3 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        <Save className="h-4 w-4" />
+        {uploadingMediaKey === mediaKey ? 'Saving...' : 'Save'}
+      </button>
+    </div>
+    );
+  };
+
+  const handleTournamentSave = () => {
+    setTournamentInfo(tournamentDraft);
+    showToast('Tournament settings saved.');
+  };
+
+  const profileMenu = adminUser && (
+    <div className="absolute right-0 top-full z-[70] mt-2 max-h-[70vh] w-[min(24rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-slate-700 bg-[#081226] p-4 text-left shadow-2xl">
+      <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-400">
+          <UserRound className="h-5 w-5" />
+        </div>
+        <div className="min-w-0">
+          <p className="truncate font-bold text-white">{adminUser.adminId}</p>
+          <p className="text-xs text-amber-300">{adminUser.role === 'owner' ? 'Developer Owner' : 'Administrator'}</p>
+        </div>
+      </div>
+      <div className="space-y-1 py-3 text-xs text-slate-400">
+        <p><span className="font-bold text-slate-200">Developer owner:</span> manages admin members and website media.</p>
+        <p><span className="font-bold text-slate-200">Administrator:</span> manages tournament operations.</p>
+      </div>
+      <div className="space-y-3 border-t border-slate-800 pt-3">
+        <h4 className="font-sports text-lg text-white">CHANGE PASSWORD</h4>
+        <form onSubmit={handlePasswordChange} className="space-y-2">
+          <input
+            required
+            type="password"
+            minLength={6}
+            autoComplete="new-password"
+            placeholder="New password (6+ characters)"
+            aria-label="New password"
+            value={replacementAdminPassword}
+            onChange={(event) => setReplacementAdminPassword(event.target.value)}
+            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+          />
+          <input
+            required
+            type="password"
+            minLength={6}
+            autoComplete="new-password"
+            placeholder="Confirm new password"
+            aria-label="Confirm new password"
+            value={confirmAdminPassword}
+            onChange={(event) => setConfirmAdminPassword(event.target.value)}
+            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+          />
+          {passwordChangeError && <p role="alert" className="text-xs text-rose-400">{passwordChangeError}</p>}
+          <button
+            type="submit"
+            disabled={isSavingPassword}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-700 bg-emerald-950 px-3 py-2 text-sm font-bold text-emerald-300 hover:bg-emerald-900 disabled:opacity-50"
+          >
+            <Save className="h-4 w-4" />
+            {isSavingPassword ? 'Saving...' : 'Save new password'}
+          </button>
+        </form>
+      </div>
+      {adminUser.role === 'owner' ? (
+        <div className="space-y-3 border-t border-slate-800 pt-3">
+          <h4 className="font-sports text-lg text-white">ADMIN MEMBERS</h4>
+          <form onSubmit={handleCreateAdmin} className="space-y-2">
+            <input
+              required
+              minLength={3}
+              maxLength={32}
+              pattern="[A-Za-z0-9._-]+"
+              autoComplete="off"
+              placeholder="New admin ID"
+              aria-label="New admin ID"
+              value={newAdminId}
+              onChange={(event) => setNewAdminId(event.target.value)}
+              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+            />
+            <input
+              required
+              type="password"
+              minLength={6}
+              autoComplete="new-password"
+              placeholder="Temporary password (6+ characters)"
+              aria-label="Temporary password for new admin"
+              value={newAdminPassword}
+              onChange={(event) => setNewAdminPassword(event.target.value)}
+              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+            />
+            {adminAccountError && <p role="alert" className="text-xs text-rose-400">{adminAccountError}</p>}
+            <button type="submit" className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-amber-500 px-3 py-2 text-sm font-bold text-slate-950 hover:bg-amber-400">
+              <UserPlus className="h-4 w-4" />
+              Add admin member
+            </button>
+          </form>
+          <div className="divide-y divide-slate-800 rounded-lg border border-slate-800 bg-slate-950/60">
+            {adminAccounts.map((account) => (
+              <div key={account.adminId} className="flex items-center justify-between gap-3 px-3 py-2 text-xs">
+                <span className="truncate font-semibold text-white">{account.adminId}</span>
+                <span className={account.role === 'owner' ? 'text-amber-300' : 'text-slate-400'}>
+                  {account.role === 'owner' ? 'Developer' : 'Admin'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <p className="border-t border-slate-800 pt-3 text-xs text-slate-400">
+          Admin members can’t add other admins or change website media.
+        </p>
+      )}
+    </div>
+  );
 
   // Export registrations as CSV
   const handleExportCSV = () => {
-    const headers = ["ID", "Name", "Role", "Phone", "Location", "Status", "Base Price", "Batting", "Bowling", "Runs", "Wickets"];
+    const headers = ["ID", "Name", "Role", "Phone", "Location", "Status", "Batting", "Bowling", "Runs", "Wickets"];
     const rows = auctionRegistrations.map(r => [
       r.registrationId,
       r.fullName || r.name,
@@ -72,7 +351,6 @@ export const AdminDashboardModal = ({ onClose }) => {
       r.phone,
       r.location,
       r.status,
-      r.basePrice,
       r.battingStyle,
       r.bowlingStyle,
       r.runs,
@@ -108,7 +386,7 @@ export const AdminDashboardModal = ({ onClose }) => {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/90 backdrop-blur-md overflow-y-auto">
       <div className="relative w-full max-w-6xl bg-[#070D1E] border-2 border-slate-700 rounded-3xl shadow-2xl overflow-hidden my-6 max-h-[94vh] flex flex-col">
         {/* Header */}
-        <div className="bg-gradient-to-r from-slate-950 via-[#0A142D] to-slate-950 p-5 border-b border-slate-800 flex items-center justify-between flex-shrink-0">
+        <div className="relative z-20 bg-gradient-to-r from-slate-950 via-[#0A142D] to-slate-950 p-5 border-b border-slate-800 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/50 flex items-center justify-center text-amber-400">
               <Shield className="w-5 h-5" />
@@ -123,7 +401,7 @@ export const AdminDashboardModal = ({ onClose }) => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="relative flex items-center gap-2">
             {isAdminLoggedIn && (
               <button
                 onClick={logoutAdmin}
@@ -132,9 +410,26 @@ export const AdminDashboardModal = ({ onClose }) => {
                 Sign Out
               </button>
             )}
+            {isAdminLoggedIn && (
+              <button
+                type="button"
+                onClick={() => {
+                  const opening = !isProfileOpen;
+                  setIsProfileOpen(opening);
+                  if (opening && adminUser?.role === 'owner') loadAdminAccounts();
+                }}
+                aria-label="Open profile menu"
+                aria-expanded={isProfileOpen}
+                title="Profile and admin members"
+                className={`rounded-lg border p-2 transition-colors ${isProfileOpen ? 'border-amber-500 bg-amber-500/10 text-amber-300' : 'border-slate-700 bg-slate-900 text-slate-300 hover:text-white'}`}
+              >
+                <UserRound className="h-5 w-5" />
+              </button>
+            )}
             <button onClick={onClose} className="p-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-400 hover:text-white">
               <X className="w-5 h-5" />
             </button>
+            {isProfileOpen && profileMenu}
           </div>
         </div>
 
@@ -151,18 +446,43 @@ export const AdminDashboardModal = ({ onClose }) => {
                 RESTRICTED TOURNAMENT ACCESS
               </h4>
               <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1">
-                Enter your League Director PIN or click the demo button to unlock real-time tournament controls.
+                Admin access is limited to authorized NPL staff. Sign in with your admin ID and password.
               </p>
             </div>
 
+            {isAdminAuthLoading ? (
+              <p className="text-sm text-slate-400">Checking your secure session...</p>
+            ) : (
             <form onSubmit={handleLogin} className="w-full max-w-xs space-y-3">
               <input
-                type="password"
-                placeholder="Enter PIN (e.g. admin123)"
-                value={pinInput}
-                onChange={(e) => setPinInput(e.target.value)}
+                type="text"
+                autoComplete="username"
+                placeholder="Admin ID"
+                value={adminIdInput}
+                onChange={(e) => {
+                  setAdminIdInput(e.target.value);
+                  setLoginError('');
+                }}
                 className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-center text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
               />
+              <input
+                type="password"
+                autoComplete="current-password"
+                placeholder="Password"
+                value={passwordInput}
+                onChange={(e) => {
+                  setPasswordInput(e.target.value);
+                  setLoginError('');
+                }}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-center text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
+              />
+              {loginError && (
+                <p role="alert" className="rounded-lg border border-rose-800 bg-rose-950/70 px-3 py-2 text-sm text-rose-300">
+                  {loginError.includes('Invalid admin ID or password')
+                    ? 'Wrong admin ID or password. Please try again.'
+                    : loginError}
+                </p>
+              )}
 
               <button
                 type="submit"
@@ -170,15 +490,8 @@ export const AdminDashboardModal = ({ onClose }) => {
               >
                 UNLOCK ADMIN CONSOLE
               </button>
-
-              <button
-                type="button"
-                onClick={handleQuickDemoLogin}
-                className="w-full py-2 text-xs text-amber-400 hover:text-amber-300 font-semibold underline"
-              >
-                ⚡ 1-Click Quick Demo Login (admin123)
-              </button>
             </form>
+            )}
           </div>
         ) : (
           /* Main Admin Panel Dashboard */
@@ -247,7 +560,66 @@ export const AdminDashboardModal = ({ onClose }) => {
               >
                 EDIT TOURNAMENT SETTINGS
               </button>
+              {adminUser?.role === 'owner' && (
+                <button
+                  onClick={() => setActiveTab('media')}
+                  className={`py-3 px-4 font-sports text-base tracking-wider whitespace-nowrap transition-colors border-b-2 ${activeTab === 'media' ? 'border-amber-500 text-amber-400' : 'border-transparent text-slate-400 hover:text-white'}`}
+                >
+                  OWNER MEDIA
+                </button>
+              )}
             </div>
+
+            {activeTab === 'media' && adminUser?.role === 'owner' && (
+              <div className="flex-grow overflow-y-auto p-6">
+                <div className="mb-4">
+                  <h4 className="font-sports text-xl text-white">WEBSITE IMAGE LIBRARY</h4>
+                  <p className="mt-1 text-xs text-slate-400">Changes appear for every visitor. JPG, PNG, WebP, or GIF up to 8 MB.</p>
+                </div>
+                {mediaError && <p role="alert" className="mb-3 rounded-lg border border-rose-800 bg-rose-950/70 px-3 py-2 text-sm text-rose-300">{mediaError}</p>}
+                <div className="divide-y divide-slate-800 rounded-xl border border-slate-800 bg-slate-950/50 px-4">
+                  {mediaUploadControl('logo', 'NPL logo', 'Shown in the header and footer.')}
+                  {mediaUploadControl('stadium', 'Stadium image', 'Shown on the home and league story pages.', '/assets/stadium.jpg')}
+                  {mediaUploadControl('trophy', 'Championship trophy', 'Shown in the trophy showcase.', '/assets/trophy.jpg')}
+                  {champions.map((champion, index) => mediaUploadControl(
+                    `champion:${index}`,
+                    `${champion.season} ${champion.edition} • ${champion.championTeam}`,
+                    'Champion feature photo.',
+                    champion.teamPhoto
+                  ))}
+                  {teams.map((team) => mediaUploadControl(
+                    `team:${team.id}`,
+                    `${team.name} banner`,
+                    'Shown in team details.',
+                    team.banner
+                  ))}
+                  {news.map((article) => mediaUploadControl(
+                    `news:${article.id}`,
+                    article.headline,
+                    `News image • ${article.category}`,
+                    article.image
+                  ))}
+                  {gallery.map((item) => mediaUploadControl(
+                    `gallery:${item.id}`,
+                    item.title,
+                    `Gallery photo • ${item.category}`,
+                    item.image
+                  ))}
+                  {highlights.map((item) => mediaUploadControl(
+                    `highlight:${item.id}`,
+                    item.title,
+                    'Video highlight thumbnail.',
+                    item.thumbnail
+                  ))}
+                  {Object.entries(topPerformers).map(([key, performer]) => mediaUploadControl(
+                    `performer:${key}`,
+                    `${performer.player} • ${key.replace(/([A-Z])/g, ' $1')}`,
+                    'Top performer profile photo.',
+                    performer.photo
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Tab 1: Auction Registrations Management */}
             {activeTab === 'registrations' && (
@@ -307,7 +679,6 @@ export const AdminDashboardModal = ({ onClose }) => {
                         <th className="py-3 px-3">PLAYER ID</th>
                         <th className="py-3 px-3">FULL NAME</th>
                         <th className="py-3 px-3">ROLE</th>
-                        <th className="py-3 px-3">BASE PRICE</th>
                         <th className="py-3 px-3">STATUS</th>
                         <th className="py-3 px-3 text-right">DIRECTOR ACTIONS</th>
                       </tr>
@@ -326,9 +697,6 @@ export const AdminDashboardModal = ({ onClose }) => {
                           </td>
                           <td className="py-3 px-3 text-slate-300">
                             {reg.role}
-                          </td>
-                          <td className="py-3 px-3 font-sports text-base text-slate-200">
-                            {reg.basePrice || "₹30,000"}
                           </td>
                           <td className="py-3 px-3">
                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
@@ -474,7 +842,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                   <h4 className="font-sports text-xl text-white tracking-wider">
                     EDIT POINTS TABLE & FRANCHISE RECORDS
                   </h4>
-                  <span className="text-xs text-slate-400">All edits sync immediately</span>
+                  <span className="text-xs text-slate-400">Quick actions apply immediately</span>
                 </div>
 
                 <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950/80">
@@ -533,8 +901,8 @@ export const AdminDashboardModal = ({ onClose }) => {
                     <label className="text-slate-400 block mb-1 font-bold">Tournament Name</label>
                     <input
                       type="text"
-                      value={tournamentInfo.name}
-                      onChange={(e) => setTournamentInfo({ ...tournamentInfo, name: e.target.value })}
+                      value={tournamentDraft.name}
+                      onChange={(e) => setTournamentDraft({ ...tournamentDraft, name: e.target.value })}
                       className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white"
                     />
                   </div>
@@ -543,8 +911,8 @@ export const AdminDashboardModal = ({ onClose }) => {
                     <label className="text-slate-400 block mb-1 font-bold">Tournament Tagline</label>
                     <input
                       type="text"
-                      value={tournamentInfo.tagline}
-                      onChange={(e) => setTournamentInfo({ ...tournamentInfo, tagline: e.target.value })}
+                      value={tournamentDraft.tagline}
+                      onChange={(e) => setTournamentDraft({ ...tournamentDraft, tagline: e.target.value })}
                       className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white"
                     />
                   </div>
@@ -553,8 +921,8 @@ export const AdminDashboardModal = ({ onClose }) => {
                     <label className="text-slate-400 block mb-1 font-bold">Auction Date</label>
                     <input
                       type="text"
-                      value={tournamentInfo.auctionDate}
-                      onChange={(e) => setTournamentInfo({ ...tournamentInfo, auctionDate: e.target.value })}
+                      value={tournamentDraft.auctionDate}
+                      onChange={(e) => setTournamentDraft({ ...tournamentDraft, auctionDate: e.target.value })}
                       className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white"
                     />
                   </div>
@@ -563,8 +931,8 @@ export const AdminDashboardModal = ({ onClose }) => {
                     <label className="text-slate-400 block mb-1 font-bold">Registration Deadline</label>
                     <input
                       type="text"
-                      value={tournamentInfo.registrationDeadline}
-                      onChange={(e) => setTournamentInfo({ ...tournamentInfo, registrationDeadline: e.target.value })}
+                      value={tournamentDraft.registrationDeadline}
+                      onChange={(e) => setTournamentDraft({ ...tournamentDraft, registrationDeadline: e.target.value })}
                       className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white"
                     />
                   </div>
@@ -573,11 +941,22 @@ export const AdminDashboardModal = ({ onClose }) => {
                     <label className="text-slate-400 block mb-1 font-bold">About NPL Story Text</label>
                     <textarea
                       rows={3}
-                      value={tournamentInfo.storyText}
-                      onChange={(e) => setTournamentInfo({ ...tournamentInfo, storyText: e.target.value })}
+                      value={tournamentDraft.storyText}
+                      onChange={(e) => setTournamentDraft({ ...tournamentDraft, storyText: e.target.value })}
                       className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white"
                     />
                   </div>
+                </div>
+                <div className="flex justify-end border-t border-slate-800 pt-4">
+                  <button
+                    type="button"
+                    onClick={handleTournamentSave}
+                    disabled={JSON.stringify(tournamentDraft) === JSON.stringify(tournamentInfo)}
+                    className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Save className="h-4 w-4" />
+                    Save Changes
+                  </button>
                 </div>
               </div>
             )}

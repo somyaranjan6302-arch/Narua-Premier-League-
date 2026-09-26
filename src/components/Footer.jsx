@@ -5,7 +5,7 @@ import { Mail, Phone, MapPin, MessageCircle, Shield, Award, Heart } from 'lucide
 
 
 export const Footer = ({ scrollToSection }) => {
-  const { tournamentInfo, setIsAdminModalOpen } = useNpl();
+  const { tournamentInfo, setIsAdminModalOpen, siteMedia } = useNpl();
 
   const sponsors = [
     { name: "NARUA STEEL CORP", role: "TITLE SPONSOR" },
@@ -45,9 +45,9 @@ export const Footer = ({ scrollToSection }) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-10 pb-12 border-b border-slate-800/80">
           {/* Brand Info (4 cols) */}
-          <div className="lg:col-span-4 space-y-4">
-            <NplLogo size="lg" />
-            <p className="text-xs sm:text-sm text-slate-400 leading-relaxed max-w-sm">
+          <div className="lg:col-span-4 min-w-0 space-y-4">
+            <NplLogo size="lg" imageSrc={siteMedia.logo} compactOnMobile />
+            <p className="w-full min-w-0 max-w-sm break-words text-xs sm:text-sm text-slate-400 leading-relaxed">
               Narua Premier League (NPL) is Bengal's premier local franchise T20 cricket tournament, empowering grassroots cricket talent since 2024 through professional league standards.
             </p>
 

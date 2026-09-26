@@ -3,7 +3,7 @@ import { useNpl } from '../context/NplContext';
 import { Award, Zap, Flame, Shield, Target, Sparkles } from 'lucide-react';
 
 export const TopPerformers = () => {
-  const { topPerformers, openModal } = useNpl();
+  const { topPerformers, openModal, siteMedia } = useNpl();
 
   const performerList = [
     { key: 'orangeCap', data: topPerformers.orangeCap, icon: Award, label: "ORANGE CAP" },
@@ -43,7 +43,7 @@ export const TopPerformers = () => {
                   team: data.team,
                   role: data.category,
                   runs: data.stat,
-                  photo: data.photo,
+                      photo: siteMedia[`performer:${key}`] || data.photo,
                   details: data.details
                 })}
                 className="glass-panel-card rounded-3xl p-6 border border-slate-800 hover:border-amber-500/50 transition-all duration-300 hover:-translate-y-1.5 cursor-pointer relative overflow-hidden group shadow-xl"
@@ -63,7 +63,7 @@ export const TopPerformers = () => {
                   {/* Player Photo with Glow Border */}
                   <div className="relative w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 border-2 border-amber-500/40 shadow-lg group-hover:scale-105 transition-transform">
                     <img
-                      src={data.photo}
+                      src={siteMedia[`performer:${key}`] || data.photo}
                       alt={data.player}
                       className="w-full h-full object-cover"
                     />

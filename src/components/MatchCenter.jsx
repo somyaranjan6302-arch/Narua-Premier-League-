@@ -4,8 +4,9 @@ import { TeamBadge } from './TeamBadge';
 import { Calendar, Clock, MapPin, Award, Eye, Flame, ChevronRight, Play } from 'lucide-react';
 
 export const MatchCenter = () => {
-  const { matches, teams, openModal } = useNpl();
+  const { matches, teams, openModal, seasons, selectedSeason, setSelectedSeason } = useNpl();
   const [filter, setFilter] = useState('ALL'); // ALL, LIVE, UPCOMING, COMPLETED
+  const seasonInfo = seasons.find((season) => season.edition === selectedSeason) || seasons[0];
 
   // Countdown timer helper for upcoming matches
   const [timeLeft, setTimeLeft] = useState({
@@ -53,52 +54,66 @@ export const MatchCenter = () => {
             </p>
           </div>
 
-          {/* Filter Buttons */}
-          <div className="flex flex-wrap gap-2 p-1.5 rounded-2xl bg-slate-900 border border-slate-800 self-start md:self-auto">
-            <button
-              onClick={() => setFilter('ALL')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
-                filter === 'ALL'
-                  ? "bg-amber-500 text-slate-950 font-black shadow-md"
-                  : "text-slate-400 hover:text-white"
-              }`}
-            >
-              ALL ({matches.length})
-            </button>
+          <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+            <label className="relative z-10 flex flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Session
+              <select
+                value={seasonInfo?.edition || ''}
+                onChange={(event) => setSelectedSeason(event.target.value)}
+                className="relative z-20 min-w-36 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-semibold normal-case text-white focus:border-amber-500 focus:outline-none"
+              >
+                {seasons.map((season) => (
+                  <option key={season.edition} value={season.edition}>{season.edition} ({season.year || season.season})</option>
+                ))}
+              </select>
+            </label>
 
-            <button
-              onClick={() => setFilter('LIVE')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all ${
-                filter === 'LIVE'
-                  ? "bg-red-600 text-white font-black shadow-md shadow-red-600/30"
-                  : "text-slate-400 hover:text-red-400"
-              }`}
-            >
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-              LIVE ({liveMatchesCount})
-            </button>
+            <div className="flex flex-wrap gap-2 p-1.5 rounded-2xl bg-slate-900 border border-slate-800 self-start md:self-auto">
+              <button
+                onClick={() => setFilter('ALL')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
+                  filter === 'ALL'
+                    ? "bg-amber-500 text-slate-950 font-black shadow-md"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                ALL ({matches.length})
+              </button>
 
-            <button
-              onClick={() => setFilter('UPCOMING')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
-                filter === 'UPCOMING'
-                  ? "bg-blue-600 text-white font-black shadow-md"
-                  : "text-slate-400 hover:text-white"
-              }`}
-            >
-              UPCOMING ({upcomingMatchesCount})
-            </button>
+              <button
+                onClick={() => setFilter('LIVE')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all ${
+                  filter === 'LIVE'
+                    ? "bg-red-600 text-white font-black shadow-md shadow-red-600/30"
+                    : "text-slate-400 hover:text-red-400"
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                LIVE ({liveMatchesCount})
+              </button>
 
-            <button
-              onClick={() => setFilter('COMPLETED')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
-                filter === 'COMPLETED'
-                  ? "bg-slate-700 text-white font-black shadow-md"
-                  : "text-slate-400 hover:text-white"
-              }`}
-            >
-              COMPLETED ({completedMatchesCount})
-            </button>
+              <button
+                onClick={() => setFilter('UPCOMING')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
+                  filter === 'UPCOMING'
+                    ? "bg-blue-600 text-white font-black shadow-md"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                UPCOMING ({upcomingMatchesCount})
+              </button>
+
+              <button
+                onClick={() => setFilter('COMPLETED')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
+                  filter === 'COMPLETED'
+                    ? "bg-slate-700 text-white font-black shadow-md"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                COMPLETED ({completedMatchesCount})
+              </button>
+            </div>
           </div>
         </div>
 

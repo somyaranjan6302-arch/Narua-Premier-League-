@@ -3,7 +3,7 @@ import { useNpl } from '../context/NplContext';
 import { Newspaper, Calendar, Clock, ChevronRight, ArrowUpRight } from 'lucide-react';
 
 export const NewsSection = () => {
-  const { news, openModal } = useNpl();
+  const { news, openModal, siteMedia } = useNpl();
 
   const featuredNews = news.find(n => n.featured) || news[0];
   const otherNews = news.filter(n => n.id !== featuredNews?.id);
@@ -36,12 +36,15 @@ export const NewsSection = () => {
           {/* Main Featured Article (Left - 7 cols) */}
           {featuredNews && (
             <div
-              onClick={() => openModal('article-details', featuredNews)}
+              onClick={() => openModal('article-details', {
+                ...featuredNews,
+                image: siteMedia[`news:${featuredNews.id}`] || featuredNews.image
+              })}
               className="lg:col-span-7 glass-panel-card rounded-3xl overflow-hidden border border-slate-800 hover:border-amber-500/50 transition-all duration-300 cursor-pointer group flex flex-col justify-between shadow-2xl"
             >
               <div className="relative h-[280px] sm:h-[340px] overflow-hidden">
                 <img
-                  src={featuredNews.image}
+                  src={siteMedia[`news:${featuredNews.id}`] || featuredNews.image}
                   alt={featuredNews.headline}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 filter brightness-90"
                 />
@@ -90,12 +93,15 @@ export const NewsSection = () => {
             {otherNews.slice(0, 3).map((item) => (
               <div
                 key={item.id}
-                onClick={() => openModal('article-details', item)}
+                onClick={() => openModal('article-details', {
+                  ...item,
+                  image: siteMedia[`news:${item.id}`] || item.image
+                })}
                 className="glass-panel-card p-5 rounded-2xl border border-slate-800 hover:border-amber-500/50 transition-all duration-300 cursor-pointer group flex items-start gap-4 shadow-xl"
               >
                 <div className="relative w-28 h-24 rounded-xl overflow-hidden flex-shrink-0 bg-slate-950 border border-slate-800">
                   <img
-                    src={item.image}
+                    src={siteMedia[`news:${item.id}`] || item.image}
                     alt={item.headline}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />

@@ -6,6 +6,7 @@ import {
   initialTeams,
   initialMatches,
   initialPointsTable,
+  initialSeasonStandings,
   initialTopPerformers,
   initialRecords,
   initialGallery,
@@ -36,6 +37,14 @@ export const NplProvider = ({ children }) => {
   const [teams, setTeams] = useState(() => loadState('teams', initialTeams));
   const [matches, setMatches] = useState(() => loadState('matches', initialMatches));
   const [pointsTable, setPointsTable] = useState(() => loadState('pointsTable', initialPointsTable));
+  const [seasonStandings, setSeasonStandings] = useState(() => {
+    const savedStandings = loadState('seasonStandings', initialSeasonStandings);
+    return Object.fromEntries(initialSeasons.map((season) => [
+      season.edition,
+      savedStandings[season.edition] || savedStandings[season.season] || initialSeasonStandings[season.edition]
+    ]));
+  });
+  const [selectedSeason, setSelectedSeason] = useState(() => loadState('selectedSeason', initialSeasons[0]?.edition || 'Season 5'));
   const [topPerformers, setTopPerformers] = useState(() => loadState('topPerformers', initialTopPerformers));
   const [records, setRecords] = useState(() => loadState('records', initialRecords));
   const [gallery, setGallery] = useState(() => loadState('gallery', initialGallery));
@@ -43,17 +52,34 @@ export const NplProvider = ({ children }) => {
   const [news, setNews] = useState(() => loadState('news', initialNews));
   const [auctionRegistrations, setAuctionRegistrations] = useState(() => loadState('auctionRegistrations', initialAuctionRegistrations));
   const [auctionLiveState, setAuctionLiveState] = useState(() => loadState('auctionLiveState', initialAuctionLiveState));
+  const [siteMedia, setSiteMedia] = useState({});
 
-  // Admin authentication state
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
-    return localStorage.getItem('npl_admin_auth') === 'true';
-  });
+  // Authentication is verified by the server; never trust persisted browser state.
+  const [adminUser, setAdminUser] = useState(null);
+  const [isAdminAuthLoading, setIsAdminAuthLoading] = useState(true);
+  const isAdminLoggedIn = Boolean(adminUser);
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
 
   // Universal Modal Controller
   const [activeModal, setActiveModal] = useState({ type: null, data: null });
   const [toastMessage, setToastMessage] = useState(null);
+
+  useEffect(() => {
+    localStorage.removeItem('npl_admin_auth');
+    fetch('/api/admin/session')
+      .then(async (response) => response.ok ? response.json() : null)
+      .then((session) => setAdminUser(session?.user ?? null))
+      .catch(() => setAdminUser(null))
+      .finally(() => setIsAdminAuthLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/site-media')
+      .then((response) => response.ok ? response.json() : {})
+      .then(setSiteMedia)
+      .catch(() => setSiteMedia({}));
+  }, []);
 
   // Sync to local storage
   useEffect(() => {
@@ -75,6 +101,14 @@ export const NplProvider = ({ children }) => {
   useEffect(() => {
     localStorage.setItem('npl_pointsTable', JSON.stringify(pointsTable));
   }, [pointsTable]);
+
+  useEffect(() => {
+    localStorage.setItem('npl_seasonStandings', JSON.stringify(seasonStandings));
+  }, [seasonStandings]);
+
+  useEffect(() => {
+    localStorage.setItem('npl_selectedSeason', JSON.stringify(selectedSeason));
+  }, [selectedSeason]);
 
   useEffect(() => {
     localStorage.setItem('npl_auctionRegistrations', JSON.stringify(auctionRegistrations));
@@ -108,6 +142,12 @@ export const NplProvider = ({ children }) => {
     document.body.style.overflow = 'auto';
   };
 
+  const refreshSiteMedia = async () => {
+    const response = await fetch('/api/site-media');
+    if (!response.ok) throw new Error('Could not refresh site images.');
+    setSiteMedia(await response.json());
+  };
+
   // Auction Registration submission
   const registerPlayerForAuction = (formData) => {
     const randomNum = Math.floor(1000 + Math.random() * 9000);
@@ -118,7 +158,7 @@ export const NplProvider = ({ children }) => {
       ...formData,
       status: 'PENDING',
       createdAt: new Date().toISOString(),
-      photo: formData.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80'
+      photo: formData.photo || ''
     };
 
     setAuctionRegistrations(prev => [newPlayer, ...prev]);
@@ -213,23 +253,28 @@ export const NplProvider = ({ children }) => {
     showToast("Match score updated successfully!");
   };
 
-  // Admin login toggle
-  const loginAdmin = (password) => {
-    if (password === 'admin123' || password === 'npl2026') {
-      setIsAdminLoggedIn(true);
-      localStorage.setItem('npl_admin_auth', 'true');
-      showToast("Welcome back, NPL Tournament Director!", "success");
-      return true;
-    } else {
-      showToast("Invalid Admin PIN. (Default: admin123)", "error");
-      return false;
+  const loginAdmin = async (adminId, password) => {
+    try {
+      const response = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminId, password })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Unable to sign in.');
+      setAdminUser(result.user);
+      showToast(`Welcome, ${result.user.adminId}.`, 'success');
+      return { success: true };
+    } catch (error) {
+      showToast(error.message || 'Unable to sign in.', 'error');
+      return { success: false, error: error.message || 'Unable to sign in.' };
     }
   };
 
-  const logoutAdmin = () => {
-    setIsAdminLoggedIn(false);
-    localStorage.removeItem('npl_admin_auth');
-    showToast("Signed out of Admin Portal.");
+  const logoutAdmin = async () => {
+    await fetch('/api/admin/logout', { method: 'POST' });
+    setAdminUser(null);
+    showToast('Signed out of Admin Portal.');
   };
 
   // Reset demo data
@@ -267,6 +312,10 @@ export const NplProvider = ({ children }) => {
         updateMatchLiveScore,
         pointsTable,
         setPointsTable,
+        seasonStandings,
+        setSeasonStandings,
+        selectedSeason,
+        setSelectedSeason,
         topPerformers,
         setTopPerformers,
         records,
@@ -283,7 +332,11 @@ export const NplProvider = ({ children }) => {
         auctionLiveState,
         placeLiveBid,
         sellLivePlayer,
+        siteMedia,
+        refreshSiteMedia,
         isAdminLoggedIn,
+        adminUser,
+        isAdminAuthLoading,
         loginAdmin,
         logoutAdmin,
         isAdminModalOpen,
