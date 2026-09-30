@@ -8,11 +8,11 @@ export const Footer = ({ scrollToSection }) => {
   const { tournamentInfo, setIsAdminModalOpen, siteMedia } = useNpl();
 
   const sponsors = [
-    { name: "NARUA STEEL CORP", role: "TITLE SPONSOR" },
-    { name: "BENGAL APEX LOGISTICS", role: "OFFICIAL LOGISTICS" },
-    { name: "ROYAL HERITAGE RESORTS", role: "HOSPITALITY PARTNER" },
-    { name: "PAL STAR DIGITAL", role: "STREAMING PARTNER" },
-    { name: "DELTA AGRO", role: "BEVERAGE PARTNER" },
+    { name: "FIRE CLUB ASSOCIATION ", role: "TITLE SPONSOR" },
+    { name: "YOUNG STAR CLUB", role: "OFFICIAL LOGISTICS" },
+    { name: "MUKKE DA DOKAN", role: "HOSPITALITY PARTNER" },
+    { name: "SUDHIR DADI VLOGS", role: "STREAMING PARTNER" },
+    { name: "BHAI BHAI GROUP", role: "BEVERAGE PARTNER" },
   ];
 
   return (

@@ -32,9 +32,28 @@ export const NplProvider = ({ children }) => {
   };
 
   const [tournamentInfo, setTournamentInfo] = useState(() => loadState('tournamentInfo', initialTournamentInfo));
-  const [champions, setChampions] = useState(() => loadState('champions', initialChampions));
-  const [seasons, setSeasons] = useState(() => loadState('seasons', initialSeasons));
-  const [teams, setTeams] = useState(() => loadState('teams', initialTeams));
+  const [champions, setChampions] = useState(() => {
+    const savedChampions = loadState('champions', []);
+    if (!Array.isArray(savedChampions)) return initialChampions;
+
+    const savedByEdition = new Map(
+      savedChampions
+        .filter((champion) => champion?.edition)
+        .map((champion) => [champion.edition, champion])
+    );
+    const seededEditions = new Set(initialChampions.map((champion) => champion.edition));
+
+    return [
+      ...initialChampions.map((champion) => savedByEdition.get(champion.edition) || champion),
+      ...savedChampions.filter((champion) => !seededEditions.has(champion?.edition))
+    ];
+  });
+  const [seasons, setSeasons] = useState(() => initialSeasons);
+  const [teams, setTeams] = useState(() => (
+    loadState('teamDataVersion', 0) >= 2
+      ? loadState('teams', initialTeams)
+      : initialTeams
+  ));
   const [matches, setMatches] = useState(() => loadState('matches', initialMatches));
   const [pointsTable, setPointsTable] = useState(() => loadState('pointsTable', initialPointsTable));
   const [seasonStandings, setSeasonStandings] = useState(() => {
@@ -93,6 +112,10 @@ export const NplProvider = ({ children }) => {
   useEffect(() => {
     localStorage.setItem('npl_teams', JSON.stringify(teams));
   }, [teams]);
+
+  useEffect(() => {
+    localStorage.setItem('npl_teamDataVersion', '2');
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('npl_matches', JSON.stringify(matches));

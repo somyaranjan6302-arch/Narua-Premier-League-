@@ -10,22 +10,34 @@ export const AboutNPL = ({ scrollToSection }) => {
       year: "2024",
       title: "THE BEGINNING",
       subtitle: "Inaugural Chapter",
-      desc: "Founded by passionate local sports patrons. 6 grassroots teams competed in day-night matches, drawing 4,000+ passionate village spectators.",
-      highlight: "Inaugural Champions: NSK"
+      desc: "Founded by passionate local sports patrons of Young Star Narua Cricket Club. 6 grassroots teams competed in day matches, drawing 4,000+ passionate village spectators.",
+      highlight: "Inaugural Champions: Bajrangi 11 Narua"
     },
     {
       year: "2025",
       title: "THE NEXT CHAPTER",
       subtitle: "League Expansion",
-      desc: "Expanded to 8 official franchise teams with corporate ownership, professional player auctions, modern LED scoreboards, and broadcast highlights.",
-      highlight: "Champions: RCN (Super Over Thriller)"
+      desc: "Expanded to 8 official franchise teams with corporate ownership, professional player auctions, and Online Scoring highlights.",
+      highlight: "Champions: No Compromise Kaina"
     },
     {
-      year: "2026",
+      year: "2025",
       title: "A NEW ERA",
       subtitle: "Professional Frontier",
-      desc: "Digital ball-by-ball scoring, live stream integration, ₹50 Lakhs team auction purse, and a dedicated platform connecting grassroots talent with higher-grade cricket.",
-      highlight: "Mega Auction & 8 Contenders"
+      desc: "Digital ball-by-ball scoring, live stream integration, ₹5000 team auction purse, and a dedicated platform connecting grassroots talent with higher-grade cricket.",
+      highlight: "Mega Auction & 6 Contenders"
+    }, {
+      year: "2026",
+      title: "THE NEXT CHAPTER",
+      subtitle: "Summer Cup",
+      desc: "Digital ball-by-ball scoring, live stream integration, ₹5000 team auction purse, and a dedicated platform connecting grassroots talent with higher-grade cricket.",
+      highlight: "Mega Auction & 6 Contenders"
+    }, {
+      year: "2026",
+      title: "THE NEXT CHAPTER",
+      subtitle: "Demanded Tournaments",
+      desc: "Digital ball-by-ball scoring, live stream integration, ₹5000 team auction purse, and a dedicated platform connecting grassroots talent with higher-grade cricket.",
+      highlight: "Mega Auction & 6 Contenders"
     }
   ];
 
@@ -62,7 +74,7 @@ export const AboutNPL = ({ scrollToSection }) => {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {timelineMilestones.map((item) => (
                   <div
-                    key={item.year}
+                    key={`${item.year}-${item.subtitle}`}
                     className="glass-panel-card p-4 rounded-xl border border-slate-800 hover:border-amber-500/50 transition-all duration-300 group"
                   >
                     <div className="flex items-center justify-between mb-2">

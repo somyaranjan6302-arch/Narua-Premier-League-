@@ -197,7 +197,7 @@ export const AdminDashboardModal = ({ onClose }) => {
   const mediaUploadControl = (mediaKey, title, description, fallbackImage = '') => {
     const pendingMedia = pendingMediaFiles[mediaKey];
     return (
-    <div key={mediaKey} className="flex items-center gap-4 border-b border-slate-800 py-4 last:border-0">
+    <div key={mediaKey} className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3 border-b border-slate-800 py-4 last:border-0 xl:grid-cols-[5rem_minmax(0,1fr)_auto] xl:gap-4">
       <div className="h-16 w-20 flex-shrink-0 overflow-hidden rounded-lg border border-slate-700 bg-slate-950">
         {(pendingMedia?.previewUrl || siteMedia[mediaKey] || fallbackImage) ? (
           <img src={pendingMedia?.previewUrl || siteMedia[mediaKey] || fallbackImage} alt={`${title} preview`} className="h-full w-full object-cover" />
@@ -205,30 +205,33 @@ export const AdminDashboardModal = ({ onClose }) => {
           <div className="flex h-full items-center justify-center text-slate-600"><Image className="h-6 w-6" /></div>
         )}
       </div>
-      <div className="min-w-0 flex-grow">
+      <div className="min-w-0">
         <p className="text-sm font-bold text-white">{title}</p>
         <p className="text-xs text-slate-400">{description}</p>
       </div>
-      <label className="inline-flex flex-shrink-0 cursor-pointer items-center gap-2 rounded-lg bg-amber-500 px-3 py-2 text-xs font-bold text-slate-950 hover:bg-amber-400">
-        <Upload className="h-4 w-4" />
-        Choose image
-        <input
-          type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif"
-          className="sr-only"
-          disabled={Boolean(uploadingMediaKey)}
-          onChange={(event) => handleMediaSelection(mediaKey, event)}
-        />
-      </label>
-      <button
-        type="button"
-        onClick={() => handleMediaUpload(mediaKey)}
-        disabled={!pendingMedia || Boolean(uploadingMediaKey)}
-        className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-emerald-700 bg-emerald-950 px-3 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        <Save className="h-4 w-4" />
-        {uploadingMediaKey === mediaKey ? 'Saving...' : 'Save'}
-      </button>
+      <div className="col-span-2 flex items-center justify-start gap-2 xl:col-span-1 xl:justify-end">
+        <label className="inline-flex flex-shrink-0 cursor-pointer items-center gap-2 rounded-lg bg-amber-500 px-3 py-2 text-xs font-bold text-slate-950 hover:bg-amber-400">
+          <Upload className="h-4 w-4" />
+          Choose image
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            className="sr-only"
+            disabled={Boolean(uploadingMediaKey)}
+            onChange={(event) => handleMediaSelection(mediaKey, event)}
+          />
+        </label>
+        <button
+          type="button"
+          onClick={() => handleMediaUpload(mediaKey)}
+          disabled={!pendingMedia || Boolean(uploadingMediaKey)}
+          title={pendingMedia ? `Save ${title}` : 'Choose an image to enable saving'}
+          className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-emerald-700 bg-emerald-950 px-3 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <Save className="h-4 w-4" />
+          {uploadingMediaKey === mediaKey ? 'Saving...' : 'Save'}
+        </button>
+      </div>
     </div>
     );
   };
@@ -495,7 +498,7 @@ export const AdminDashboardModal = ({ onClose }) => {
           </div>
         ) : (
           /* Main Admin Panel Dashboard */
-          <div className="flex-grow flex flex-col overflow-hidden">
+          <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
             {/* Top Metrics Row */}
             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 p-4 bg-slate-950 border-b border-slate-800 text-center text-xs flex-shrink-0">
               <div className="p-2 bg-slate-900/60 rounded-xl">
@@ -571,7 +574,7 @@ export const AdminDashboardModal = ({ onClose }) => {
             </div>
 
             {activeTab === 'media' && adminUser?.role === 'owner' && (
-              <div className="flex-grow overflow-y-auto p-6">
+              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6">
                 <div className="mb-4">
                   <h4 className="font-sports text-xl text-white">WEBSITE IMAGE LIBRARY</h4>
                   <p className="mt-1 text-xs text-slate-400">Changes appear for every visitor. JPG, PNG, WebP, or GIF up to 8 MB.</p>
@@ -958,6 +961,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                     Save Changes
                   </button>
                 </div>
+
               </div>
             )}
           </div>

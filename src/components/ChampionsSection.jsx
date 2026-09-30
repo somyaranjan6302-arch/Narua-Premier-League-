@@ -209,7 +209,7 @@ export const ChampionsSection = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
           {champions.map((champ, idx) => (
             <div
-              key={champ.season}
+               key={champ.edition}
               onClick={() => setCurrentIndex(idx)}
               className={`p-4 rounded-2xl cursor-pointer transition-all duration-300 flex items-center justify-between border ${
                 currentIndex === idx
