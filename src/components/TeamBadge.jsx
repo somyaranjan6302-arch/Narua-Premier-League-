@@ -1,6 +1,8 @@
 import React from 'react';
+import { useNpl } from '../context/NplContext';
 
 export const TeamBadge = ({ team, size = "md", showName = false }) => {
+  const { siteMedia } = useNpl();
   const sizeMap = {
     xs: "w-6 h-6 text-[10px]",
     sm: "w-9 h-9 text-xs",
@@ -12,6 +14,7 @@ export const TeamBadge = ({ team, size = "md", showName = false }) => {
   const currentSize = sizeMap[size] || sizeMap.md;
   const primaryColor = team?.primaryColor || team?.color || "#F59E0B";
   const shortName = team?.shortName || team?.short || "NPL";
+  const logoSrc = siteMedia?.[`team-logo:${team?.id}`] || team?.logo;
 
   return (
     <div className="inline-flex items-center gap-2.5">
@@ -24,21 +27,22 @@ export const TeamBadge = ({ team, size = "md", showName = false }) => {
         }}
         title={team?.name}
       >
-        {/* Subtle geometric pattern */}
-        <div className="absolute inset-0 opacity-20 pointer-events-none">
-          <svg className="w-full h-full" viewBox="0 0 40 40">
-            <path d="M0,0 L40,40 M40,0 L0,40" stroke="#FFF" strokeWidth="2" />
-          </svg>
-        </div>
-
-        {/* Short abbreviation */}
-        <span className="relative z-10 font-bold drop-shadow-md">
-          {shortName}
-        </span>
+        {logoSrc ? (
+          <img src={logoSrc} alt={`${team?.name || shortName} logo`} className="absolute inset-0 z-10 h-full w-full object-contain p-1" />
+        ) : (
+          <>
+            <div className="absolute inset-0 opacity-20 pointer-events-none">
+              <svg className="w-full h-full" viewBox="0 0 40 40">
+                <path d="M0,0 L40,40 M40,0 L0,40" stroke="#FFF" strokeWidth="2" />
+              </svg>
+            </div>
+            <span className="relative z-10 font-bold drop-shadow-md">{shortName}</span>
+          </>
+        )}
 
         {/* Small corner star if team has won titles */}
         {team?.titles > 0 && (
-          <span className="absolute top-0.5 right-1 text-[9px] text-amber-300 drop-shadow">
+          <span className="absolute top-0.5 right-1 z-20 text-[9px] text-amber-300 drop-shadow">
             ★
           </span>
         )}

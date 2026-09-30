@@ -266,7 +266,7 @@ const start = async () => {
     });
   }, async (req, res) => {
     const mediaKey = typeof req.body.key === 'string' ? req.body.key : '';
-    if (!['logo', 'trophy', 'stadium'].includes(mediaKey) && !/^(news|champion|team|gallery|highlight|performer):[A-Za-z0-9_-]{1,40}$/.test(mediaKey)) {
+    if (!['logo', 'trophy', 'stadium'].includes(mediaKey) && !/^(news|champion|team-logo|team|gallery|highlight|performer):[A-Za-z0-9 _.\-]{1,80}$/.test(mediaKey)) {
       return res.status(400).json({ error: 'Choose a supported site image slot.' });
     }
     if (!req.file) return res.status(400).json({ error: 'Choose an image to upload.' });

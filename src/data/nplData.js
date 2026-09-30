@@ -708,10 +708,10 @@ export const initialGallery = [
   {
     id: "g1",
     category: "CHAMPIONS",
-    title: "RCN Lifting the NPL 2025 Trophy",
-    caption: "Captain Sourav Das and team in euphoric celebrations after the Super Over triumph.",
+    title: "GCC Fighter Lifting the NPL Session 5 Trophy",
+    caption: "Captain Amirull and team in euphoric celebrations after the Onesided Match.",
     image: "/assets/trophy.jpg",
-    date: "Season 2 Final"
+    date: "Season 5 Final"
   },
   {
     id: "g2",

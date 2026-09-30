@@ -69,6 +69,8 @@ export const AdminDashboardModal = ({ onClose }) => {
   const [adminAccounts, setAdminAccounts] = useState([]);
   const [adminAccountError, setAdminAccountError] = useState('');
   const [mediaError, setMediaError] = useState('');
+  const [mediaCategory, setMediaCategory] = useState('all');
+  const [mediaSearch, setMediaSearch] = useState('');
   const [uploadingMediaKey, setUploadingMediaKey] = useState('');
   const [pendingMediaFiles, setPendingMediaFiles] = useState({});
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -160,9 +162,47 @@ export const AdminDashboardModal = ({ onClose }) => {
     const previewUrl = URL.createObjectURL(file);
     setPendingMediaFiles((current) => {
       if (current[mediaKey]) URL.revokeObjectURL(current[mediaKey].previewUrl);
-      return { ...current, [mediaKey]: { file, previewUrl } };
+      return { ...current, [mediaKey]: { file, previewUrl, zoom: 1 } };
     });
     input.value = '';
+  };
+
+  const handleMediaZoom = (mediaKey, zoom) => {
+    setPendingMediaFiles((current) => ({
+      ...current,
+      [mediaKey]: { ...current[mediaKey], zoom: Number(zoom) }
+    }));
+  };
+
+  const createAdjustedImage = async ({ file, previewUrl, zoom = 1 }) => {
+    if (zoom === 1) return file;
+
+    const image = new window.Image();
+    image.src = previewUrl;
+    await image.decode();
+
+    const canvas = document.createElement('canvas');
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Could not adjust this image.');
+
+    const outputType = file.type === 'image/jpeg' || file.type === 'image/webp' ? file.type : 'image/png';
+    if (outputType === 'image/jpeg') {
+      context.fillStyle = '#071026';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    const scaledWidth = canvas.width * zoom;
+    const scaledHeight = canvas.height * zoom;
+    context.drawImage(image, (canvas.width - scaledWidth) / 2, (canvas.height - scaledHeight) / 2, scaledWidth, scaledHeight);
+
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, outputType));
+    if (!blob) throw new Error('Could not prepare the adjusted image.');
+
+    const extension = outputType === 'image/jpeg' ? '.jpg' : outputType === 'image/webp' ? '.webp' : '.png';
+    const baseName = file.name.replace(/\.[^.]+$/, '');
+    return new File([blob], `${baseName}${extension}`, { type: outputType });
   };
 
   const handleMediaUpload = async (mediaKey) => {
@@ -173,9 +213,9 @@ export const AdminDashboardModal = ({ onClose }) => {
     setUploadingMediaKey(mediaKey);
     const formData = new FormData();
     formData.append('key', mediaKey);
-    formData.append('image', pendingMedia.file);
 
     try {
+      formData.append('image', await createAdjustedImage(pendingMedia));
       const response = await fetch('/api/admin/media', { method: 'POST', body: formData });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Image upload failed.');
@@ -198,29 +238,30 @@ export const AdminDashboardModal = ({ onClose }) => {
     const pendingMedia = pendingMediaFiles[mediaKey];
     return (
     <div key={mediaKey} className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3 border-b border-slate-800 py-4 last:border-0 xl:grid-cols-[5rem_minmax(0,1fr)_auto] xl:gap-4">
-      <div className="h-16 w-20 flex-shrink-0 overflow-hidden rounded-lg border border-slate-700 bg-slate-950">
+      <label title={`Click to change ${title}`} className="group relative h-16 w-20 flex-shrink-0 cursor-pointer overflow-hidden rounded-lg border border-slate-700 bg-slate-950 focus-within:border-amber-400">
         {(pendingMedia?.previewUrl || siteMedia[mediaKey] || fallbackImage) ? (
-          <img src={pendingMedia?.previewUrl || siteMedia[mediaKey] || fallbackImage} alt={`${title} preview`} className="h-full w-full object-cover" />
+          <img src={pendingMedia?.previewUrl || siteMedia[mediaKey] || fallbackImage} alt={`${title} preview`} className="h-full w-full object-cover transition-transform" style={{ transform: `scale(${pendingMedia?.zoom || 1})` }} />
         ) : (
           <div className="flex h-full items-center justify-center text-slate-600"><Image className="h-6 w-6" /></div>
         )}
-      </div>
+        <span className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-slate-950/85 py-1 text-[9px] font-bold text-white transition-colors group-hover:bg-amber-500 group-hover:text-slate-950">
+          <Upload className="h-3 w-3" />
+          Change photo
+        </span>
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          aria-label={`Choose replacement photo for ${title}`}
+          className="sr-only"
+          disabled={Boolean(uploadingMediaKey)}
+          onChange={(event) => handleMediaSelection(mediaKey, event)}
+        />
+      </label>
       <div className="min-w-0">
         <p className="text-sm font-bold text-white">{title}</p>
         <p className="text-xs text-slate-400">{description}</p>
       </div>
       <div className="col-span-2 flex items-center justify-start gap-2 xl:col-span-1 xl:justify-end">
-        <label className="inline-flex flex-shrink-0 cursor-pointer items-center gap-2 rounded-lg bg-amber-500 px-3 py-2 text-xs font-bold text-slate-950 hover:bg-amber-400">
-          <Upload className="h-4 w-4" />
-          Choose image
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            className="sr-only"
-            disabled={Boolean(uploadingMediaKey)}
-            onChange={(event) => handleMediaSelection(mediaKey, event)}
-          />
-        </label>
         <button
           type="button"
           onClick={() => handleMediaUpload(mediaKey)}
@@ -232,9 +273,98 @@ export const AdminDashboardModal = ({ onClose }) => {
           {uploadingMediaKey === mediaKey ? 'Saving...' : 'Save'}
         </button>
       </div>
+      {pendingMedia && (
+        <label className="col-span-2 grid grid-cols-[auto_minmax(0,1fr)_3.5rem] items-center gap-3 pt-1 text-xs text-slate-400 xl:col-span-3">
+          <span className="font-semibold">Zoom</span>
+          <input
+            type="range"
+            min="0.5"
+            max="2.5"
+            step="0.1"
+            value={pendingMedia.zoom}
+            disabled={Boolean(uploadingMediaKey)}
+            aria-label={`Adjust zoom for ${title}`}
+            onChange={(event) => handleMediaZoom(mediaKey, event.target.value)}
+            className="w-full accent-amber-500"
+          />
+          <output className="text-right font-mono text-slate-300">{Math.round(pendingMedia.zoom * 100)}%</output>
+        </label>
+      )}
     </div>
     );
   };
+
+  const mediaItems = [
+    { key: 'logo', category: 'branding', title: 'NPL logo', description: 'Shown in the header and footer.' },
+    { key: 'stadium', category: 'branding', title: 'Stadium image', description: 'Shown on the home and league story pages.', fallback: '/assets/stadium.jpg' },
+    { key: 'trophy', category: 'branding', title: 'Championship trophy', description: 'Shown in the trophy showcase.', fallback: '/assets/trophy.jpg' },
+    ...champions.map((champion, index) => ({
+      key: `champion:${index}`,
+      category: 'champions',
+      title: `${champion.season} ${champion.edition} • ${champion.championTeam}`,
+      description: 'Champion feature photo.',
+      fallback: champion.teamPhoto
+    })),
+    ...teams.flatMap((team) => [
+      {
+        key: `team:${team.id}`,
+        category: 'teams',
+        title: `${team.name} banner`,
+        description: 'Shown in team details.',
+        fallback: team.banner
+      },
+      {
+        key: `team-logo:${team.id}`,
+        category: 'teams',
+        title: `${team.name} logo`,
+        description: 'Shown inside the team badge.',
+        fallback: team.logo
+      }
+    ]),
+    ...news.map((article) => ({
+      key: `news:${article.id}`,
+      category: 'news',
+      title: article.headline,
+      description: `News image • ${article.category}`,
+      fallback: article.image
+    })),
+    ...gallery.map((item) => ({
+      key: `gallery:${item.id}`,
+      category: 'gallery',
+      title: item.title,
+      description: `Gallery photo • ${item.category}`,
+      fallback: item.image
+    })),
+    ...highlights.map((item) => ({
+      key: `highlight:${item.id}`,
+      category: 'highlights',
+      title: item.title,
+      description: 'Video highlight thumbnail.',
+      fallback: item.thumbnail
+    })),
+    ...Object.entries(topPerformers).map(([key, performer]) => ({
+      key: `performer:${key}`,
+      category: 'performers',
+      title: `${performer.player} • ${key.replace(/([A-Z])/g, ' $1')}`,
+      description: 'Top performer profile photo.',
+      fallback: performer.photo
+    }))
+  ];
+  const mediaCategories = [
+    { value: 'all', label: 'All image slots' },
+    { value: 'branding', label: 'Brand & venue' },
+    { value: 'champions', label: 'Champions' },
+    { value: 'teams', label: 'Teams' },
+    { value: 'news', label: 'News' },
+    { value: 'gallery', label: 'Gallery' },
+    { value: 'highlights', label: 'Video highlights' },
+    { value: 'performers', label: 'Player profiles' }
+  ];
+  const filteredMediaItems = mediaItems.filter((item) => {
+    const matchesCategory = mediaCategory === 'all' || item.category === mediaCategory;
+    const searchText = `${item.title} ${item.description}`.toLowerCase();
+    return matchesCategory && searchText.includes(mediaSearch.trim().toLowerCase());
+  });
 
   const handleTournamentSave = () => {
     setTournamentInfo(tournamentDraft);
@@ -579,47 +709,40 @@ export const AdminDashboardModal = ({ onClose }) => {
                   <h4 className="font-sports text-xl text-white">WEBSITE IMAGE LIBRARY</h4>
                   <p className="mt-1 text-xs text-slate-400">Changes appear for every visitor. JPG, PNG, WebP, or GIF up to 8 MB.</p>
                 </div>
+                <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-[minmax(12rem,0.7fr)_minmax(14rem,1fr)]">
+                  <label className="text-xs font-bold text-slate-400">
+                    Image category
+                    <select
+                      value={mediaCategory}
+                      onChange={(event) => setMediaCategory(event.target.value)}
+                      className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-semibold text-white focus:border-amber-500 focus:outline-none"
+                    >
+                      {mediaCategories.map((category) => (
+                        <option key={category.value} value={category.value}>{category.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-xs font-bold text-slate-400">
+                    Find image slot
+                    <span className="mt-1 flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 focus-within:border-amber-500">
+                      <Search className="h-4 w-4 flex-shrink-0 text-slate-500" />
+                      <input
+                        type="search"
+                        value={mediaSearch}
+                        onChange={(event) => setMediaSearch(event.target.value)}
+                        placeholder="Search teams, players, or photos"
+                        className="min-w-0 flex-1 bg-transparent py-2.5 text-sm text-white outline-none placeholder:text-slate-500"
+                      />
+                    </span>
+                  </label>
+                </div>
                 {mediaError && <p role="alert" className="mb-3 rounded-lg border border-rose-800 bg-rose-950/70 px-3 py-2 text-sm text-rose-300">{mediaError}</p>}
                 <div className="divide-y divide-slate-800 rounded-xl border border-slate-800 bg-slate-950/50 px-4">
-                  {mediaUploadControl('logo', 'NPL logo', 'Shown in the header and footer.')}
-                  {mediaUploadControl('stadium', 'Stadium image', 'Shown on the home and league story pages.', '/assets/stadium.jpg')}
-                  {mediaUploadControl('trophy', 'Championship trophy', 'Shown in the trophy showcase.', '/assets/trophy.jpg')}
-                  {champions.map((champion, index) => mediaUploadControl(
-                    `champion:${index}`,
-                    `${champion.season} ${champion.edition} • ${champion.championTeam}`,
-                    'Champion feature photo.',
-                    champion.teamPhoto
-                  ))}
-                  {teams.map((team) => mediaUploadControl(
-                    `team:${team.id}`,
-                    `${team.name} banner`,
-                    'Shown in team details.',
-                    team.banner
-                  ))}
-                  {news.map((article) => mediaUploadControl(
-                    `news:${article.id}`,
-                    article.headline,
-                    `News image • ${article.category}`,
-                    article.image
-                  ))}
-                  {gallery.map((item) => mediaUploadControl(
-                    `gallery:${item.id}`,
-                    item.title,
-                    `Gallery photo • ${item.category}`,
-                    item.image
-                  ))}
-                  {highlights.map((item) => mediaUploadControl(
-                    `highlight:${item.id}`,
-                    item.title,
-                    'Video highlight thumbnail.',
-                    item.thumbnail
-                  ))}
-                  {Object.entries(topPerformers).map(([key, performer]) => mediaUploadControl(
-                    `performer:${key}`,
-                    `${performer.player} • ${key.replace(/([A-Z])/g, ' $1')}`,
-                    'Top performer profile photo.',
-                    performer.photo
-                  ))}
+                  {filteredMediaItems.length > 0 ? filteredMediaItems.map((item) => (
+                    mediaUploadControl(item.key, item.title, item.description, item.fallback)
+                  )) : (
+                    <p className="px-3 py-8 text-center text-sm text-slate-400">No image slots match that search.</p>
+                  )}
                 </div>
               </div>
             )}

@@ -66,7 +66,22 @@ export const NplProvider = ({ children }) => {
   const [selectedSeason, setSelectedSeason] = useState(() => loadState('selectedSeason', initialSeasons[0]?.edition || 'Season 5'));
   const [topPerformers, setTopPerformers] = useState(() => loadState('topPerformers', initialTopPerformers));
   const [records, setRecords] = useState(() => loadState('records', initialRecords));
-  const [gallery, setGallery] = useState(() => loadState('gallery', initialGallery));
+  const [gallery, setGallery] = useState(() => {
+    const savedGallery = loadState('gallery', []);
+    if (!Array.isArray(savedGallery)) return initialGallery;
+
+    const savedById = new Map(
+      savedGallery
+        .filter((item) => item?.id)
+        .map((item) => [item.id, item])
+    );
+    const seededIds = new Set(initialGallery.map((item) => item.id));
+
+    return [
+      ...initialGallery.map((item) => ({ ...(savedById.get(item.id) || {}), ...item })),
+      ...savedGallery.filter((item) => !seededIds.has(item?.id))
+    ];
+  });
   const [highlights, setHighlights] = useState(() => loadState('highlights', initialHighlights));
   const [news, setNews] = useState(() => loadState('news', initialNews));
   const [auctionRegistrations, setAuctionRegistrations] = useState(() => loadState('auctionRegistrations', initialAuctionRegistrations));
