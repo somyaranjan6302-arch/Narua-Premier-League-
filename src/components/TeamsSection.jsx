@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNpl } from '../context/NplContext';
 import { TeamBadge } from './TeamBadge';
-import { Users, Trophy, Shield, ChevronRight, UserCheck, MapPin } from 'lucide-react';
+import { Users, Trophy, ChevronRight, UserCheck, MapPin } from 'lucide-react';
 
 export const TeamsSection = () => {
   const { teams, openModal, seasons, selectedSeason, setSelectedSeason } = useNpl();
@@ -26,13 +26,13 @@ export const TeamsSection = () => {
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-950/80 border border-blue-600/40 text-blue-400 text-xs font-bold tracking-widest uppercase mb-3">
               <Users className="w-3.5 h-3.5" />
-              <span>THE 8 CONTENDERS</span>
+              <span>THE {filteredTeams.length} CONTENDERS</span>
             </div>
             <h2 className="font-sports text-4xl sm:text-5xl lg:text-6xl text-white tracking-wide uppercase leading-none">
               NPL <span className="text-gold-gradient">TEAMS</span>
             </h2>
             <p className="text-slate-400 text-sm sm:text-base mt-2 max-w-xl">
-              Meet the eight official franchise teams battling for glory, pride, and the Narua Premier League Crown.
+              Meet the official franchise teams competing for the Narua Premier League Crown in {selectedSeason}.
             </p>
           </div>
 

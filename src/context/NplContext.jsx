@@ -4,6 +4,7 @@ import {
   initialChampions,
   initialSeasons,
   initialTeams,
+  initialSessionTeams,
   initialMatches,
   initialPointsTable,
   initialSeasonStandings,
@@ -52,11 +53,21 @@ export const NplProvider = ({ children }) => {
     const savedSeasons = loadState('seasons', initialSeasons);
     return Array.isArray(savedSeasons) ? savedSeasons : initialSeasons;
   });
-  const [teams, setTeams] = useState(() => (
-    loadState('teamDataVersion', 0) >= 2
-      ? loadState('teams', initialTeams)
-      : initialTeams
-  ));
+  const [teams, setTeams] = useState(() => {
+    const savedTeams = loadState('teams', null);
+    const teamDataVersion = loadState('teamDataVersion', 0);
+    const legacyTeamIds = new Set(initialTeams.map((team) => team.id));
+    const isOldUnassignedSeed = Array.isArray(savedTeams) && savedTeams.length > 0 && savedTeams.every((team) => (
+      legacyTeamIds.has(team.id) &&
+      !Array.isArray(team.sessions) &&
+      !Array.isArray(team.seasons) &&
+      !team.session
+    ));
+
+    if (teamDataVersion < 3 && isOldUnassignedSeed) return initialSessionTeams;
+    if (teamDataVersion >= 2 && Array.isArray(savedTeams)) return savedTeams;
+    return initialSessionTeams;
+  });
   const [matches, setMatches] = useState(() => loadState('matches', initialMatches));
   const [pointsTable, setPointsTable] = useState(() => loadState('pointsTable', initialPointsTable));
   const [seasonStandings, setSeasonStandings] = useState(() => {
@@ -136,7 +147,7 @@ export const NplProvider = ({ children }) => {
   }, [teams]);
 
   useEffect(() => {
-    localStorage.setItem('npl_teamDataVersion', '2');
+    localStorage.setItem('npl_teamDataVersion', '3');
   }, []);
 
   useEffect(() => {
@@ -328,7 +339,7 @@ export const NplProvider = ({ children }) => {
     setTournamentInfo(initialTournamentInfo);
     setChampions(initialChampions);
     setSeasons(initialSeasons);
-    setTeams(initialTeams);
+    setTeams(initialSessionTeams);
     setMatches(initialMatches);
     setPointsTable(initialPointsTable);
     setTopPerformers(initialTopPerformers);

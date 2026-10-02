@@ -377,6 +377,49 @@ export const initialTeams = [
   }
 ];
 
+const createInitialSessionTeam = (team) => ({
+  primaryColor: '#F59E0B',
+  secondaryColor: '#0F172A',
+  slogan: 'Built for glory',
+  titles: 0,
+  matches: 0,
+  wins: 0,
+  losses: 0,
+  winPercentage: 0,
+  banner: 'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?auto=format&fit=crop&w=1000&q=80',
+  squad: [],
+  ...team
+});
+
+export const initialSessionTeams = [
+  createInitialSessionTeam({ id: 'gcc-fighter-binjharpur-season-5', name: 'GCC Fighter Binjharpur', shortName: 'GCC Fighter Binjharpur', captain: 'Farhan Khan', owner: 'Amirul', home: 'Binjharpur', primaryColor: '#0a39f5', sessions: ['Season 5'] }),
+  createInitialSessionTeam({ id: 'titan-striker-season-5', name: 'Titan Striker', shortName: 'Titan Striker', captain: 'Rahul Das', owner: 'Rahul Das', home: 'Haripur', primaryColor: '#11ff00', sessions: ['Season 5'] }),
+  createInitialSessionTeam({ id: 'hp-no-compromise-commmando-11-season-5', name: 'HP No Compromise Commmando 11', shortName: 'HP No Compromise Commmando 11', captain: 'Muna', owner: 'Muna', home: 'Madhapur', sessions: ['Season 5'] }),
+  createInitialSessionTeam({ id: 'titan-striker-season-4', name: 'Titan Striker', shortName: 'Titan Striker', captain: 'Rahul Das', owner: 'Rahul Das', home: 'Haripur', primaryColor: '#11ff00', sessions: ['Season 4'] }),
+  createInitialSessionTeam({ id: 'local-11-sayedpur-season-4', name: 'Local 11 Sayedpur', shortName: 'Local 11 Sayedpur', captain: 'Krishna Rout', owner: 'Jada', home: 'Sayedpur', primaryColor: '#1af50a', sessions: ['Season 4'] }),
+  createInitialSessionTeam({ id: 'hp-no-compromise-commmando-11-season-4', name: 'HP No Compromise Commmando 11', shortName: 'HP No Compromise Commmando 11', captain: 'Muna', owner: 'Muna', home: 'Madhapur', sessions: ['Season 4'] }),
+  createInitialSessionTeam({ id: 'fire-11-narua-season-4', name: 'Fire 11 Narua', shortName: 'Fire 11 Narua', captain: 'Maheswar', owner: 'Maheswar', home: 'Narua', sessions: ['Season 4'] }),
+  createInitialSessionTeam({ id: 'haider-11-haripur-season-3', name: 'Haider 11 Haripur', shortName: 'Haider 11 Haripur', captain: 'Rahul Bhai', owner: 'Rahul Bhai', home: 'Haripur', sessions: ['Season 3'] }),
+  createInitialSessionTeam({ id: 'commando-11-season-3', name: 'Commando 11', shortName: 'Commando 11', captain: 'Kamar', owner: 'Kamar', home: 'Binjharpur', sessions: ['Season 3'] }),
+  createInitialSessionTeam({ id: 'karachi-kings-season-3', name: 'Karachi Kings', shortName: 'Karachi Kings', captain: 'Omm Das', owner: 'Omm Das', home: 'Narua', sessions: ['Season 3'] }),
+  createInitialSessionTeam({ id: 'flame-phonix-season-3', name: 'Flame Phonix', shortName: 'Flame Phonix', captain: 'Subham', owner: 'Subham', home: 'Sayedpur', primaryColor: '#0af1f5', sessions: ['Season 3'] }),
+  createInitialSessionTeam({ id: 'bajrangi-11-season-2', name: 'Bajrangi 11', shortName: 'Bajrangi 11', captain: 'Omm Das', owner: 'Omm Das', home: 'Narua', primaryColor: '#604c29', sessions: ['Season 2'] }),
+  createInitialSessionTeam({ id: 'mahavir-warrior-season-1', name: 'Mahavir Warrior', shortName: 'Mahavir Warrior', captain: 'Subham', owner: 'Subham', home: 'Sayedpur', primaryColor: '#0ac6f5', sessions: ['Season 1'] }),
+  createInitialSessionTeam({ id: 'mahavir-warrior-season-2', name: 'Mahavir Warrior', shortName: 'Mahavir Warrior', captain: 'Subham', owner: 'Subham', home: 'Sayedpur', primaryColor: '#0ac6f5', sessions: ['Season 2'] }),
+  createInitialSessionTeam({ id: 'ramchandrapur-fighter-season-2', name: 'Ramchandrapur Fighter', shortName: 'Ramchandrapur Fighter', captain: 'Rahul Das', owner: 'Rahul Das', home: 'Ramchandra Pur', primaryColor: '#f5450a', sessions: ['Season 2'] }),
+  createInitialSessionTeam({ id: 'ramchandrapur-fighter-season-1', name: 'Ramchandrapur Fighter', shortName: 'Ramchandrapur Fighter', captain: 'Rahul Das', owner: 'Rahul Das', home: 'Ramchandra Pur', primaryColor: '#f5450a', sessions: ['Season 1'] }),
+  createInitialSessionTeam({ id: 'commando-11-madhapur-season-1', name: 'Commando 11 Madhapur', shortName: 'Commando 11 Madhapur', captain: 'Muna', owner: 'Muna', home: 'Madhapur', primaryColor: '#f50ae1', sessions: ['Season 1'] }),
+  createInitialSessionTeam({ id: 'bajrangi-11-season-1', name: 'Bajrangi 11', shortName: 'Bajrangi 11', captain: 'Omm Das', owner: 'Omm Das', home: 'Narua', primaryColor: '#604c29', sessions: ['Season 1'] }),
+  {
+    ...initialTeams.find((team) => team.id === 'BMN Royals'),
+    sessions: ['Season 4', 'Season 3', 'Season 2', 'Season 1']
+  },
+  {
+    ...initialTeams.find((team) => team.id === 'No Compromise Kaina '),
+    sessions: ['Season 5', 'Season 4', 'Season 3', 'Season 2']
+  }
+];
+
 export const initialMatches = [
   // Upcoming and completed fixtures are temporarily commented out.
   // Re-enable them later when the live tournament section is ready.
