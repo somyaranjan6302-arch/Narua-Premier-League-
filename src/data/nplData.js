@@ -470,7 +470,7 @@ const buildSampleStandings = (season, teamCount) => {
 export const initialSeasonStandings = Object.fromEntries(
   initialSeasons.map((season) => [
     season.edition,
-    season.season === initialSeasons[0].season
+    season.edition === initialSeasons[0].edition
       ? initialPointsTable
       : buildSampleStandings(season.season, season.teamsCount)
   ])
@@ -540,14 +540,14 @@ export const initialTopPerformers = {
 };
 
 export const initialRecords = [
-  { title: "Highest Team Total", holder: "Narua Super Kings", value: "228/3", details: "20.0 Overs vs Narua Tigers (Season 2)" },
-  { title: "Lowest Total Defended", holder: "Narua Warriors", value: "119 all out", details: "Defended vs BCT (Season 1)" },
-  { title: "Fastest Fifty", holder: "Rajesh Roy (NSK)", value: "15 Balls", details: "7 Sixes, 2 Fours vs Narua Knight Riders (2025)" },
-  { title: "Highest Partnership", holder: "Sourav Das & S. Samanta", value: "164 Runs", details: "1st Wicket for RCN vs Delta Strikers (2025)" },
-  { title: "Most Sixes in an Inning", holder: "Pritam Mondal", value: "10 Sixes", details: "88 runs off 32 balls (Season 2)" },
-  { title: "Best Bowling in NPL History", holder: "Abhishek Mukherjee", value: "5/14", details: "Royal Challengers Narua (Season 3)" },
-  { title: "Most Tournament Titles", holder: "NSK & RCN (Tied)", value: "1 Title Each", details: "2024: NSK | 2025: RCN" },
-  { title: "Most Catches by a Fielder", holder: "Surajit Bhowmik", value: "18 Catches", details: "Narua Warriors (Across 2 seasons)" }
+  { title: "Highest Team Total", holder: "Commando 11", value: "158/3", details: "10.0 Overs vs BMN Royals (Season 2)" },
+  { title: "Lowest Total ", holder: "HP Commando 11", value: "16 all out", details: " vs Titan Strikers (Season 4)" },
+  { title: "Fastest Fifty", holder: "Chiku Das (BMN Royals)", value: "14 Balls", details: "7 Sixes, 2 Fours vs Star Xi Sayedpur (2025)" },
+  { title: "Highest Partnership", holder: "Kamar & Banty", value: "104 Runs", details: "1st Wicket for Commando 11 vs BMN Royals (2025)" },
+  { title: "Most Sixes in an Inning", holder: "Chiku Das", value: "14 Sixes", details: "88 runs off 32 balls (Season 2)" },
+  { title: "Best Bowling in NPL History", holder: "Abhishek Das", value: "5/14", details: "Ramchandrapur Fighter (Season 3)" },
+  { title: "Most Tournament Titles", holder: "No Compromise Kaina", value: "2 Title ", details: "Session 2 and Session 3" },
+  { title: "Most Catches by a Fielder", holder: "Rahul Das", value: "28 Catches", details: "Bajrangi 11 Narua (Across 2 seasons)" }
 ];
 
 export const initialGallery = [
@@ -557,7 +557,8 @@ export const initialGallery = [
     title: "GCC Fighter Lifting the NPL Session 5 Trophy",
     caption: "Captain Amirull and team in euphoric celebrations after the Onesided Match.",
     image: "/assets/trophy.jpg",
-    date: "Season 5 Final"
+    date: "Season 5 Final",
+    season: "Season 5"
   },
   {
     id: "g2",
@@ -565,7 +566,8 @@ export const initialGallery = [
     title: "Night Floodlit Spectacle at Narua Central",
     caption: "Packed stands under stadium beams during the high-voltage Friday night derby.",
     image: "/assets/stadium.jpg",
-    date: "Season 3 League"
+    date: "Season 3 League",
+    season: "Season 3"
   },
   {
     id: "g3",
@@ -573,7 +575,8 @@ export const initialGallery = [
     title: "The Super Over Thriller Moment",
     caption: "Batsmen running the winning bye as fireworks erupt over the stadium.",
     image: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?auto=format&fit=crop&w=1000&q=80",
-    date: "2025 Final"
+    date: "2025 Final",
+    season: "Season 3"
   },
   {
     id: "g4",
@@ -581,7 +584,8 @@ export const initialGallery = [
     title: "NPL Mega Auction Bidding War",
     caption: "Franchise owners raising paddles in fierce competition for the marquee all-rounder.",
     image: "https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=1000&q=80",
-    date: "2025 Auction"
+    date: "2025 Auction",
+    season: "Season 3"
   },
   {
     id: "g5",
@@ -589,7 +593,8 @@ export const initialGallery = [
     title: "Golden Confetti Shower",
     caption: "Trophy handover ceremony with league officials and guest dignitaries.",
     image: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1000&q=80",
-    date: "2024 Inaugural"
+    date: "2024 Inaugural",
+    season: "Season 1"
   },
   {
     id: "g6",
@@ -597,7 +602,8 @@ export const initialGallery = [
     title: "Narua Super Kings Squad Huddle",
     caption: "Pre-match strategic talk before heading onto the pitch.",
     image: "https://images.unsplash.com/photo-1512719994953-eabf50895df7?auto=format&fit=crop&w=1000&q=80",
-    date: "Match Day 8"
+    date: "Match Day 8",
+    season: "Season 2"
   },
   {
     id: "g7",
@@ -605,7 +611,8 @@ export const initialGallery = [
     title: "The Winning Six Follow-through",
     caption: "Unstoppable hitting into the VIP pavilion stands.",
     image: "https://images.unsplash.com/photo-1531415074868-036b107e775a?auto=format&fit=crop&w=1000&q=80",
-    date: "Season 3"
+    date: "Season 3",
+    season: "Season 3"
   },
   {
     id: "g8",
@@ -613,7 +620,8 @@ export const initialGallery = [
     title: "Official Match Ball & Pitch Inspection",
     caption: "Lead umpires and pitch curators checking pitch moisture before toss.",
     image: "https://images.unsplash.com/photo-1587280501635-68a0e82cd5ff?auto=format&fit=crop&w=1000&q=80",
-    date: "Pre-match Inspection"
+    date: "Pre-match Inspection",
+    season: "Season 5"
   }
 ];
 
@@ -674,8 +682,9 @@ export const initialNews = [
   {
     id: "n1",
     category: "ANNOUNCEMENT",
-    headline: "NPL Season 3 Mega Auction Date Announced: Record Registrations Expected",
+    headline: "NPL Season 6 Mega Auction Date Announced: Record Registrations Expected",
     date: "Sep 25, 2026",
+    season: "Season 5",
     readTime: "3 min read",
     image: "/assets/stadium.jpg",
     featured: true,
@@ -685,8 +694,9 @@ export const initialNews = [
   {
     id: "n2",
     category: "MATCH REPORT",
-    headline: "Sourav Das' Masterclass Propels RCN to the Top of the Table",
-    date: "Sep 28, 2026",
+    headline: "Soumya Das' Masterclass Propels BMN Royals to the Top of the Table",
+    date: "jan 8, 2025",
+    season: "Season 3",
     readTime: "4 min read",
     image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80",
     featured: false,
@@ -698,6 +708,7 @@ export const initialNews = [
     category: "TEAM NEWS",
     headline: "Bay Coastal Titans Sign Pace Prodigy Ahead of Decisive Playoff Push",
     date: "Sep 27, 2026",
+    season: "Season 5",
     readTime: "2 min read",
     image: "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=800&q=80",
     featured: false,
@@ -709,6 +720,7 @@ export const initialNews = [
     category: "AUCTION",
     headline: "How the NPL Player Registration & Grading System Works This Year",
     date: "Sep 23, 2026",
+    season: "Season 5",
     readTime: "5 min read",
     image: "https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=800&q=80",
     featured: false,
@@ -718,128 +730,7 @@ export const initialNews = [
 ];
 
 export const initialAuctionRegistrations = [
-  {
-    id: "reg-1",
-    registrationId: "NPL26-1049",
-    fullName: "Subham Banerjee",
-    dob: "1999-04-12",
-    age: 27,
-    phone: "+91 98311 02941",
-    email: "subham.b@gmail.com",
-    location: "Narua West, Bengal",
-    role: "All-Rounder",
-    battingStyle: "Right Hand",
-    bowlingStyle: "Right Arm Medium Fast",
-    basePrice: "₹50,000",
-    status: "SHORTLISTED",
-    matches: 18,
-    runs: 420,
-    wickets: 19,
-    bestPerformance: "64* (28) & 3/18 in District Cup",
-    previousExperience: "Yes - Played for NW in Season 1",
-    bio: "Attacking lower-middle order batsman and death-overs bowler with pinpoint yorkers.",
-    instagram: "@subham_cricket99",
-    createdAt: "2026-09-24T10:15:00Z",
-    photo: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=400&q=80"
-  },
-  {
-    id: "reg-2",
-    registrationId: "NPL26-1052",
-    fullName: "Rohan Karmakar",
-    dob: "2002-08-19",
-    age: 24,
-    phone: "+91 98744 11204",
-    email: "rohan.karmakar@yahoo.com",
-    location: "Narua Bazar",
-    role: "Bowler",
-    battingStyle: "Right Hand",
-    bowlingStyle: "Left Arm Spin",
-    basePrice: "₹40,000",
-    status: "VERIFIED",
-    matches: 12,
-    runs: 65,
-    wickets: 24,
-    bestPerformance: "5/21 in Division 1 league",
-    previousExperience: "Debut season candidate",
-    bio: "Crafty orthodox spinner with great flight, arm ball, and miserly economy rate.",
-    instagram: "@rohan_spin_art",
-    createdAt: "2026-09-24T14:40:00Z",
-    photo: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80"
-  },
-  {
-    id: "reg-3",
-    registrationId: "NPL26-1058",
-    fullName: "Aniket Ghosh",
-    dob: "2000-11-05",
-    age: 25,
-    phone: "+91 94330 88219",
-    email: "aniket.g@outlook.com",
-    location: "South Narua Colony",
-    role: "Wicketkeeper",
-    battingStyle: "Right Hand",
-    bowlingStyle: "Not Applicable",
-    basePrice: "₹40,000",
-    status: "SHORTLISTED",
-    matches: 15,
-    runs: 380,
-    wickets: 0,
-    bestPerformance: "72 off 38 balls in semifinal",
-    previousExperience: "Yes - Reserve keeper in Season 2",
-    bio: "Agile wicketkeeper with lightning stumpings and clean 360-degree ramp shot ability.",
-    instagram: "@aniket_ghosh_wk",
-    createdAt: "2026-09-25T09:20:00Z",
-    photo: "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=400&q=80"
-  },
-  {
-    id: "reg-4",
-    registrationId: "NPL26-1065",
-    fullName: "Debjit Mukherjee",
-    dob: "1998-03-22",
-    age: 28,
-    phone: "+91 97488 33902",
-    email: "debjit.mukh@gmail.com",
-    location: "Narua Riverside",
-    role: "Batsman",
-    battingStyle: "Left Hand",
-    bowlingStyle: "Right Arm Spin",
-    basePrice: "₹60,000",
-    status: "AUCTIONED",
-    soldPrice: "₹1,40,000",
-    soldTo: "Narua Super Kings",
-    matches: 22,
-    runs: 690,
-    wickets: 8,
-    bestPerformance: "94* off 51 balls",
-    previousExperience: "Former district under-23 captain",
-    bio: "Fearless left-handed opener who destroys the powerplay with lofted cover drives.",
-    instagram: "@debjit_cricketer",
-    createdAt: "2026-09-25T11:00:00Z",
-    photo: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=400&q=80"
-  },
-  {
-    id: "reg-5",
-    registrationId: "NPL26-1070",
-    fullName: "Tanmay Bera",
-    dob: "2003-01-14",
-    age: 23,
-    phone: "+91 98305 77119",
-    email: "tanmaybera@rediffmail.com",
-    location: "Narua East Gram",
-    role: "Bowler",
-    battingStyle: "Right Hand",
-    bowlingStyle: "Right Arm Fast",
-    basePrice: "₹30,000",
-    status: "PENDING",
-    matches: 8,
-    runs: 20,
-    wickets: 15,
-    bestPerformance: "4/16 in Inter-Village Trophy",
-    previousExperience: "Grassroots trialist",
-    bio: "Raw express pace bowler consistently hitting genuine fast bowling speeds.",
-    instagram: "@tanmay_pace",
-    createdAt: "2026-09-25T16:30:00Z",
-    photo: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80"
-  }
+
 ];
 
 export const initialAuctionLiveState = {

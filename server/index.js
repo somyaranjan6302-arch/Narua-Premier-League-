@@ -1,10 +1,13 @@
+import 'dotenv/config';
 import { promisify } from 'node:util';
 import { createHmac, randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { Readable } from 'node:stream';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import multer from 'multer';
+import { v2 as cloudinary } from 'cloudinary';
 
 const scrypt = promisify(scryptCallback);
 const serverDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -16,6 +19,66 @@ const secretFile = path.join(dataDirectory, 'session-secret');
 const port = Number(process.env.PORT || 5173);
 const sessionDurationSeconds = 8 * 60 * 60;
 const loginAttempts = new Map();
+const cloudinaryConfigured = Boolean(
+  process.env.CLOUDINARY_CLOUD_NAME &&
+  process.env.CLOUDINARY_API_KEY &&
+  process.env.CLOUDINARY_API_SECRET
+);
+const cloudinaryMediaPrefix = 'npl-media/';
+
+if (cloudinaryConfigured) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+    secure: true
+  });
+}
+
+const toCloudinaryPublicId = (mediaKey) => `${cloudinaryMediaPrefix}${Buffer.from(mediaKey).toString('base64url')}`;
+
+const getCloudinaryMedia = async () => {
+  const media = {};
+  let nextCursor;
+
+  do {
+    const result = await cloudinary.api.resources({
+      type: 'upload',
+      prefix: cloudinaryMediaPrefix,
+      max_results: 500,
+      next_cursor: nextCursor
+    });
+
+    for (const resource of result.resources) {
+      const encodedKey = resource.public_id.slice(cloudinaryMediaPrefix.length);
+      try {
+        const mediaKey = Buffer.from(encodedKey, 'base64url').toString('utf8');
+        if (mediaKey) media[mediaKey] = resource.secure_url;
+      } catch {
+        continue;
+      }
+    }
+
+    nextCursor = result.next_cursor;
+  } while (nextCursor);
+
+  return media;
+};
+
+const uploadToCloudinary = (file, mediaKey) => new Promise((resolve, reject) => {
+  const uploadStream = cloudinary.uploader.upload_stream({
+    public_id: toCloudinaryPublicId(mediaKey),
+    resource_type: 'image',
+    overwrite: true,
+    invalidate: true
+  }, (error, result) => {
+    if (error) return reject(error);
+    if (!result?.secure_url) return reject(new Error('Cloudinary did not return an image URL.'));
+    return resolve(result.secure_url);
+  });
+
+  Readable.from([file.buffer]).pipe(uploadStream);
+});
 
 const readJson = async (filePath, fallback) => {
   try {
@@ -169,8 +232,15 @@ const start = async () => {
     res.json({ user: user ? publicUser(user) : null });
   });
 
-  app.get('/api/site-media', (_req, res) => {
-    res.json(auth.media);
+  app.get('/api/site-media', async (_req, res) => {
+    if (!cloudinaryConfigured) return res.json(auth.media);
+
+    try {
+      return res.json(await getCloudinaryMedia());
+    } catch (error) {
+      console.error('Could not load shared media from Cloudinary:', error);
+      return res.status(502).json({ error: 'Shared media is temporarily unavailable.' });
+    }
   });
 
   app.post('/api/admin/login', async (req, res) => {
@@ -257,6 +327,10 @@ const start = async () => {
   });
 
   app.post('/api/admin/media', requireAdmin, requireOwner, (req, res, next) => {
+    if (!cloudinaryConfigured) {
+      return res.status(503).json({ error: 'Shared uploads are not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET, then restart the server.' });
+    }
+
     imageUpload.single('image')(req, res, (error) => {
       if (!error) return next();
       const message = error.code === 'LIMIT_FILE_SIZE'
@@ -271,11 +345,13 @@ const start = async () => {
     }
     if (!req.file) return res.status(400).json({ error: 'Choose an image to upload.' });
 
-    const filename = `${randomBytes(16).toString('hex')}${imageExtensions[req.file.mimetype]}`;
-    await writeFile(path.join(uploadsDirectory, filename), req.file.buffer, { flag: 'wx', mode: 0o600 });
-    auth.media[mediaKey] = `/uploads/${filename}`;
-    await writeJson(mediaFile, auth.media);
-    return res.status(201).json({ key: mediaKey, url: auth.media[mediaKey] });
+    try {
+      const url = await uploadToCloudinary(req.file, mediaKey);
+      return res.status(201).json({ key: mediaKey, url });
+    } catch (error) {
+      console.error(`Could not upload shared media for ${mediaKey}:`, error);
+      return res.status(502).json({ error: 'Image upload to shared storage failed. Check Cloudinary configuration and try again.' });
+    }
   });
 
   app.use('/api', (_req, res) => res.status(404).json({ error: 'API endpoint not found.' }));

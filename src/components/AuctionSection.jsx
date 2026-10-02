@@ -1,12 +1,14 @@
 import React from 'react';
 import { useNpl } from '../context/NplContext';
-import { Flame, Calendar, Clock, MapPin, AlertCircle, Sparkles, Gavel, ArrowRight, ShieldCheck } from 'lucide-react';
+import { SessionSelector } from './SessionSelector';
+import { Flame, Calendar, Clock, MapPin, AlertCircle, Sparkles, Gavel, ShieldCheck } from 'lucide-react';
 
 export const AuctionSection = () => {
-  const { tournamentInfo, auctionRegistrations, openModal } = useNpl();
+  const { tournamentInfo, auctionRegistrations, openModal, seasons, selectedSeason, setSelectedSeason } = useNpl();
 
-  const totalRegistered = auctionRegistrations.length;
-  const verifiedCount = auctionRegistrations.filter(r => r.status === 'VERIFIED' || r.status === 'SHORTLISTED' || r.status === 'AUCTIONED').length;
+  const sessionRegistrations = auctionRegistrations.filter((registration) => registration.season === selectedSeason);
+  const totalRegistered = sessionRegistrations.length;
+  const verifiedCount = sessionRegistrations.filter(r => r.status === 'VERIFIED' || r.status === 'SHORTLISTED' || r.status === 'AUCTIONED').length;
 
   return (
     <section id="auction" className="py-24 relative bg-gradient-to-b from-[#080F24] via-[#0D1836] to-[#070D1F] border-t border-b border-amber-500/30 overflow-hidden">
@@ -25,7 +27,7 @@ export const AuctionSection = () => {
             <div className="lg:col-span-7 space-y-6">
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/50 text-amber-300 text-xs font-sports tracking-widest uppercase">
                 <Flame className="w-4 h-4 text-amber-400 fill-current animate-bounce" />
-                <span>NPL MEGA AUCTION • SEASON 3</span>
+                <span>NPL MEGA AUCTION • {selectedSeason.toUpperCase()}</span>
               </div>
 
               <h2 className="font-sports text-4xl sm:text-6xl lg:text-7xl text-white tracking-wide uppercase leading-none">
@@ -72,7 +74,8 @@ export const AuctionSection = () => {
               </div>
 
               {/* Action Buttons */}
-              <div className="pt-4 flex flex-wrap items-center gap-4">
+              <div className="pt-4 flex flex-wrap items-end gap-4">
+                <SessionSelector seasons={seasons} selectedSeason={selectedSeason} setSelectedSeason={setSelectedSeason} />
                 {/* Register Button */}
                 <button
                   onClick={() => openModal('auction-register')}

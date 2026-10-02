@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useNpl } from '../context/NplContext';
-import { Image, Maximize2, Tag, Calendar } from 'lucide-react';
+import { SessionSelector } from './SessionSelector';
+import { Image, Maximize2, Tag } from 'lucide-react';
 
 export const GallerySection = () => {
-  const { gallery, openModal, siteMedia } = useNpl();
+  const { gallery, openModal, siteMedia, seasons, selectedSeason, setSelectedSeason } = useNpl();
   const [selectedCategory, setSelectedCategory] = useState('ALL');
 
   const categories = [
@@ -18,7 +19,7 @@ export const GallerySection = () => {
     'BEHIND THE SCENES'
   ];
 
-  const filteredGallery = gallery.filter(item => {
+  const filteredGallery = gallery.filter((item) => (item.season || item.session) === selectedSeason).filter(item => {
     if (selectedCategory === 'ALL') return true;
     return item.category === selectedCategory;
   }).map(item => ({
@@ -44,8 +45,11 @@ export const GallerySection = () => {
             </p>
           </div>
 
-          <div className="text-xs text-slate-400 font-semibold bg-slate-900 px-4 py-2 rounded-xl border border-slate-800 self-start md:self-auto">
-            Click any photo for high-resolution fullscreen lightbox view
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <SessionSelector seasons={seasons} selectedSeason={selectedSeason} setSelectedSeason={setSelectedSeason} />
+            <div className="text-xs text-slate-400 font-semibold bg-slate-900 px-4 py-2 rounded-xl border border-slate-800 self-start md:self-auto">
+              Click any photo for high-resolution fullscreen lightbox view
+            </div>
           </div>
         </div>
 
@@ -68,7 +72,9 @@ export const GallerySection = () => {
 
         {/* Masonry / Grid Gallery */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {filteredGallery.map((item, index) => (
+          {filteredGallery.length === 0 ? (
+            <p className="col-span-full rounded-2xl border border-dashed border-slate-700 bg-slate-950/60 p-10 text-center text-slate-400">No gallery photos are available for {selectedSeason} yet.</p>
+          ) : filteredGallery.map((item, index) => (
             <div
               key={item.id || index}
               onClick={() => openModal('lightbox', { item, all: filteredGallery, currentIndex: index })}

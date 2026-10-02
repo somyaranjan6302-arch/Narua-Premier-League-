@@ -1,22 +1,28 @@
 import React, { useState } from 'react';
 import { useNpl } from '../context/NplContext';
+import { SessionSelector } from './SessionSelector';
 import { TeamBadge } from './TeamBadge';
-import { Trophy, Award, ChevronLeft, ChevronRight, Sparkles, Eye, Medal } from 'lucide-react';
+import { Trophy, ChevronLeft, ChevronRight, Eye, Medal } from 'lucide-react';
+
+const getEditionKey = (edition) => String(edition || '').match(/Season\s*\d+/i)?.[0].replace(/\s+/g, ' ') || edition;
 
 export const ChampionsSection = () => {
-  const { champions, teams, openModal, siteMedia } = useNpl();
+  const { champions, teams, openModal, siteMedia, seasons, selectedSeason, setSelectedSeason } = useNpl();
   const [currentIndex, setCurrentIndex] = useState(0);
+  const sessionChampions = champions.filter((champion) => getEditionKey(champion.edition) === selectedSeason);
+  const sessionChampionIndex = Math.min(currentIndex, Math.max(0, sessionChampions.length - 1));
 
   const prevChampion = () => {
-    setCurrentIndex(prev => (prev === 0 ? champions.length - 1 : prev - 1));
+    setCurrentIndex(sessionChampionIndex === 0 ? sessionChampions.length - 1 : sessionChampionIndex - 1);
   };
 
   const nextChampion = () => {
-    setCurrentIndex(prev => (prev === champions.length - 1 ? 0 : prev + 1));
+    setCurrentIndex(sessionChampionIndex === sessionChampions.length - 1 ? 0 : sessionChampionIndex + 1);
   };
 
-  const activeChampion = champions[currentIndex] || champions[0];
-  const championTeamObj = teams.find(t => t.shortName === activeChampion.championShort);
+  const activeChampion = sessionChampions[sessionChampionIndex];
+  const championTeamObj = activeChampion && teams.find(t => t.shortName === activeChampion.championShort);
+  const activeChampionIndex = champions.indexOf(activeChampion);
 
   return (
     <section id="champions" className="py-20 relative bg-gradient-to-b from-[#050B17] via-[#091329] to-[#050B17] overflow-hidden">
@@ -39,30 +45,34 @@ export const ChampionsSection = () => {
             </p>
           </div>
 
-          {/* Carousel Navigation Buttons */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <SessionSelector seasons={seasons} selectedSeason={selectedSeason} setSelectedSeason={setSelectedSeason} />
+            <div className="flex items-center gap-2">
             <button
               onClick={prevChampion}
+              disabled={sessionChampions.length < 2}
               className="p-3 rounded-xl bg-slate-900/90 border border-slate-700 text-slate-300 hover:text-amber-400 hover:border-amber-500/50 transition-colors shadow-lg"
               aria-label="Previous Champion"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
             <span className="text-xs font-sports tracking-wider px-3 text-amber-400">
-              {currentIndex + 1} / {champions.length}
+              {sessionChampions.length > 0 ? `${sessionChampionIndex + 1} / ${sessionChampions.length}` : '0 / 0'}
             </span>
             <button
               onClick={nextChampion}
+              disabled={sessionChampions.length < 2}
               className="p-3 rounded-xl bg-slate-900/90 border border-slate-700 text-slate-300 hover:text-amber-400 hover:border-amber-500/50 transition-colors shadow-lg"
               aria-label="Next Champion"
             >
               <ChevronRight className="w-5 h-5" />
             </button>
+            </div>
           </div>
         </div>
 
         {/* Featured Champion Highlight Card */}
-        {activeChampion && (
+        {activeChampion ? (
           <div className="glass-panel-gold rounded-3xl p-6 sm:p-10 border border-amber-500/40 shadow-2xl relative overflow-hidden group">
             {/* Ambient gold glow */}
             <div className="absolute top-0 right-0 w-80 h-80 bg-amber-500/15 rounded-full blur-[100px] pointer-events-none" />
@@ -72,7 +82,7 @@ export const ChampionsSection = () => {
               <div className="lg:col-span-6 relative">
                 <div className="relative rounded-2xl overflow-hidden shadow-2xl border-2 border-amber-500/30">
                   <img
-                    src={siteMedia[`champion:${currentIndex}`] || activeChampion.teamPhoto}
+                    src={siteMedia[`champion:${activeChampionIndex}`] || activeChampion.teamPhoto}
                     alt={`${activeChampion.championTeam} Champions`}
                     className="w-full h-[320px] sm:h-[400px] object-cover group-hover:scale-105 transition-transform duration-700"
                     onError={(e) => {
@@ -203,16 +213,18 @@ export const ChampionsSection = () => {
               </div>
             </div>
           </div>
+        ) : (
+          <p className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/60 p-10 text-center text-slate-400">No champion has been recorded for {selectedSeason} yet.</p>
         )}
 
         {/* Small Carousel Selector Cards Below */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
-          {champions.map((champ, idx) => (
+          {sessionChampions.map((champ, idx) => (
             <div
                key={champ.edition}
               onClick={() => setCurrentIndex(idx)}
               className={`p-4 rounded-2xl cursor-pointer transition-all duration-300 flex items-center justify-between border ${
-                currentIndex === idx
+                sessionChampionIndex === idx
                   ? "bg-slate-900 border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.2)]"
                   : "bg-slate-900/60 border-slate-800 hover:border-slate-700"
               }`}
@@ -232,32 +244,13 @@ export const ChampionsSection = () => {
               </div>
 
               <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
-                currentIndex === idx ? "bg-amber-500 text-slate-950" : "bg-slate-800 text-slate-400"
+                sessionChampionIndex === idx ? "bg-amber-500 text-slate-950" : "bg-slate-800 text-slate-400"
               }`}>
-                {currentIndex === idx ? "VIEWING" : "SELECT"}
+                {sessionChampionIndex === idx ? "VIEWING" : "SELECT"}
               </span>
             </div>
           ))}
 
-          {/* Season 2026 In-progress card */}
-          <div className="p-4 rounded-2xl border border-dashed border-slate-700 bg-slate-950/40 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="font-sports text-3xl text-slate-500">
-                2026
-              </div>
-              <div>
-                <h4 className="font-sports text-lg text-slate-300 leading-none">
-                  NPL SEASON 3
-                </h4>
-                <span className="text-xs text-amber-400/90 mt-1 block font-semibold">
-                  Auction & Championship Ahead
-                </span>
-              </div>
-            </div>
-            <span className="text-[10px] font-bold px-2 py-1 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30">
-              NEXT UP
-            </span>
-          </div>
         </div>
       </div>
     </section>

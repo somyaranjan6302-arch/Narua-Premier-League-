@@ -1,17 +1,30 @@
 import React, { useState, useMemo } from 'react';
 import { useNpl } from '../context/NplContext';
-import { Search, UserCheck, Shield, Zap, Target, Filter } from 'lucide-react';
+import { SessionSelector } from './SessionSelector';
+import { Search, UserCheck } from 'lucide-react';
 
 export const PlayerSection = () => {
-  const { teams, openModal } = useNpl();
+  const { teams, openModal, seasons, selectedSeason, setSelectedSeason } = useNpl();
   const [selectedRole, setSelectedRole] = useState('ALL');
   const [selectedTeam, setSelectedTeam] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Extract all players across all teams into a unified list
+  const sessionTeams = useMemo(() => teams.filter((team) => {
+    const teamSessions = Array.isArray(team.sessions)
+      ? team.sessions
+      : Array.isArray(team.seasons)
+        ? team.seasons
+        : team.session
+          ? [team.session]
+          : seasons.map((season) => season.edition);
+    return teamSessions.includes(selectedSeason);
+  }), [teams, seasons, selectedSeason]);
+  const activeSelectedTeam = sessionTeams.some((team) => team.id === selectedTeam) ? selectedTeam : 'ALL';
+
+  // Extract players for the active session into a unified list.
   const allPlayers = useMemo(() => {
     const list = [];
-    teams.forEach(team => {
+    sessionTeams.forEach(team => {
       if (team.squad) {
         team.squad.forEach(player => {
           list.push({
@@ -30,7 +43,7 @@ export const PlayerSection = () => {
       }
     });
     return list;
-  }, [teams]);
+  }, [sessionTeams]);
 
   // Filtering
   const filteredPlayers = allPlayers.filter(p => {
@@ -43,7 +56,7 @@ export const PlayerSection = () => {
     }
 
     // Team filter
-    if (selectedTeam !== 'ALL' && p.teamId !== selectedTeam) return false;
+    if (activeSelectedTeam !== 'ALL' && p.teamId !== activeSelectedTeam) return false;
 
     // Search query
     if (searchQuery.trim() !== '') {
@@ -82,8 +95,11 @@ export const PlayerSection = () => {
             </p>
           </div>
 
-          <div className="text-xs font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3.5 py-2 rounded-xl self-start md:self-auto">
-            Showing {filteredPlayers.length} Players
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <SessionSelector seasons={seasons} selectedSeason={selectedSeason} setSelectedSeason={setSelectedSeason} />
+            <div className="text-xs font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3.5 py-2 rounded-xl self-start md:self-auto">
+              Showing {filteredPlayers.length} Players
+            </div>
           </div>
         </div>
 
@@ -122,13 +138,13 @@ export const PlayerSection = () => {
 
             {/* Team Dropdown */}
             <select
-              value={selectedTeam}
+              value={activeSelectedTeam}
               onChange={(e) => setSelectedTeam(e.target.value)}
               aria-label="Filter by franchise team"
               className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-slate-300 focus:outline-none focus:border-amber-500"
             >
               <option value="ALL">All Teams</option>
-              {teams.map(t => (
+              {sessionTeams.map(t => (
                 <option key={t.id} value={t.id}>
                   {t.shortName} - {t.name}
                 </option>

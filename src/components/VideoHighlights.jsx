@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
 import { useNpl } from '../context/NplContext';
-import { Play, Eye, Clock, Calendar, Film } from 'lucide-react';
+import { SessionSelector } from './SessionSelector';
+import { Play, Eye, Clock, Film } from 'lucide-react';
 
 export const VideoHighlights = () => {
-  const { highlights, openModal, siteMedia } = useNpl();
+  const { highlights, openModal, siteMedia, seasons, selectedSeason, setSelectedSeason } = useNpl();
   const [activeVideoIndex, setActiveVideoIndex] = useState(0);
 
-  const activeVideo = highlights[activeVideoIndex] || highlights[0];
+  const sessionHighlights = highlights.filter((highlight) => (highlight.season || highlight.session) === selectedSeason);
+  const sessionVideoIndex = Math.min(activeVideoIndex, Math.max(0, sessionHighlights.length - 1));
+  const activeVideo = sessionHighlights[sessionVideoIndex];
   const featuredVideo = activeVideo ? {
     ...activeVideo,
     thumbnail: siteMedia[`highlight:${activeVideo.id}`] || activeVideo.thumbnail
   } : null;
-  const playlist = highlights.filter((_, idx) => idx !== activeVideoIndex);
 
   return (
     <section id="highlights" className="py-20 bg-[#060D1E] border-t border-slate-800">
@@ -31,13 +33,18 @@ export const VideoHighlights = () => {
             </p>
           </div>
 
-          <div className="text-xs text-slate-400 font-semibold bg-slate-900 px-4 py-2 rounded-xl border border-slate-800 self-start md:self-auto">
-            Official NPL Media & Broadcast Archive
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <SessionSelector seasons={seasons} selectedSeason={selectedSeason} setSelectedSeason={setSelectedSeason} />
+            <div className="text-xs text-slate-400 font-semibold bg-slate-900 px-4 py-2 rounded-xl border border-slate-800 self-start md:self-auto">
+              Official NPL Media & Broadcast Archive
+            </div>
           </div>
         </div>
 
         {/* Video Player Layout (Large featured on left, playlist on right) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {sessionHighlights.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/60 p-10 text-center text-slate-400">No video highlights are available for {selectedSeason} yet.</p>
+        ) : <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* Left Column: Featured Video Card */}
           {featuredVideo && (
             <div className="lg:col-span-8 glass-panel-card rounded-3xl p-4 sm:p-6 border border-slate-800 shadow-2xl overflow-hidden">
@@ -101,13 +108,13 @@ export const VideoHighlights = () => {
                 MORE TOURNAMENT HIGHLIGHTS
               </h4>
               <span className="text-xs text-slate-400 font-bold">
-                {highlights.length} VIDEOS
+                {sessionHighlights.length} VIDEOS
               </span>
             </div>
 
             <div className="space-y-3">
-              {highlights.map((video, idx) => {
-                const isActive = idx === activeVideoIndex;
+              {sessionHighlights.map((video, idx) => {
+                const isActive = idx === sessionVideoIndex;
                 return (
                   <div
                     key={video.id}
@@ -150,7 +157,7 @@ export const VideoHighlights = () => {
               })}
             </div>
           </div>
-        </div>
+        </div>}
       </div>
     </section>
   );

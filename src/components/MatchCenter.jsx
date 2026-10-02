@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNpl } from '../context/NplContext';
 import { TeamBadge } from './TeamBadge';
-import { Calendar, Clock, MapPin, Award, Eye, Flame, ChevronRight, Play } from 'lucide-react';
+import { Clock, MapPin, Award, ChevronRight } from 'lucide-react';
 
 export const MatchCenter = () => {
   const { matches, teams, openModal, seasons, selectedSeason, setSelectedSeason } = useNpl();
@@ -27,14 +27,15 @@ export const MatchCenter = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const filteredMatches = matches.filter(m => {
+  const sessionMatches = matches.filter((match) => (match.season || match.session) === selectedSeason);
+  const filteredMatches = sessionMatches.filter(m => {
     if (filter === 'ALL') return true;
     return m.status === filter;
   });
 
-  const liveMatchesCount = matches.filter(m => m.status === 'LIVE').length;
-  const upcomingMatchesCount = matches.filter(m => m.status === 'UPCOMING').length;
-  const completedMatchesCount = matches.filter(m => m.status === 'COMPLETED').length;
+  const liveMatchesCount = sessionMatches.filter(m => m.status === 'LIVE').length;
+  const upcomingMatchesCount = sessionMatches.filter(m => m.status === 'UPCOMING').length;
+  const completedMatchesCount = sessionMatches.filter(m => m.status === 'COMPLETED').length;
 
   return (
     <section id="matches" className="py-20 bg-[#050B17] border-t border-slate-800">
@@ -77,7 +78,7 @@ export const MatchCenter = () => {
                     : "text-slate-400 hover:text-white"
                 }`}
               >
-                ALL ({matches.length})
+                ALL ({sessionMatches.length})
               </button>
 
               <button
@@ -119,7 +120,9 @@ export const MatchCenter = () => {
 
         {/* Match Cards Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {filteredMatches.map((match) => {
+          {filteredMatches.length === 0 ? (
+            <p className="lg:col-span-2 rounded-2xl border border-dashed border-slate-700 bg-slate-950/60 p-10 text-center text-slate-400">No matches are scheduled for {selectedSeason} yet.</p>
+          ) : filteredMatches.map((match) => {
             const team1Obj = teams.find(t => t.id === match.team1?.id) || match.team1;
             const team2Obj = teams.find(t => t.id === match.team2?.id) || match.team2;
 

@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useNpl } from '../../context/NplContext';
-import { X, Flame, ShieldCheck, CheckCircle2, User, Phone, Mail, MapPin, Award, Camera, QrCode, Download, Printer } from 'lucide-react';
+import { X, Flame, CheckCircle2, User, Award, Camera, QrCode, Printer } from 'lucide-react';
 
 export const AuctionRegistrationModal = ({ onClose }) => {
-  const { registerPlayerForAuction } = useNpl();
+  const { registerPlayerForAuction, selectedSeason } = useNpl();
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [registeredData, setRegisteredData] = useState(null);
 
@@ -99,7 +99,7 @@ export const AuctionRegistrationModal = ({ onClose }) => {
                 OFFICIAL PORTAL
               </span>
               <h3 className="font-sports text-2xl sm:text-3xl text-white tracking-wide leading-none">
-                NPL AUCTION REGISTRATION 2026
+                NPL AUCTION REGISTRATION • {selectedSeason.toUpperCase()}
               </h3>
             </div>
           </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNpl } from '../../context/NplContext';
 import { TeamBadge } from '../TeamBadge';
+import { SessionSelector } from '../SessionSelector';
 import {
   X,
   Shield,
@@ -17,6 +18,7 @@ import {
   Download,
   RotateCcw,
   Plus,
+  Trash2,
   Edit,
   Save,
   Activity,
@@ -42,12 +44,17 @@ export const AdminDashboardModal = ({ onClose }) => {
     seasons,
     setSeasons,
     selectedSeason,
+    setSelectedSeason,
     matches,
+    setMatches,
     updateMatchLiveScore,
     pointsTable,
     setPointsTable,
+    seasonStandings,
+    setSeasonStandings,
     topPerformers,
     gallery,
+    setGallery,
     highlights,
     auctionRegistrations,
     updateRegistrationStatus,
@@ -100,6 +107,23 @@ export const AdminDashboardModal = ({ onClose }) => {
     sessions: [selectedSeason || seasons[0]?.edition || 'Season 5']
   });
   const [teamError, setTeamError] = useState('');
+  const [matchError, setMatchError] = useState('');
+  const [matchDraft, setMatchDraft] = useState({
+    team1Id: '',
+    team2Id: '',
+    matchNumber: '',
+    tournamentPhase: 'League',
+    date: '',
+    time: '',
+    venue: 'Narua Bada Padia',
+    status: 'UPCOMING'
+  });
+  const [galleryDraft, setGalleryDraft] = useState({
+    title: '',
+    category: 'MATCH DAY',
+    caption: '',
+    date: ''
+  });
   const nextTeamSession = `Season ${(Number(teamSessionFocus.match(/\d+/)?.[0]) || 0) + 1}`;
 
   const ensureTeamSessionExists = (edition) => {
@@ -179,6 +203,77 @@ export const AdminDashboardModal = ({ onClose }) => {
     } finally {
       setIsSavingPassword(false);
     }
+  };
+
+  const handleAddSessionMatch = (event) => {
+    event.preventDefault();
+    if (adminUser?.role !== 'owner') {
+      setMatchError('Only the developer can add fixtures.');
+      return;
+    }
+
+    const sessionTeams = teams.filter((team) => getTeamSessions(team, seasons.map((season) => season.edition)).includes(selectedSeason));
+    const team1 = sessionTeams.find((team) => team.id === matchDraft.team1Id);
+    const team2 = sessionTeams.find((team) => team.id === matchDraft.team2Id);
+    if (!team1 || !team2 || team1.id === team2.id) {
+      setMatchError('Choose two different teams assigned to this session.');
+      return;
+    }
+
+    const match = {
+      id: `match-${Date.now()}`,
+      season: selectedSeason,
+      matchNumber: matchDraft.matchNumber.trim() || `Match ${matches.filter((item) => item.season === selectedSeason).length + 1}`,
+      tournamentPhase: matchDraft.tournamentPhase,
+      date: matchDraft.date,
+      time: matchDraft.time,
+      venue: matchDraft.venue.trim() || 'Narua Bada Padia',
+      status: matchDraft.status,
+      team1: { id: team1.id, name: team1.name, shortName: team1.shortName, score: '0/0', overs: '0' },
+      team2: { id: team2.id, name: team2.name, shortName: team2.shortName, score: '0/0', overs: '0' }
+    };
+
+    setMatches((previousMatches) => [match, ...previousMatches]);
+    setMatchDraft((current) => ({ ...current, team1Id: '', team2Id: '', matchNumber: '' }));
+    setMatchError('');
+    showToast(`${match.matchNumber} was added to ${selectedSeason}.`);
+  };
+
+  const handleRemoveSessionMatch = () => {
+    if (adminUser?.role !== 'owner' || !liveMatch) return;
+    setMatches((previousMatches) => previousMatches.filter((match) => match.id !== liveMatch.id));
+    showToast(`${liveMatch.matchNumber} was removed from ${selectedSeason}.`);
+  };
+
+  const handleAddSessionGalleryItem = (event) => {
+    event.preventDefault();
+    if (adminUser?.role !== 'owner') return;
+
+    const title = galleryDraft.title.trim();
+    if (!title) {
+      showToast('Enter a title for the gallery photo.', 'error');
+      return;
+    }
+
+    const newItem = {
+      id: `gallery-${Date.now()}`,
+      season: selectedSeason,
+      category: galleryDraft.category,
+      title,
+      caption: galleryDraft.caption.trim(),
+      image: '/assets/stadium.jpg',
+      date: galleryDraft.date.trim() || selectedSeason
+    };
+    setGallery((previousGallery) => [newItem, ...previousGallery]);
+    setGalleryDraft({ title: '', category: 'MATCH DAY', caption: '', date: '' });
+    showToast(`Gallery photo slot added to ${selectedSeason}. Upload its image in Owner Media.`);
+  };
+
+  const handleRemoveSessionGalleryItem = (itemId) => {
+    if (adminUser?.role !== 'owner') return;
+    const targetItem = gallery.find((item) => item.id === itemId);
+    setGallery((previousGallery) => previousGallery.filter((item) => item.id !== itemId));
+    if (targetItem) showToast(`${targetItem.title} was removed from ${selectedSeason}.`);
   };
 
   const handleAddTeam = (event) => {
@@ -629,7 +724,7 @@ export const AdminDashboardModal = ({ onClose }) => {
   // Export registrations as CSV
   const handleExportCSV = () => {
     const headers = ["ID", "Name", "Role", "Phone", "Location", "Status", "Batting", "Bowling", "Runs", "Wickets"];
-    const rows = auctionRegistrations.map(r => [
+    const rows = auctionRegistrations.filter((registration) => registration.season === selectedSeason).map(r => [
       r.registrationId,
       r.fullName || r.name,
       r.role,
@@ -654,6 +749,7 @@ export const AdminDashboardModal = ({ onClose }) => {
 
   // Filtered registrations
   const filteredRegs = auctionRegistrations.filter(r => {
+    if (r.season !== selectedSeason) return false;
     if (regStatusFilter !== 'ALL' && r.status !== regStatusFilter) return false;
     if (regSearch.trim() !== '') {
       const q = regSearch.toLowerCase();
@@ -665,7 +761,12 @@ export const AdminDashboardModal = ({ onClose }) => {
   });
 
   // Live match for quick scoreboard adjuster
-  const liveMatch = matches.find(m => m.status === 'LIVE') || matches[0];
+  const liveSessionMatches = matches.filter((match) => (match.season || match.session) === selectedSeason);
+  const liveMatch = liveSessionMatches.find(m => m.status === 'LIVE') || liveSessionMatches[0];
+  const teamsForSelectedSession = teams.filter((team) => getTeamSessions(team, seasons.map((season) => season.edition)).includes(selectedSeason));
+  const registrationsForSelectedSession = auctionRegistrations.filter((registration) => registration.season === selectedSeason);
+  const adminPointsTable = seasonStandings[selectedSeason]
+    || (selectedSeason === seasons[0]?.edition ? pointsTable : []);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/90 backdrop-blur-md overflow-y-auto">
@@ -785,27 +886,27 @@ export const AdminDashboardModal = ({ onClose }) => {
             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 p-4 bg-slate-950 border-b border-slate-800 text-center text-xs flex-shrink-0">
               <div className="p-2 bg-slate-900/60 rounded-xl">
                 <span className="text-[10px] text-slate-400 uppercase font-bold block">Registrations</span>
-                <span className="font-sports text-2xl text-amber-400">{auctionRegistrations.length}</span>
+                <span className="font-sports text-2xl text-amber-400">{registrationsForSelectedSession.length}</span>
               </div>
               <div className="p-2 bg-slate-900/60 rounded-xl">
                 <span className="text-[10px] text-emerald-400 uppercase font-bold block">Verified</span>
                 <span className="font-sports text-2xl text-emerald-400">
-                  {auctionRegistrations.filter(r => r.status === 'VERIFIED' || r.status === 'SHORTLISTED' || r.status === 'AUCTIONED').length}
+                  {registrationsForSelectedSession.filter(r => r.status === 'VERIFIED' || r.status === 'SHORTLISTED' || r.status === 'AUCTIONED').length}
                 </span>
               </div>
               <div className="p-2 bg-slate-900/60 rounded-xl">
                 <span className="text-[10px] text-amber-300 uppercase font-bold block">Auctioned</span>
                 <span className="font-sports text-2xl text-white">
-                  {auctionRegistrations.filter(r => r.status === 'AUCTIONED').length}
+                  {registrationsForSelectedSession.filter(r => r.status === 'AUCTIONED').length}
                 </span>
               </div>
               <div className="p-2 bg-slate-900/60 rounded-xl">
                 <span className="text-[10px] text-blue-400 uppercase font-bold block">Teams</span>
-                <span className="font-sports text-2xl text-blue-400">{teams.length}</span>
+                <span className="font-sports text-2xl text-blue-400">{teamsForSelectedSession.length}</span>
               </div>
               <div className="p-2 bg-slate-900/60 rounded-xl">
                 <span className="text-[10px] text-purple-400 uppercase font-bold block">Matches</span>
-                <span className="font-sports text-2xl text-purple-400">{matches.length}</span>
+                <span className="font-sports text-2xl text-purple-400">{liveSessionMatches.length}</span>
               </div>
               <div className="p-2 bg-slate-900/60 rounded-xl flex items-center justify-center">
                 <button
@@ -825,7 +926,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                 onClick={() => setActiveTab('registrations')}
                 className={`py-3 px-4 font-sports text-base tracking-wider whitespace-nowrap transition-colors border-b-2 ${activeTab === 'registrations' ? 'border-amber-500 text-amber-400' : 'border-transparent text-slate-400 hover:text-white'}`}
               >
-                AUCTION REGISTRATIONS ({auctionRegistrations.length})
+                AUCTION REGISTRATIONS ({registrationsForSelectedSession.length})
               </button>
               <button
                 onClick={() => setActiveTab('livescore')}
@@ -860,6 +961,52 @@ export const AdminDashboardModal = ({ onClose }) => {
                 <div className="mb-4">
                   <h4 className="font-sports text-xl text-white">WEBSITE IMAGE LIBRARY</h4>
                   <p className="mt-1 text-xs text-slate-400">Changes appear for every visitor. JPG, PNG, WebP, or GIF up to 8 MB.</p>
+                </div>
+                <form onSubmit={handleAddSessionGalleryItem} className="mb-5 grid grid-cols-1 gap-3 rounded-xl border border-amber-800/60 bg-amber-950/20 p-4 sm:grid-cols-2">
+                  <div className="sm:col-span-2 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <h5 className="font-sports text-base text-amber-300">ADD PHOTO TO {selectedSeason.toUpperCase()}</h5>
+                      <p className="text-xs text-slate-400">The new photo slot belongs only to this session.</p>
+                    </div>
+                    <SessionSelector seasons={seasons} selectedSeason={selectedSeason} setSelectedSeason={setSelectedSeason} />
+                  </div>
+                  <label className="text-xs font-bold text-slate-400">
+                    Photo title
+                    <input required value={galleryDraft.title} onChange={(event) => setGalleryDraft((current) => ({ ...current, title: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white" />
+                  </label>
+                  <label className="text-xs font-bold text-slate-400">
+                    Category
+                    <select value={galleryDraft.category} onChange={(event) => setGalleryDraft((current) => ({ ...current, category: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white">
+                      {['MATCH DAY', 'FINALS', 'CHAMPIONS', 'AUCTION', 'TEAMS', 'PLAYERS', 'CELEBRATIONS', 'BEHIND THE SCENES'].map((category) => <option key={category}>{category}</option>)}
+                    </select>
+                  </label>
+                  <label className="text-xs font-bold text-slate-400">
+                    Caption
+                    <input value={galleryDraft.caption} onChange={(event) => setGalleryDraft((current) => ({ ...current, caption: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white" />
+                  </label>
+                  <label className="text-xs font-bold text-slate-400">
+                    Date or event
+                    <input value={galleryDraft.date} onChange={(event) => setGalleryDraft((current) => ({ ...current, date: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white" placeholder={selectedSeason} />
+                  </label>
+                  <div className="sm:col-span-2 flex justify-end">
+                    <button type="submit" className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-amber-400"><Plus className="h-4 w-4" />Add photo slot</button>
+                  </div>
+                </form>
+                <div className="mb-5 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                  <h5 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">Gallery entries in {selectedSeason}</h5>
+                  <div className="space-y-2">
+                    {gallery.filter((item) => (item.season || item.session) === selectedSeason).map((item) => (
+                      <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2">
+                        <span className="min-w-0 truncate text-sm font-semibold text-white">{item.title}</span>
+                        <button type="button" onClick={() => handleRemoveSessionGalleryItem(item.id)} aria-label={`Remove ${item.title} from ${selectedSeason}`} className="rounded-lg border border-rose-800 bg-rose-950/60 p-2 text-rose-300 hover:bg-rose-900">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                    {gallery.filter((item) => (item.season || item.session) === selectedSeason).length === 0 && (
+                      <p className="py-3 text-sm text-slate-500">No gallery entries are assigned to this session.</p>
+                    )}
+                  </div>
                 </div>
                 <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-[minmax(12rem,0.7fr)_minmax(14rem,1fr)]">
                   <label className="text-xs font-bold text-slate-400">
@@ -905,6 +1052,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                 {/* Search & Action bar */}
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
                   <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <SessionSelector seasons={seasons} selectedSeason={selectedSeason} setSelectedSeason={setSelectedSeason} />
                     <div className="relative flex-grow sm:w-64">
                       <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
@@ -1020,6 +1168,61 @@ export const AdminDashboardModal = ({ onClose }) => {
             {/* Tab 2: Live Match Scoreboard Adjuster */}
             {activeTab === 'livescore' && (
               <div className="p-6 overflow-y-auto space-y-6 flex-grow">
+                {adminUser?.role === 'owner' && (
+                  <form onSubmit={handleAddSessionMatch} className="grid grid-cols-1 gap-3 rounded-2xl border border-amber-800/60 bg-amber-950/20 p-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="sm:col-span-2 lg:col-span-3">
+                      <h4 className="font-sports text-lg text-amber-300">ADD FIXTURE TO {selectedSeason.toUpperCase()}</h4>
+                      <p className="text-xs text-slate-400">Only teams registered for this session are selectable.</p>
+                    </div>
+                    <label className="text-[11px] font-bold uppercase text-slate-400">
+                      Team 1
+                      <select required value={matchDraft.team1Id} onChange={(event) => setMatchDraft((current) => ({ ...current, team1Id: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm normal-case text-white">
+                        <option value="">Select team</option>
+                        {teamsForSelectedSession.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
+                      </select>
+                    </label>
+                    <label className="text-[11px] font-bold uppercase text-slate-400">
+                      Team 2
+                      <select required value={matchDraft.team2Id} onChange={(event) => setMatchDraft((current) => ({ ...current, team2Id: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm normal-case text-white">
+                        <option value="">Select team</option>
+                        {teamsForSelectedSession.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
+                      </select>
+                    </label>
+                    <label className="text-[11px] font-bold uppercase text-slate-400">
+                      Match number
+                      <input value={matchDraft.matchNumber} onChange={(event) => setMatchDraft((current) => ({ ...current, matchNumber: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm normal-case text-white" placeholder="Match 1" />
+                    </label>
+                    <label className="text-[11px] font-bold uppercase text-slate-400">
+                      Stage
+                      <input value={matchDraft.tournamentPhase} onChange={(event) => setMatchDraft((current) => ({ ...current, tournamentPhase: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm normal-case text-white" />
+                    </label>
+                    <label className="text-[11px] font-bold uppercase text-slate-400">
+                      Status
+                      <select value={matchDraft.status} onChange={(event) => setMatchDraft((current) => ({ ...current, status: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm normal-case text-white">
+                        {['UPCOMING', 'LIVE', 'COMPLETED'].map((status) => <option key={status}>{status}</option>)}
+                      </select>
+                    </label>
+                    <label className="text-[11px] font-bold uppercase text-slate-400">
+                      Date
+                      <input type="date" value={matchDraft.date} onChange={(event) => setMatchDraft((current) => ({ ...current, date: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm normal-case text-white" />
+                    </label>
+                    <label className="text-[11px] font-bold uppercase text-slate-400">
+                      Time
+                      <input type="time" value={matchDraft.time} onChange={(event) => setMatchDraft((current) => ({ ...current, time: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm normal-case text-white" />
+                    </label>
+                    <label className="text-[11px] font-bold uppercase text-slate-400">
+                      Venue
+                      <input value={matchDraft.venue} onChange={(event) => setMatchDraft((current) => ({ ...current, venue: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm normal-case text-white" />
+                    </label>
+                    {matchError && <p role="alert" className="sm:col-span-2 lg:col-span-3 text-sm text-rose-300">{matchError}</p>}
+                    <div className="sm:col-span-2 lg:col-span-3 flex justify-end">
+                      <button type="submit" className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-amber-400"><Plus className="h-4 w-4" />Add fixture</button>
+                    </div>
+                  </form>
+                )}
+                {!liveMatch && (
+                  <p className="rounded-xl border border-dashed border-slate-700 bg-slate-950/60 p-5 text-center text-sm text-slate-400">No match is assigned to {selectedSeason} yet.</p>
+                )}
                 <div className="glass-panel-card p-6 rounded-3xl border border-slate-800 space-y-4">
                   <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                     <div>
@@ -1030,9 +1233,13 @@ export const AdminDashboardModal = ({ onClose }) => {
                         {liveMatch?.team1?.name} vs {liveMatch?.team2?.name}
                       </h4>
                     </div>
+                    <SessionSelector seasons={seasons} selectedSeason={selectedSeason} setSelectedSeason={setSelectedSeason} />
                     <span className="px-2.5 py-1 rounded bg-red-600 text-white font-bold text-xs uppercase animate-pulse">
                       BROADCAST LIVE
                     </span>
+                    {adminUser?.role === 'owner' && liveMatch && (
+                      <button type="button" onClick={handleRemoveSessionMatch} className="rounded-lg border border-rose-800 bg-rose-950/60 px-3 py-1.5 text-[10px] font-bold uppercase text-rose-300 hover:bg-rose-900">Remove fixture</button>
+                    )}
                   </div>
 
                   {/* Current Score Display */}
@@ -1062,8 +1269,9 @@ export const AdminDashboardModal = ({ onClose }) => {
                           const newRuns = parseInt(runs || 0) + 1;
                           updateMatchLiveScore(liveMatch.id, {
                             team1: { ...liveMatch.team1, score: `${newRuns}/${wkts || 0}` }
-                          });
+                          }, selectedSeason);
                         }}
+                        disabled={!liveMatch}
                         className="px-4 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white font-sports text-lg hover:border-amber-500"
                       >
                         +1 Single
@@ -1075,8 +1283,9 @@ export const AdminDashboardModal = ({ onClose }) => {
                           const newRuns = parseInt(runs || 0) + 4;
                           updateMatchLiveScore(liveMatch.id, {
                             team1: { ...liveMatch.team1, score: `${newRuns}/${wkts || 0}` }
-                          });
+                          }, selectedSeason);
                         }}
+                        disabled={!liveMatch}
                         className="px-4 py-2 rounded-xl bg-emerald-950 border border-emerald-700 text-emerald-400 font-sports text-lg hover:bg-emerald-900"
                       >
                         +4 FOUR!
@@ -1088,8 +1297,9 @@ export const AdminDashboardModal = ({ onClose }) => {
                           const newRuns = parseInt(runs || 0) + 6;
                           updateMatchLiveScore(liveMatch.id, {
                             team1: { ...liveMatch.team1, score: `${newRuns}/${wkts || 0}` }
-                          });
+                          }, selectedSeason);
                         }}
+                        disabled={!liveMatch}
                         className="px-4 py-2 rounded-xl bg-amber-950 border border-amber-700 text-amber-400 font-sports text-lg hover:bg-amber-900"
                       >
                         +6 SIX!
@@ -1101,8 +1311,9 @@ export const AdminDashboardModal = ({ onClose }) => {
                           const newWkts = Math.min(10, parseInt(wkts || 0) + 1);
                           updateMatchLiveScore(liveMatch.id, {
                             team1: { ...liveMatch.team1, score: `${runs}/${newWkts}` }
-                          });
+                          }, selectedSeason);
                         }}
+                        disabled={!liveMatch}
                         className="px-4 py-2 rounded-xl bg-rose-950 border border-rose-700 text-rose-400 font-sports text-lg hover:bg-rose-900"
                       >
                         ⚡ WICKET!
@@ -1120,7 +1331,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                   <h4 className="font-sports text-xl text-white tracking-wider">
                     EDIT POINTS TABLE & FRANCHISE RECORDS
                   </h4>
-                  <span className="text-xs text-slate-400">Quick actions apply immediately</span>
+                  <SessionSelector seasons={seasons} selectedSeason={selectedSeason} setSelectedSeason={setSelectedSeason} />
                 </div>
 
                 {adminUser?.role === 'owner' && (
@@ -1342,7 +1553,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-850">
-                      {pointsTable.map((row) => (
+                      {adminPointsTable.map((row) => (
                         <tr key={row.teamId} className="hover:bg-slate-900/40">
                           <td className="py-2.5 px-3 font-bold text-white">
                             {row.short} - {row.team}
@@ -1356,7 +1567,14 @@ export const AdminDashboardModal = ({ onClose }) => {
                             <div className="flex items-center justify-end gap-1">
                               <button
                                 onClick={() => {
-                                  setPointsTable(prev => prev.map(p => p.teamId === row.teamId ? { ...p, p: p.p + 1, w: p.w + 1, pts: p.pts + 2 } : p));
+                                  setSeasonStandings((previousStandings) => ({
+                                    ...previousStandings,
+                                    [selectedSeason]: (previousStandings[selectedSeason] || adminPointsTable).map((pointRow) => (
+                                      pointRow.teamId === row.teamId
+                                        ? { ...pointRow, p: pointRow.p + 1, w: pointRow.w + 1, pts: pointRow.pts + 2 }
+                                        : pointRow
+                                    ))
+                                  }));
                                 }}
                                 className="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-800 text-emerald-300 text-[10px] font-bold"
                               >

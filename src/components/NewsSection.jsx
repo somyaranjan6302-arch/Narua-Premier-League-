@@ -1,12 +1,14 @@
 import React from 'react';
 import { useNpl } from '../context/NplContext';
+import { SessionSelector } from './SessionSelector';
 import { Newspaper, Calendar, Clock, ChevronRight, ArrowUpRight } from 'lucide-react';
 
 export const NewsSection = () => {
-  const { news, openModal, siteMedia } = useNpl();
+  const { news, openModal, siteMedia, seasons, selectedSeason, setSelectedSeason } = useNpl();
 
-  const featuredNews = news.find(n => n.featured) || news[0];
-  const otherNews = news.filter(n => n.id !== featuredNews?.id);
+  const sessionNews = news.filter((item) => (item.season || item.session) === selectedSeason);
+  const featuredNews = sessionNews.find(n => n.featured) || sessionNews[0];
+  const otherNews = sessionNews.filter(n => n.id !== featuredNews?.id);
 
   return (
     <section id="news" className="py-20 bg-[#050B17] border-t border-slate-800">
@@ -26,13 +28,18 @@ export const NewsSection = () => {
             </p>
           </div>
 
-          <div className="text-xs text-slate-400 font-semibold bg-slate-900 px-4 py-2 rounded-xl border border-slate-800 self-start md:self-auto">
-            Click any article to read official report
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <SessionSelector seasons={seasons} selectedSeason={selectedSeason} setSelectedSeason={setSelectedSeason} />
+            <div className="text-xs text-slate-400 font-semibold bg-slate-900 px-4 py-2 rounded-xl border border-slate-800 self-start md:self-auto">
+              Click any article to read official report
+            </div>
           </div>
         </div>
 
         {/* News Grid (Lead article + 3 sub articles) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+        {sessionNews.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/60 p-10 text-center text-slate-400">No news is published for {selectedSeason} yet.</p>
+        ) : <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
           {/* Main Featured Article (Left - 7 cols) */}
           {featuredNews && (
             <div
@@ -130,7 +137,7 @@ export const NewsSection = () => {
               </div>
             ))}
           </div>
-        </div>
+        </div>}
       </div>
     </section>
   );

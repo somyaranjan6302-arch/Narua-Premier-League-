@@ -19,7 +19,12 @@ This project is a broadcast-grade sports tournament web platform for **Narua Pre
 
    On the first start, the server prints a randomly generated developer admin password in the terminal. Save it securely; it is shown only once. The developer account ID is `developer`. The developer can create additional admin accounts from the Admin Portal's **Admin Accounts** tab.
 
-3. **Build for Production:**
+3. **Configure Shared Image Storage:**
+   Copy `.env.example` to `.env` and set `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET` from the same Cloudinary account on every environment. Restart the server after changing these values. Without these settings, existing local image URLs can still load on the original machine, but new image uploads are disabled rather than saved to machine-local storage.
+
+   Images uploaded before Cloudinary was configured are still in the original machine's ignored `server/data/uploads/` folder. Upload those images again through **OWNER MEDIA** after configuration to make them available across devices and deployments.
+
+4. **Build for Production:**
    ```bash
    npm run build
    ```
@@ -40,6 +45,6 @@ This project is a broadcast-grade sports tournament web platform for **Narua Pre
 - **Auction Registration:** Public registration form that generates an official digital **NPL Player Pass** with ID & QR code.
 - **Live Auction Arena Simulator:** Interactive bidding simulator with team paddles, audio gavel strike, confetti, and purse tracking.
 - **Organizer Admin Console:** Server-authenticated admin portal with a developer owner account, owner-managed admin accounts, salted password hashes, and HTTP-only sessions.
-- **Developer Media Library:** The owner-only Admin Portal tab can replace the public logo, stadium and trophy art, champion/team photos, news images, gallery photos, highlight thumbnails, and top-performer portraits using server-stored uploads.
+- **Developer Media Library:** The owner-only Admin Portal tab can replace the public logo, stadium and trophy art, champion/team photos, news images, gallery photos, highlight thumbnails, and top-performer portraits using Cloudinary shared uploads.
 
-Admin account hashes and the session signing key are stored under `server/data/`, which is excluded from Git. Back up this directory securely for deployments using local file storage. Production deployments must use HTTPS and persistent private storage for `server/data/`; deleting it will generate a new developer password and invalidate all existing accounts.
+Admin account hashes and the session signing key are stored under `server/data/`, which is excluded from Git. Back up this directory securely for deployments using local file storage. Production deployments must use HTTPS and persistent private storage for `server/data/`; deleting it will generate a new developer password and invalidate all existing accounts. The Cloudinary credentials belong in deployment environment variables and must never be committed to Git.

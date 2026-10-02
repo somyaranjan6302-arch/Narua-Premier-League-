@@ -1,14 +1,13 @@
 import React from 'react';
 import { useNpl } from '../context/NplContext';
 import { TeamBadge } from './TeamBadge';
-import { Trophy, CheckCircle2, ChevronRight, Info } from 'lucide-react';
+import { Trophy, Info } from 'lucide-react';
 
 export const PointsTable = () => {
   const { pointsTable, seasonStandings, seasons, selectedSeason, setSelectedSeason, teams, openModal } = useNpl();
   const seasonInfo = seasons.find((season) => season.edition === selectedSeason) || seasons[0];
-  const visiblePointsTable = seasonInfo?.season === seasons[0]?.season
-    ? pointsTable
-    : seasonStandings[seasonInfo?.edition] || [];
+  const visiblePointsTable = seasonStandings[selectedSeason]
+    || (selectedSeason === seasons[0]?.edition ? pointsTable : []);
 
   return (
     <section id="standings" className="py-20 bg-[#060D1E] border-t border-slate-800">

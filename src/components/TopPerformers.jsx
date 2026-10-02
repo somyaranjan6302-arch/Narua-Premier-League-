@@ -1,9 +1,10 @@
 import React from 'react';
 import { useNpl } from '../context/NplContext';
+import { SessionSelector } from './SessionSelector';
 import { Award, Zap, Flame, Shield, Target, Sparkles } from 'lucide-react';
 
 export const TopPerformers = () => {
-  const { topPerformers, openModal, siteMedia } = useNpl();
+  const { topPerformers, openModal, siteMedia, seasons, selectedSeason, setSelectedSeason } = useNpl();
 
   const performerList = [
     { key: 'orangeCap', data: topPerformers.orangeCap, icon: Award, label: "ORANGE CAP" },
@@ -13,6 +14,7 @@ export const TopPerformers = () => {
     { key: 'highestScore', data: topPerformers.highestScore, icon: Zap, label: "HIGHEST SCORE" },
     { key: 'bestBowling', data: topPerformers.bestBowling, icon: Sparkles, label: "BEST BOWLING" },
   ];
+  const sessionPerformers = selectedSeason === 'Season 3' ? performerList : [];
 
   return (
     <section id="performers" className="py-20 bg-[#060D1E] border-t border-slate-800">
@@ -21,7 +23,7 @@ export const TopPerformers = () => {
         <div className="text-center max-w-3xl mx-auto mb-12">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold tracking-widest uppercase mb-3">
             <Award className="w-3.5 h-3.5" />
-            <span>SEASON 3 LEADERBOARD</span>
+            <span>{selectedSeason.toUpperCase()} LEADERBOARD</span>
           </div>
           <h2 className="font-sports text-4xl sm:text-5xl lg:text-6xl text-white tracking-wide uppercase leading-none">
             TOP <span className="text-gold-gradient">PERFORMERS</span>
@@ -31,9 +33,13 @@ export const TopPerformers = () => {
           </p>
         </div>
 
+        <div className="mb-8 flex justify-center">
+          <SessionSelector seasons={seasons} selectedSeason={selectedSeason} setSelectedSeason={setSelectedSeason} />
+        </div>
+
         {/* Performer Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {performerList.map(({ key, data, icon: Icon, label }) => {
+          {sessionPerformers.map(({ key, data, icon: Icon, label }) => {
             if (!data) return null;
             return (
               <div
@@ -90,6 +96,9 @@ export const TopPerformers = () => {
               </div>
             );
           })}
+          {sessionPerformers.length === 0 && (
+            <p className="col-span-full rounded-2xl border border-dashed border-slate-700 bg-slate-950/60 p-10 text-center text-slate-400">No performer records are available for {selectedSeason} yet.</p>
+          )}
         </div>
       </div>
     </section>

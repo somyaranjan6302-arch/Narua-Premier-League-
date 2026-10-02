@@ -1,20 +1,21 @@
 import React, { useState } from 'react';
 import { useNpl } from '../../context/NplContext';
 import { TeamBadge } from '../TeamBadge';
-import { X, Gavel, Flame, Trophy, Award, Shield, CheckCircle, ArrowRight, RotateCcw } from 'lucide-react';
+import { X, Gavel } from 'lucide-react';
 
 export const LiveAuctionArenaModal = ({ onClose }) => {
   const {
     teams,
     auctionRegistrations,
     auctionLiveState,
+    selectedSeason,
     placeLiveBid,
     sellLivePlayer,
     updateRegistrationStatus
   } = useNpl();
 
   // Players eligible for auction (Shortlisted or Verified or Pending)
-  const eligiblePlayers = auctionRegistrations.filter(r => r.status !== 'REJECTED');
+  const eligiblePlayers = auctionRegistrations.filter(r => r.season === selectedSeason && r.status !== 'REJECTED');
   const [selectedPlayerIndex, setSelectedPlayerIndex] = useState(0);
   const currentPlayer = eligiblePlayers[selectedPlayerIndex] || eligiblePlayers[0];
 
@@ -25,7 +26,7 @@ export const LiveAuctionArenaModal = ({ onClose }) => {
   // Raise bid by increment
   const handleRaiseBid = (teamId, increment) => {
     const nextAmount = currentBid + increment;
-    placeLiveBid(teamId, nextAmount);
+    placeLiveBid(teamId, nextAmount, selectedSeason);
   };
 
   // Hammer: Sell player
@@ -34,7 +35,7 @@ export const LiveAuctionArenaModal = ({ onClose }) => {
       alert("No team has placed a bid yet!");
       return;
     }
-    sellLivePlayer(currentPlayer, currentBiddingTeamId, currentBid);
+    sellLivePlayer(currentPlayer, currentBiddingTeamId, currentBid, selectedSeason);
     // Advance to next player
     if (selectedPlayerIndex < eligiblePlayers.length - 1) {
       setSelectedPlayerIndex(prev => prev + 1);
@@ -65,7 +66,7 @@ export const LiveAuctionArenaModal = ({ onClose }) => {
                 INTERACTIVE SIMULATOR
               </span>
               <h3 className="font-sports text-2xl sm:text-3xl text-white tracking-wide leading-none">
-                NPL MEGA AUCTION ARENA 2026
+                NPL MEGA AUCTION ARENA • {selectedSeason.toUpperCase()}
               </h3>
             </div>
           </div>

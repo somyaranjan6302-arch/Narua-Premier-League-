@@ -21,6 +21,12 @@ import { sound } from '../utils/audio';
 
 const NplContext = createContext();
 
+const attachDefaultSeason = (items, defaultSeason) => (
+  Array.isArray(items)
+    ? items.map((item) => item.season || item.session ? item : { ...item, season: defaultSeason })
+    : items
+);
+
 export const NplProvider = ({ children }) => {
   // Helper for localStorage
   const loadState = (key, fallback) => {
@@ -31,6 +37,8 @@ export const NplProvider = ({ children }) => {
       return fallback;
     }
   };
+
+  const initialSelectedSeason = loadState('selectedSeason', initialSeasons[0]?.edition || 'Season 5');
 
   const [tournamentInfo, setTournamentInfo] = useState(() => loadState('tournamentInfo', initialTournamentInfo));
   const [champions, setChampions] = useState(() => {
@@ -68,21 +76,36 @@ export const NplProvider = ({ children }) => {
     if (teamDataVersion >= 2 && Array.isArray(savedTeams)) return savedTeams;
     return initialSessionTeams;
   });
-  const [matches, setMatches] = useState(() => loadState('matches', initialMatches));
+  const [matches, setMatches] = useState(() => attachDefaultSeason(loadState('matches', initialMatches), initialSelectedSeason));
   const [pointsTable, setPointsTable] = useState(() => loadState('pointsTable', initialPointsTable));
   const [seasonStandings, setSeasonStandings] = useState(() => {
     const savedStandings = loadState('seasonStandings', initialSeasonStandings);
+    const savedPointsTable = loadState('pointsTable', initialPointsTable);
+    const standingsVersion = loadState('seasonStandingsVersion', 0);
+    const latestEdition = initialSeasons[0]?.edition;
+    const duplicateYearEdition = initialSeasons.find((season, index) => (
+      index > 0 && season.season === initialSeasons[0]?.season
+    ))?.edition;
+    const latestSavedStandings = savedStandings[latestEdition] || savedStandings[initialSeasons[0]?.season] || savedPointsTable;
+    const duplicateStandingsWereShared = standingsVersion < 2 &&
+      duplicateYearEdition &&
+      JSON.stringify(savedStandings[duplicateYearEdition]) === JSON.stringify(latestSavedStandings);
+
     return Object.fromEntries(initialSeasons.map((season) => [
       season.edition,
-      savedStandings[season.edition] || savedStandings[season.season] || initialSeasonStandings[season.edition]
+      season.edition === duplicateYearEdition && duplicateStandingsWereShared
+        ? initialSeasonStandings[season.edition]
+        : savedStandings[season.edition] || (season.edition === latestEdition
+          ? savedStandings[season.season] || savedPointsTable
+          : initialSeasonStandings[season.edition])
     ]));
   });
-  const [selectedSeason, setSelectedSeason] = useState(() => loadState('selectedSeason', initialSeasons[0]?.edition || 'Season 5'));
+  const [selectedSeason, setSelectedSeason] = useState(() => initialSelectedSeason);
   const [topPerformers, setTopPerformers] = useState(() => loadState('topPerformers', initialTopPerformers));
   const [records, setRecords] = useState(() => loadState('records', initialRecords));
   const [gallery, setGallery] = useState(() => {
     const savedGallery = loadState('gallery', []);
-    if (!Array.isArray(savedGallery)) return initialGallery;
+    if (!Array.isArray(savedGallery)) return attachDefaultSeason(initialGallery, initialSelectedSeason);
 
     const savedById = new Map(
       savedGallery
@@ -91,15 +114,40 @@ export const NplProvider = ({ children }) => {
     );
     const seededIds = new Set(initialGallery.map((item) => item.id));
 
-    return [
+    return attachDefaultSeason([
       ...initialGallery.map((item) => ({ ...(savedById.get(item.id) || {}), ...item })),
       ...savedGallery.filter((item) => !seededIds.has(item?.id))
-    ];
+    ], initialSelectedSeason);
   });
-  const [highlights, setHighlights] = useState(() => loadState('highlights', initialHighlights));
-  const [news, setNews] = useState(() => loadState('news', initialNews));
-  const [auctionRegistrations, setAuctionRegistrations] = useState(() => loadState('auctionRegistrations', initialAuctionRegistrations));
-  const [auctionLiveState, setAuctionLiveState] = useState(() => loadState('auctionLiveState', initialAuctionLiveState));
+  const [highlights, setHighlights] = useState(() => attachDefaultSeason(loadState('highlights', initialHighlights), initialSelectedSeason));
+  const [news, setNews] = useState(() => {
+    const savedNews = loadState('news', null);
+    if (!Array.isArray(savedNews)) return attachDefaultSeason(initialNews, initialSelectedSeason);
+
+    const savedById = new Map(savedNews.filter((item) => item?.id).map((item) => [item.id, item]));
+    const seededIds = new Set(initialNews.map((item) => item.id));
+    return attachDefaultSeason([
+      ...initialNews.map((item) => {
+        const savedItem = savedById.get(item.id);
+        return {
+          ...item,
+          ...(savedItem || {}),
+          season: savedItem?.season || savedItem?.session || item.season || initialSelectedSeason
+        };
+      }),
+      ...savedNews.filter((item) => !seededIds.has(item?.id))
+    ], initialSelectedSeason);
+  });
+  const [auctionRegistrations, setAuctionRegistrations] = useState(() => attachDefaultSeason(loadState('auctionRegistrations', initialAuctionRegistrations), initialSelectedSeason));
+  const [auctionLiveStates, setAuctionLiveStates] = useState(() => {
+    const savedBySeason = loadState('auctionLiveStates', {});
+    const legacyState = loadState('auctionLiveState', initialAuctionLiveState);
+    return {
+      ...savedBySeason,
+      [initialSelectedSeason]: savedBySeason[initialSelectedSeason] || legacyState
+    };
+  });
+  const auctionLiveState = auctionLiveStates[selectedSeason] || initialAuctionLiveState;
   const [siteMedia, setSiteMedia] = useState({});
 
   // Authentication is verified by the server; never trust persisted browser state.
@@ -163,6 +211,10 @@ export const NplProvider = ({ children }) => {
   }, [seasonStandings]);
 
   useEffect(() => {
+    localStorage.setItem('npl_seasonStandingsVersion', '2');
+  }, []);
+
+  useEffect(() => {
     localStorage.setItem('npl_selectedSeason', JSON.stringify(selectedSeason));
   }, [selectedSeason]);
 
@@ -171,8 +223,8 @@ export const NplProvider = ({ children }) => {
   }, [auctionRegistrations]);
 
   useEffect(() => {
-    localStorage.setItem('npl_auctionLiveState', JSON.stringify(auctionLiveState));
-  }, [auctionLiveState]);
+    localStorage.setItem('npl_auctionLiveStates', JSON.stringify(auctionLiveStates));
+  }, [auctionLiveStates]);
 
   useEffect(() => {
     localStorage.setItem('npl_news', JSON.stringify(news));
@@ -212,6 +264,7 @@ export const NplProvider = ({ children }) => {
       id: `reg-${Date.now()}`,
       registrationId: regId,
       ...formData,
+      season: selectedSeason,
       status: 'PENDING',
       createdAt: new Date().toISOString(),
       photo: formData.photo || ''
@@ -237,10 +290,18 @@ export const NplProvider = ({ children }) => {
   };
 
   // Auction Arena: Place Bid
-  const placeLiveBid = (teamId, amount) => {
+  const updateAuctionLiveState = (season, updater) => {
+    setAuctionLiveStates((previousStates) => {
+      const previousState = previousStates[season] || initialAuctionLiveState;
+      const nextState = typeof updater === 'function' ? updater(previousState) : updater;
+      return { ...previousStates, [season]: nextState };
+    });
+  };
+
+  const placeLiveBid = (teamId, amount, season = selectedSeason) => {
     sound.playBidBeep();
     const team = teams.find(t => t.id === teamId);
-    setAuctionLiveState(prev => ({
+    updateAuctionLiveState(season, prev => ({
       ...prev,
       currentBid: amount,
       currentBiddingTeam: teamId,
@@ -252,7 +313,7 @@ export const NplProvider = ({ children }) => {
   };
 
   // Auction Arena: Sell Player
-  const sellLivePlayer = (player, winningTeamId, finalAmount) => {
+  const sellLivePlayer = (player, winningTeamId, finalAmount, season = selectedSeason) => {
     sound.playGavel();
     sound.playCheer();
     confetti({
@@ -270,7 +331,7 @@ export const NplProvider = ({ children }) => {
     });
 
     // Update auction live state and team purse
-    setAuctionLiveState(prev => {
+    updateAuctionLiveState(season, prev => {
       const currentPurse = prev.teamPurses[winningTeamId] || 5000000;
       const updatedPurse = Math.max(0, currentPurse - finalAmount);
       return {
@@ -302,9 +363,9 @@ export const NplProvider = ({ children }) => {
   };
 
   // Match live score simulation / update
-  const updateMatchLiveScore = (matchId, updates) => {
+  const updateMatchLiveScore = (matchId, updates, season = selectedSeason) => {
     setMatches(prev =>
-      prev.map(m => m.id === matchId ? { ...m, ...updates } : m)
+      prev.map(m => m.id === matchId && (m.season || m.session) === season ? { ...m, ...updates } : m)
     );
     showToast("Match score updated successfully!");
   };
@@ -342,13 +403,15 @@ export const NplProvider = ({ children }) => {
     setTeams(initialSessionTeams);
     setMatches(initialMatches);
     setPointsTable(initialPointsTable);
+    setSeasonStandings(initialSeasonStandings);
+    setSelectedSeason(initialSeasons[0]?.edition || 'Season 5');
     setTopPerformers(initialTopPerformers);
     setRecords(initialRecords);
     setGallery(initialGallery);
     setHighlights(initialHighlights);
     setNews(initialNews);
     setAuctionRegistrations(initialAuctionRegistrations);
-    setAuctionLiveState(initialAuctionLiveState);
+    setAuctionLiveStates({ [initialSeasons[0]?.edition || 'Season 5']: initialAuctionLiveState });
     showToast("Factory data reset complete!");
   };
 
