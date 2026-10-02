@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNpl } from '../../context/NplContext';
 import { TeamBadge } from '../TeamBadge';
 import {
@@ -26,12 +26,22 @@ import {
   UserRound
 } from 'lucide-react';
 
+const getTeamSessions = (team, seasonEditions) => {
+  if (Array.isArray(team.sessions)) return team.sessions;
+  if (Array.isArray(team.seasons)) return team.seasons;
+  if (team.session) return [team.session];
+  return seasonEditions;
+};
+
 export const AdminDashboardModal = ({ onClose }) => {
   const {
     tournamentInfo,
     setTournamentInfo,
     teams,
     setTeams,
+    seasons,
+    setSeasons,
+    selectedSeason,
     matches,
     updateMatchLiveScore,
     pointsTable,
@@ -75,6 +85,35 @@ export const AdminDashboardModal = ({ onClose }) => {
   const [pendingMediaFiles, setPendingMediaFiles] = useState({});
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [tournamentDraft, setTournamentDraft] = useState(() => ({ ...tournamentInfo }));
+  const [teamSessionFocus, setTeamSessionFocus] = useState(selectedSeason || seasons[0]?.edition || 'Season 5');
+  const [isSessionWorkspaceOpen, setIsSessionWorkspaceOpen] = useState(false);
+  const [alsoAddNextSeason, setAlsoAddNextSeason] = useState(false);
+  const [teamDraft, setTeamDraft] = useState({
+    name: '',
+    shortName: '',
+    captain: '',
+    owner: '',
+    home: '',
+    primaryColor: '#F59E0B',
+    secondaryColor: '#0F172A',
+    slogan: '',
+    sessions: [selectedSeason || seasons[0]?.edition || 'Season 5']
+  });
+  const [teamError, setTeamError] = useState('');
+  const nextTeamSession = `Season ${(Number(teamSessionFocus.match(/\d+/)?.[0]) || 0) + 1}`;
+
+  const ensureTeamSessionExists = (edition) => {
+    if (seasons.some((season) => season.edition === edition)) return;
+
+    const currentSeasonYear = Number(tournamentInfo.currentSeason.match(/\((\d{4})\)/)?.[1]) || new Date().getFullYear();
+    setSeasons((previousSeasons) => previousSeasons.some((season) => season.edition === edition)
+      ? previousSeasons
+      : [{ edition, season: String(currentSeasonYear), year: String(currentSeasonYear), status: 'UPCOMING', teamsCount: 0, matchesCount: 0 }, ...previousSeasons]);
+  };
+  useEffect(() => {
+    setTeamSessionFocus((current) => current || selectedSeason || seasons[0]?.edition || 'Season 5');
+    setTeamDraft((current) => ({ ...current, sessions: current.sessions?.length ? current.sessions : [selectedSeason || seasons[0]?.edition || 'Season 5'] }));
+  }, [selectedSeason, seasons]);
   const [activeTab, setActiveTab] = useState('registrations'); // 'registrations' | 'livescore' | 'teams' | 'tournament' | 'news'
   const [regSearch, setRegSearch] = useState('');
   const [regStatusFilter, setRegStatusFilter] = useState('ALL');
@@ -140,6 +179,119 @@ export const AdminDashboardModal = ({ onClose }) => {
     } finally {
       setIsSavingPassword(false);
     }
+  };
+
+  const handleAddTeam = (event) => {
+    event.preventDefault();
+    if (adminUser?.role !== 'owner') {
+      setTeamError('Only the developer can add or remove team records.');
+      return;
+    }
+
+    const cleanName = teamDraft.name.trim();
+    const cleanShortName = teamDraft.shortName.trim() || cleanName.slice(0, 18);
+    const cleanCaptain = teamDraft.captain.trim();
+    const cleanOwner = teamDraft.owner.trim();
+    const cleanHome = teamDraft.home.trim();
+    const targetSessions = alsoAddNextSeason
+      ? [teamSessionFocus, nextTeamSession]
+      : [teamSessionFocus];
+
+    if (!cleanName || !cleanCaptain || !cleanOwner || !cleanHome) {
+      setTeamError('Name, captain, owner, and home ground are required.');
+      return;
+    }
+
+    const teamSlug = cleanName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || `team-${Date.now()}`;
+    const newTeams = targetSessions.map((session) => ({
+      id: `${teamSlug}-${session.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      name: cleanName,
+      shortName: cleanShortName,
+      captain: cleanCaptain,
+      owner: cleanOwner,
+      home: cleanHome,
+      primaryColor: teamDraft.primaryColor || '#F59E0B',
+      secondaryColor: teamDraft.secondaryColor || '#0F172A',
+      slogan: teamDraft.slogan.trim() || 'Built for glory',
+      sessions: [session],
+      titles: 0,
+      matches: 0,
+      wins: 0,
+      losses: 0,
+      winPercentage: 0,
+      banner: 'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?auto=format&fit=crop&w=1000&q=80',
+      squad: []
+    }));
+
+    if (alsoAddNextSeason) ensureTeamSessionExists(nextTeamSession);
+
+    setTeams((previousTeams) => [...newTeams, ...previousTeams]);
+    setTeamDraft({
+      name: '',
+      shortName: '',
+      captain: '',
+      owner: '',
+      home: '',
+      primaryColor: '#F59E0B',
+      secondaryColor: '#0F172A',
+      slogan: '',
+      sessions: [teamSessionFocus]
+    });
+    setTeamError('');
+    setAlsoAddNextSeason(false);
+    showToast(`${cleanName} has been added to ${targetSessions.join(' and ')}.`);
+  };
+
+  const handleCopyTeamToNextSession = (team) => {
+    if (adminUser?.role !== 'owner') {
+      showToast('Only the developer can add team records.', 'error');
+      return;
+    }
+
+    const alreadyInNextSession = teams.some((candidate) => (
+      candidate.name === team.name &&
+      getTeamSessions(candidate, seasons.map((season) => season.edition)).includes(nextTeamSession)
+    ));
+    if (alreadyInNextSession) {
+      showToast(`${team.name} is already in ${nextTeamSession}.`, 'error');
+      return;
+    }
+
+    ensureTeamSessionExists(nextTeamSession);
+    const teamSlug = team.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const nextSessionSlug = nextTeamSession.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const nextSeasonCopy = {
+      ...team,
+      id: `${teamSlug}-${nextSessionSlug}`,
+      sessions: [nextTeamSession],
+      squad: Array.isArray(team.squad) ? team.squad.map((player) => ({ ...player })) : []
+    };
+
+    setTeams((previousTeams) => [nextSeasonCopy, ...previousTeams]);
+    showToast(`${team.name} has been added to ${nextTeamSession}.`);
+  };
+
+  const handleRemoveTeam = (teamId) => {
+    if (adminUser?.role !== 'owner') {
+      showToast('Only the developer can remove team records.', 'error');
+      return;
+    }
+
+    const targetTeam = teams.find((team) => team.id === teamId);
+    if (!targetTeam) return;
+
+    setTeams((previousTeams) => previousTeams.map((team) => {
+      if (team.id !== teamId) return team;
+
+      const currentSessions = getTeamSessions(team, seasons.map((season) => season.edition));
+      const nextSessions = currentSessions.filter((session) => session !== teamSessionFocus);
+      return { ...team, sessions: nextSessions };
+    }));
+
+    showToast(`${targetTeam.name} was removed from ${teamSessionFocus} only.`);
   };
 
   const handleMediaSelection = (mediaKey, event) => {
@@ -970,6 +1122,211 @@ export const AdminDashboardModal = ({ onClose }) => {
                   </h4>
                   <span className="text-xs text-slate-400">Quick actions apply immediately</span>
                 </div>
+
+                {adminUser?.role === 'owner' && (
+                  <div className="rounded-2xl border border-amber-800/60 bg-amber-950/20 p-4 space-y-4">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                      <div>
+                        <h5 className="font-sports text-lg text-amber-300">DEVELOPER TEAM MANAGER</h5>
+                        <p className="text-xs text-slate-300">Open a session to manage only its teams. Changes are saved to this browser automatically.</p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                        {seasons.map((season) => (
+                          <button
+                            key={season.edition}
+                            type="button"
+                            onClick={() => {
+                              setTeamSessionFocus(season.edition);
+                              setTeamDraft((current) => ({ ...current, sessions: [season.edition] }));
+                              setTeamError('');
+                              setIsSessionWorkspaceOpen(true);
+                            }}
+                            className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-left hover:border-amber-500 hover:bg-slate-900"
+                          >
+                            <span className="block text-sm font-bold text-white">{season.edition}</span>
+                            <span className="mt-1 block text-[10px] font-bold uppercase text-amber-400">Open teams</span>
+                          </button>
+                        ))}
+                    </div>
+                      </div>
+
+                    {isSessionWorkspaceOpen && (
+                      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-3 sm:p-6">
+                        <section
+                          role="dialog"
+                          aria-modal="true"
+                          aria-labelledby="session-team-workspace-title"
+                          className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-amber-700/70 bg-slate-950 shadow-2xl"
+                        >
+                          <header className="flex items-center justify-between gap-4 border-b border-slate-800 px-4 py-3 sm:px-6">
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-amber-400">Independent team workspace</p>
+                              <h3 id="session-team-workspace-title" className="font-sports text-xl text-white">{teamSessionFocus}</h3>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setIsSessionWorkspaceOpen(false)}
+                              aria-label="Close session workspace"
+                              className="rounded-lg border border-slate-700 p-2 text-slate-300 hover:border-amber-500 hover:text-white"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </header>
+                          <div className="space-y-4 overflow-y-auto p-4 sm:p-6">
+                    <form onSubmit={handleAddTeam} className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                        Team Name
+                        <input
+                          type="text"
+                          value={teamDraft.name}
+                          onChange={(event) => setTeamDraft((current) => ({ ...current, name: event.target.value }))}
+                          className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus:border-amber-500 outline-none"
+                          placeholder="e.g. Royal Strikers"
+                        />
+                      </label>
+
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                        Short Name
+                        <input
+                          type="text"
+                          value={teamDraft.shortName}
+                          onChange={(event) => setTeamDraft((current) => ({ ...current, shortName: event.target.value }))}
+                          className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus:border-amber-500 outline-none"
+                          placeholder="RS"
+                        />
+                      </label>
+
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                        Captain
+                        <input
+                          type="text"
+                          value={teamDraft.captain}
+                          onChange={(event) => setTeamDraft((current) => ({ ...current, captain: event.target.value }))}
+                          className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus:border-amber-500 outline-none"
+                        />
+                      </label>
+
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                        Owner
+                        <input
+                          type="text"
+                          value={teamDraft.owner}
+                          onChange={(event) => setTeamDraft((current) => ({ ...current, owner: event.target.value }))}
+                          className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus:border-amber-500 outline-none"
+                        />
+                      </label>
+
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 md:col-span-2">
+                        Home Ground
+                        <input
+                          type="text"
+                          value={teamDraft.home}
+                          onChange={(event) => setTeamDraft((current) => ({ ...current, home: event.target.value }))}
+                          className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus:border-amber-500 outline-none"
+                        />
+                      </label>
+
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                        Primary Color
+                        <input
+                          type="color"
+                          value={teamDraft.primaryColor}
+                          onChange={(event) => setTeamDraft((current) => ({ ...current, primaryColor: event.target.value }))}
+                          className="mt-1 h-11 w-full rounded-xl border border-slate-700 bg-slate-950 p-1"
+                        />
+                      </label>
+
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                        Secondary Color
+                        <input
+                          type="color"
+                          value={teamDraft.secondaryColor}
+                          onChange={(event) => setTeamDraft((current) => ({ ...current, secondaryColor: event.target.value }))}
+                          className="mt-1 h-11 w-full rounded-xl border border-slate-700 bg-slate-950 p-1"
+                        />
+                      </label>
+
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 md:col-span-2">
+                        Slogan
+                        <input
+                          type="text"
+                          value={teamDraft.slogan}
+                          onChange={(event) => setTeamDraft((current) => ({ ...current, slogan: event.target.value }))}
+                          className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus:border-amber-500 outline-none"
+                        />
+                      </label>
+
+                      <label className="md:col-span-2 flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-slate-200">
+                        <input
+                          type="checkbox"
+                          checked={alsoAddNextSeason}
+                          onChange={(event) => setAlsoAddNextSeason(event.target.checked)}
+                          className="h-4 w-4 accent-amber-500"
+                        />
+                        <span>Add the same team to {nextTeamSession} too</span>
+                      </label>
+
+                      {teamError && (
+                        <div className="md:col-span-2 rounded-xl border border-rose-900 bg-rose-950/50 px-3 py-2 text-xs text-rose-300">
+                          {teamError}
+                        </div>
+                      )}
+
+                      <div className="md:col-span-2 flex justify-end">
+                        <button
+                          type="submit"
+                          className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-amber-400"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Add Team
+                        </button>
+                      </div>
+                    </form>
+
+                    <div className="space-y-2">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Teams in {teamSessionFocus}</p>
+                      <div className="space-y-2">
+                        {teams.filter((team) => {
+                          return getTeamSessions(team, seasons.map((season) => season.edition)).includes(teamSessionFocus);
+                        }).map((team) => (
+                          <div key={team.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2">
+                            <div>
+                              <p className="font-bold text-white">{team.name}</p>
+                              <p className="text-[10px] text-slate-400">This session only</p>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                disabled={teams.some((candidate) => candidate.name === team.name && getTeamSessions(candidate, seasons.map((season) => season.edition)).includes(nextTeamSession))}
+                                onClick={() => handleCopyTeamToNextSession(team)}
+                                className="rounded-lg border border-emerald-800 bg-emerald-950/60 px-2 py-1 text-[10px] font-bold uppercase text-emerald-300 hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {teams.some((candidate) => candidate.name === team.name && getTeamSessions(candidate, seasons.map((season) => season.edition)).includes(nextTeamSession))
+                                  ? `Already in ${nextTeamSession}`
+                                  : `Add to ${nextTeamSession}`}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveTeam(team.id)}
+                                className="rounded-lg border border-rose-800 bg-rose-950/60 px-2 py-1 text-[10px] font-bold uppercase text-rose-300 hover:bg-rose-900"
+                              >
+                                Remove from {teamSessionFocus}
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                        {teams.filter((team) => getTeamSessions(team, seasons.map((season) => season.edition)).includes(teamSessionFocus)).length === 0 && (
+                          <p className="rounded-xl border border-dashed border-slate-700 px-4 py-6 text-center text-sm text-slate-400">No teams are assigned to {teamSessionFocus}.</p>
+                        )}
+                      </div>
+                    </div>
+                        </div>
+                      </section>
+                    </div>
+                  )}
+                  </div>
+                )}
 
                 <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950/80">
                   <table className="w-full text-left text-xs">

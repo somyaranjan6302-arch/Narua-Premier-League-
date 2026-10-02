@@ -48,7 +48,10 @@ export const NplProvider = ({ children }) => {
       ...savedChampions.filter((champion) => !seededEditions.has(champion?.edition))
     ];
   });
-  const [seasons, setSeasons] = useState(() => initialSeasons);
+  const [seasons, setSeasons] = useState(() => {
+    const savedSeasons = loadState('seasons', initialSeasons);
+    return Array.isArray(savedSeasons) ? savedSeasons : initialSeasons;
+  });
   const [teams, setTeams] = useState(() => (
     loadState('teamDataVersion', 0) >= 2
       ? loadState('teams', initialTeams)
@@ -123,6 +126,10 @@ export const NplProvider = ({ children }) => {
   useEffect(() => {
     localStorage.setItem('npl_champions', JSON.stringify(champions));
   }, [champions]);
+
+  useEffect(() => {
+    localStorage.setItem('npl_seasons', JSON.stringify(seasons));
+  }, [seasons]);
 
   useEffect(() => {
     localStorage.setItem('npl_teams', JSON.stringify(teams));

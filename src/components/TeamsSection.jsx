@@ -6,6 +6,17 @@ import { Users, Trophy, Shield, ChevronRight, UserCheck, MapPin } from 'lucide-r
 export const TeamsSection = () => {
   const { teams, openModal, seasons, selectedSeason, setSelectedSeason } = useNpl();
   const seasonInfo = seasons.find((season) => season.edition === selectedSeason) || seasons[0];
+  const filteredTeams = teams.filter((team) => {
+    const teamSessions = Array.isArray(team.sessions)
+      ? team.sessions
+      : Array.isArray(team.seasons)
+        ? team.seasons
+        : team.session
+          ? [team.session]
+          : seasons.map((season) => season.edition);
+
+    return teamSessions.includes(selectedSeason);
+  });
 
   return (
     <section id="teams" className="py-20 bg-[#050B17] border-t border-slate-800">
@@ -47,12 +58,17 @@ export const TeamsSection = () => {
 
         {/* 8 Teams Grid (12-column responsive layout) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {teams.map((team) => (
-            <div
-              key={team.id}
-              onClick={() => openModal('team-details', team)}
-              className="glass-panel-card rounded-3xl p-5 border border-slate-800 hover:border-amber-500/50 transition-all duration-300 hover:-translate-y-1.5 cursor-pointer relative overflow-hidden group flex flex-col justify-between shadow-xl"
-            >
+          {filteredTeams.length === 0 ? (
+            <div className="col-span-full rounded-2xl border border-dashed border-slate-700 bg-slate-950/60 p-10 text-center text-slate-400">
+              No teams are registered for {selectedSeason} yet.
+            </div>
+          ) : (
+            filteredTeams.map((team) => (
+              <div
+                key={team.id}
+                onClick={() => openModal('team-details', team)}
+                className="glass-panel-card rounded-3xl p-5 border border-slate-800 hover:border-amber-500/50 transition-all duration-300 hover:-translate-y-1.5 cursor-pointer relative overflow-hidden group flex flex-col justify-between shadow-xl"
+              >
               {/* Dynamic top accent glow using franchise colors */}
               <div
                 className="absolute top-0 left-0 right-0 h-1.5 transition-all duration-300 group-hover:h-2"
@@ -128,12 +144,13 @@ export const TeamsSection = () => {
               </div>
 
               {/* View Squad Link */}
-              <div className="mt-4 pt-3 border-t border-slate-800/60 flex items-center justify-between text-xs font-bold text-amber-400 group-hover:text-amber-300">
-                <span>VIEW COMPLETE SQUAD ({team.squad?.length || 15} PLAYERS)</span>
-                <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                <div className="mt-4 pt-3 border-t border-slate-800/60 flex items-center justify-between text-xs font-bold text-amber-400 group-hover:text-amber-300">
+                  <span>VIEW COMPLETE SQUAD ({team.squad?.length || 15} PLAYERS)</span>
+                  <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
     </section>
