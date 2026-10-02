@@ -54,8 +54,9 @@ export const Footer = ({ scrollToSection }) => {
             {/* Social Icons */}
             <div className="flex items-center gap-3 pt-2">
               <a
-                href="#social"
-                onClick={(e) => e.preventDefault()}
+                href="https://www.instagram.com/naruapremierleague/"
+                target="_blank"
+                rel="noopener noreferrer"
                 aria-label="Instagram"
                 className="w-9 h-9 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-300 hover:text-amber-400 hover:border-amber-500 transition-colors"
               >
