@@ -1,84 +1,67 @@
-import 'dotenv/config';
 import { promisify } from 'node:util';
 import { createHmac, randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { Readable } from 'node:stream';
+import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import multer from 'multer';
-import { v2 as cloudinary } from 'cloudinary';
 
 const scrypt = promisify(scryptCallback);
 const serverDirectory = path.dirname(fileURLToPath(import.meta.url));
 const dataDirectory = path.join(serverDirectory, 'data');
 const usersFile = path.join(dataDirectory, 'admin-users.json');
-const mediaFile = path.join(dataDirectory, 'site-media.json');
-const uploadsDirectory = path.join(dataDirectory, 'uploads');
+const repositoryDirectory = path.resolve(serverDirectory, '..');
+const publicDirectory = path.join(repositoryDirectory, 'public');
+const mediaFile = path.join(publicDirectory, 'site-media.json');
+const uploadsDirectory = path.join(publicDirectory, 'uploads');
+const legacyMediaFile = path.join(dataDirectory, 'site-media.json');
+const legacyUploadsDirectory = path.join(dataDirectory, 'uploads');
 const secretFile = path.join(dataDirectory, 'session-secret');
 const port = Number(process.env.PORT || 5173);
 const sessionDurationSeconds = 8 * 60 * 60;
 const loginAttempts = new Map();
-const cloudinaryConfigured = Boolean(
-  process.env.CLOUDINARY_CLOUD_NAME &&
-  process.env.CLOUDINARY_API_KEY &&
-  process.env.CLOUDINARY_API_SECRET
-);
-const cloudinaryMediaPrefix = 'npl-media/';
-
-if (cloudinaryConfigured) {
-  cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-    secure: true
-  });
-}
-
-const toCloudinaryPublicId = (mediaKey) => `${cloudinaryMediaPrefix}${Buffer.from(mediaKey).toString('base64url')}`;
-
-const getCloudinaryMedia = async () => {
-  const media = {};
-  let nextCursor;
-
-  do {
-    const result = await cloudinary.api.resources({
-      type: 'upload',
-      prefix: cloudinaryMediaPrefix,
-      max_results: 500,
-      next_cursor: nextCursor
-    });
-
-    for (const resource of result.resources) {
-      const encodedKey = resource.public_id.slice(cloudinaryMediaPrefix.length);
-      try {
-        const mediaKey = Buffer.from(encodedKey, 'base64url').toString('utf8');
-        if (mediaKey) media[mediaKey] = resource.secure_url;
-      } catch {
-        continue;
-      }
-    }
-
-    nextCursor = result.next_cursor;
-  } while (nextCursor);
-
-  return media;
+const imageExtensions = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+  'image/gif': '.gif'
 };
 
-const uploadToCloudinary = (file, mediaKey) => new Promise((resolve, reject) => {
-  const uploadStream = cloudinary.uploader.upload_stream({
-    public_id: toCloudinaryPublicId(mediaKey),
-    resource_type: 'image',
-    overwrite: true,
-    invalidate: true
-  }, (error, result) => {
-    if (error) return reject(error);
-    if (!result?.secure_url) return reject(new Error('Cloudinary did not return an image URL.'));
-    return resolve(result.secure_url);
-  });
+const migrateLegacyMediaToRepository = async (legacyMedia) => {
+  const sharedMedia = await readJson(mediaFile, {});
+  let migratedCount = 0;
 
-  Readable.from([file.buffer]).pipe(uploadStream);
-});
+  for (const [mediaKey, mediaUrl] of Object.entries(legacyMedia)) {
+    if (sharedMedia[mediaKey] || typeof mediaUrl !== 'string' || !mediaUrl.startsWith('/uploads/')) continue;
+
+    const filename = path.basename(mediaUrl);
+    if (!filename || filename !== mediaUrl.slice('/uploads/'.length)) continue;
+
+    try {
+      await copyFile(path.join(legacyUploadsDirectory, filename), path.join(uploadsDirectory, filename));
+      sharedMedia[mediaKey] = `/uploads/${filename}`;
+      migratedCount += 1;
+    } catch (error) {
+      if (error.code !== 'ENOENT') console.error(`Could not migrate legacy image for ${mediaKey}:`, error.message);
+    }
+  }
+
+  if (migratedCount > 0) {
+    console.log(`Copied ${migratedCount} legacy image(s) into Git-trackable public/uploads.`);
+  }
+
+  await writeJson(mediaFile, sharedMedia);
+  return sharedMedia;
+};
+
+const savePublicUpload = async (file, mediaKey) => {
+  const filename = `${randomBytes(16).toString('hex')}${imageExtensions[file.mimetype]}`;
+  await writeFile(path.join(uploadsDirectory, filename), file.buffer, { flag: 'wx', mode: 0o644 });
+  const media = await readJson(mediaFile, {});
+  media[mediaKey] = `/uploads/${filename}`;
+  await writeJson(mediaFile, media);
+  return media[mediaKey];
+};
 
 const readJson = async (filePath, fallback) => {
   try {
@@ -107,9 +90,12 @@ const verifyPassword = async (password, user) => {
 
 const initializeAuth = async () => {
   await mkdir(dataDirectory, { recursive: true, mode: 0o700 });
-  await mkdir(uploadsDirectory, { recursive: true, mode: 0o700 });
+  await mkdir(publicDirectory, { recursive: true });
+  await mkdir(uploadsDirectory, { recursive: true });
   const users = await readJson(usersFile, []);
-  const media = await readJson(mediaFile, {});
+  const legacyMedia = await readJson(legacyMediaFile, {});
+  const trackedMedia = await readJson(mediaFile, {});
+  const media = { ...legacyMedia, ...trackedMedia };
   let sessionSecret;
 
   try {
@@ -181,6 +167,7 @@ const publicUser = ({ adminId, role }) => ({ adminId, role });
 
 const start = async () => {
   const auth = await initializeAuth();
+  auth.media = await migrateLegacyMediaToRepository(auth.media);
   const app = express();
   app.disable('x-powered-by');
   app.use(express.json({ limit: '10kb' }));
@@ -199,12 +186,6 @@ const start = async () => {
     setHeaders: (res) => res.set('X-Content-Type-Options', 'nosniff')
   }));
 
-  const imageExtensions = {
-    'image/jpeg': '.jpg',
-    'image/png': '.png',
-    'image/webp': '.webp',
-    'image/gif': '.gif'
-  };
   const imageUpload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 8 * 1024 * 1024, files: 1 },
@@ -233,14 +214,7 @@ const start = async () => {
   });
 
   app.get('/api/site-media', async (_req, res) => {
-    if (!cloudinaryConfigured) return res.json(auth.media);
-
-    try {
-      return res.json(await getCloudinaryMedia());
-    } catch (error) {
-      console.error('Could not load shared media from Cloudinary:', error);
-      return res.status(502).json({ error: 'Shared media is temporarily unavailable.' });
-    }
+    return res.json(await readJson(mediaFile, auth.media));
   });
 
   app.post('/api/admin/login', async (req, res) => {
@@ -327,10 +301,6 @@ const start = async () => {
   });
 
   app.post('/api/admin/media', requireAdmin, requireOwner, (req, res, next) => {
-    if (!cloudinaryConfigured) {
-      return res.status(503).json({ error: 'Shared uploads are not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET, then restart the server.' });
-    }
-
     imageUpload.single('image')(req, res, (error) => {
       if (!error) return next();
       const message = error.code === 'LIMIT_FILE_SIZE'
@@ -345,13 +315,9 @@ const start = async () => {
     }
     if (!req.file) return res.status(400).json({ error: 'Choose an image to upload.' });
 
-    try {
-      const url = await uploadToCloudinary(req.file, mediaKey);
-      return res.status(201).json({ key: mediaKey, url });
-    } catch (error) {
-      console.error(`Could not upload shared media for ${mediaKey}:`, error);
-      return res.status(502).json({ error: 'Image upload to shared storage failed. Check Cloudinary configuration and try again.' });
-    }
+    const url = await savePublicUpload(req.file, mediaKey);
+    auth.media[mediaKey] = url;
+    return res.status(201).json({ key: mediaKey, url });
   });
 
   app.use('/api', (_req, res) => res.status(404).json({ error: 'API endpoint not found.' }));
