@@ -2,9 +2,9 @@
 
 @layer base {
   :root {
-    --color-npl-blue: #080E1E;
-    --color-npl-navy: #050B17;
-    --color-npl-card: #0D172A;
+    --color-npl-blue: #2a3ef9;
+    --color-npl-navy: #1354d5;
+    --color-npl-card: #1e61de;
     --color-npl-border: #1E293B;
     --color-npl-gold: #F59E0B;
     --color-npl-amber: #FBBF24;
@@ -17,7 +17,7 @@
 
   body {
     font-family: 'Inter', system-ui, sans-serif;
-    background-color: #050B17;
+    background-color: var(--color-npl-navy);
     color: #F8FAFC;
     overflow-x: hidden;
   }
@@ -103,7 +103,7 @@
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #050B17;
+  background: var(--color-npl-navy);
 }
 ::-webkit-scrollbar-thumb {
   background: #1E293B;

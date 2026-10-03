@@ -1,8 +1,9 @@
 import React from 'react';
 import { useNpl } from '../context/NplContext';
+import { getSiteMedia } from '../utils/siteMedia';
 
 export const TeamBadge = ({ team, size = "md", showName = false }) => {
-  const { siteMedia } = useNpl();
+  const { siteMedia, selectedSeason } = useNpl();
   const sizeMap = {
     xs: "w-6 h-6 text-[10px]",
     sm: "w-9 h-9 text-xs",
@@ -14,7 +15,7 @@ export const TeamBadge = ({ team, size = "md", showName = false }) => {
   const currentSize = sizeMap[size] || sizeMap.md;
   const primaryColor = team?.primaryColor || team?.color || "#F59E0B";
   const shortName = team?.shortName || team?.short || "NPL";
-  const logoSrc = siteMedia?.[`team-logo:${team?.id}`] || team?.logo;
+  const logoSrc = getSiteMedia(siteMedia, `team-logo:${team?.id}`, selectedSeason, team?.logo);
 
   return (
     <div className="inline-flex items-center gap-2.5">

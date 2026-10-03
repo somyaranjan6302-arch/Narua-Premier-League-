@@ -37,7 +37,7 @@ export const PlayerSection = () => {
             economy: player.economy || (player.wickets > 0 ? '6.85' : '-'),
             bestScore: player.bestScore || (player.runs > 500 ? '94*' : '58*'),
             bestBowling: player.bestBowling || (player.wickets > 20 ? '4/18' : '2/24'),
-            photo: player.photo || `https://images.unsplash.com/photo-${1500000000000 + (player.id.charCodeAt(1) || 50) * 1234567}?auto=format&fit=crop&w=400&q=80`
+            photo: player.photo || '/assets/bajrangi11_team.png'
           });
         });
       }
@@ -78,7 +78,7 @@ export const PlayerSection = () => {
   ];
 
   return (
-    <section id="players" className="py-20 bg-[#050B17] border-t border-slate-800">
+    <section id="players" className="py-20 bg-[var(--color-npl-navy)] border-t border-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Title */}
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-4">
@@ -180,7 +180,7 @@ export const PlayerSection = () => {
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-xl bg-slate-800 overflow-hidden flex-shrink-0 border border-slate-700">
                     <img
-                      src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80"
+                      src="/assets/bajrangi11_team.png"
                       alt={player.name}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform"
                     />

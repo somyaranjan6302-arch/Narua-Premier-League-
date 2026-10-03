@@ -38,7 +38,7 @@ export const MatchCenter = () => {
   const completedMatchesCount = sessionMatches.filter(m => m.status === 'COMPLETED').length;
 
   return (
-    <section id="matches" className="py-20 bg-[#050B17] border-t border-slate-800">
+    <section id="matches" className="py-20 bg-[var(--color-npl-navy)] border-t border-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header and Filter Tabs */}
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-6">

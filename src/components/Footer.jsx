@@ -48,7 +48,7 @@ export const Footer = ({ scrollToSection }) => {
           <div className="lg:col-span-4 min-w-0 space-y-4">
             <NplLogo size="lg" imageSrc={siteMedia.logo} compactOnMobile />
             <p className="w-full min-w-0 max-w-sm break-words text-xs sm:text-sm text-slate-400 leading-relaxed">
-              Narua Premier League (NPL) is Bengal's premier local franchise T20 cricket tournament, empowering grassroots cricket talent since 2024 through professional league standards.
+              Narua Premier League (NPL) is Binjharpur's premier local franchise T20 cricket tournament, empowering grassroots cricket talent since 2024 through professional league standards.
             </p>
 
             {/* Social Icons */}

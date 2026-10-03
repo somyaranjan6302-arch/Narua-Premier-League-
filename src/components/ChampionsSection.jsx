@@ -3,6 +3,7 @@ import { useNpl } from '../context/NplContext';
 import { SessionSelector } from './SessionSelector';
 import { TeamBadge } from './TeamBadge';
 import { Trophy, ChevronLeft, ChevronRight, Eye, Medal } from 'lucide-react';
+import { getSiteMedia } from '../utils/siteMedia';
 
 const getEditionKey = (edition) => String(edition || '').match(/Season\s*\d+/i)?.[0].replace(/\s+/g, ' ') || edition;
 
@@ -82,7 +83,7 @@ export const ChampionsSection = () => {
               <div className="lg:col-span-6 relative">
                 <div className="relative rounded-2xl overflow-hidden shadow-2xl border-2 border-amber-500/30">
                   <img
-                    src={siteMedia[`champion:${activeChampionIndex}`] || activeChampion.teamPhoto}
+                    src={getSiteMedia(siteMedia, `champion:${activeChampionIndex}`, activeChampion.edition, activeChampion.teamPhoto)}
                     alt={`${activeChampion.championTeam} Champions`}
                     className="w-full h-[320px] sm:h-[400px] object-cover group-hover:scale-105 transition-transform duration-700"
                     onError={(e) => {

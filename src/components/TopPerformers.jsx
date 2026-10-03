@@ -2,6 +2,7 @@ import React from 'react';
 import { useNpl } from '../context/NplContext';
 import { SessionSelector } from './SessionSelector';
 import { Award, Zap, Flame, Shield, Target, Sparkles } from 'lucide-react';
+import { getSiteMedia } from '../utils/siteMedia';
 
 export const TopPerformers = () => {
   const { topPerformers, openModal, siteMedia, seasons, selectedSeason, setSelectedSeason } = useNpl();
@@ -49,7 +50,7 @@ export const TopPerformers = () => {
                   team: data.team,
                   role: data.category,
                   runs: data.stat,
-                      photo: siteMedia[`performer:${key}`] || data.photo,
+                      photo: getSiteMedia(siteMedia, `performer:${key}`, selectedSeason, data.photo),
                   details: data.details
                 })}
                 className="glass-panel-card rounded-3xl p-6 border border-slate-800 hover:border-amber-500/50 transition-all duration-300 hover:-translate-y-1.5 cursor-pointer relative overflow-hidden group shadow-xl"
@@ -69,7 +70,7 @@ export const TopPerformers = () => {
                   {/* Player Photo with Glow Border */}
                   <div className="relative w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 border-2 border-amber-500/40 shadow-lg group-hover:scale-105 transition-transform">
                     <img
-                      src={siteMedia[`performer:${key}`] || data.photo}
+                      src={getSiteMedia(siteMedia, `performer:${key}`, selectedSeason, data.photo)}
                       alt={data.player}
                       className="w-full h-full object-cover"
                     />

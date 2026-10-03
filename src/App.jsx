@@ -47,7 +47,7 @@ export const App = () => {
   const topPaddingClass = activeSection === 'home' ? '' : 'pt-28 sm:pt-32 lg:pt-36';
 
   return (
-    <div className="min-h-screen bg-[#050B17] text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-black">
+    <div className="min-h-screen bg-[var(--color-npl-navy)] text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-black">
       {/* Toast Notification Banner */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 animate-bounce">

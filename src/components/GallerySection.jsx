@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNpl } from '../context/NplContext';
 import { SessionSelector } from './SessionSelector';
 import { Image, Maximize2, Tag } from 'lucide-react';
+import { getSiteMedia } from '../utils/siteMedia';
 
 export const GallerySection = () => {
   const { gallery, openModal, siteMedia, seasons, selectedSeason, setSelectedSeason } = useNpl();
@@ -24,11 +25,11 @@ export const GallerySection = () => {
     return item.category === selectedCategory;
   }).map(item => ({
     ...item,
-    image: siteMedia[`gallery:${item.id}`] || item.image
+    image: getSiteMedia(siteMedia, `gallery:${item.id}`, item.season || item.session, item.image)
   }));
 
   return (
-    <section id="gallery" className="py-20 bg-[#050B17] border-t border-slate-800">
+    <section id="gallery" className="py-20 bg-[var(--color-npl-navy)] border-t border-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Title */}
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-4">

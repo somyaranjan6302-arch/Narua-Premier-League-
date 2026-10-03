@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNpl } from '../context/NplContext';
 import { SessionSelector } from './SessionSelector';
 import { Play, Eye, Clock, Film } from 'lucide-react';
+import { getSiteMedia } from '../utils/siteMedia';
 
 export const VideoHighlights = () => {
   const { highlights, openModal, siteMedia, seasons, selectedSeason, setSelectedSeason } = useNpl();
@@ -12,7 +13,7 @@ export const VideoHighlights = () => {
   const activeVideo = sessionHighlights[sessionVideoIndex];
   const featuredVideo = activeVideo ? {
     ...activeVideo,
-    thumbnail: siteMedia[`highlight:${activeVideo.id}`] || activeVideo.thumbnail
+    thumbnail: getSiteMedia(siteMedia, `highlight:${activeVideo.id}`, activeVideo.season || activeVideo.session, activeVideo.thumbnail)
   } : null;
 
   return (
@@ -128,7 +129,7 @@ export const VideoHighlights = () => {
                     {/* Small thumbnail */}
                     <div className="relative w-24 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-slate-950">
                       <img
-                        src={siteMedia[`highlight:${video.id}`] || video.thumbnail}
+                        src={getSiteMedia(siteMedia, `highlight:${video.id}`, video.season || video.session, video.thumbnail)}
                         alt={video.title}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                       />

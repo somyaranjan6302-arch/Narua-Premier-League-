@@ -27,7 +27,7 @@ export const PlayerProfileModal = ({ player, onClose }) => {
           <div className="flex items-center gap-5">
             <div className="w-24 h-24 rounded-2xl overflow-hidden border-2 border-amber-500/50 flex-shrink-0 bg-slate-950 shadow-xl">
               <img
-                src={player.photo || "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=400&q=80"}
+                src={player.photo || '/assets/bajrangi11_team.png'}
                 alt={player.name}
                 className="w-full h-full object-cover"
               />

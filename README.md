@@ -20,7 +20,7 @@ This project is a broadcast-grade sports tournament web platform for **Narua Pre
    On the first start, the server prints a randomly generated developer admin password in the terminal. Save it securely; it is shown only once. The developer account ID is `developer`. The developer can create additional admin accounts from the Admin Portal's **Admin Accounts** tab.
 
 3. **Share Uploaded Images:**
-   The Admin Portal's **OWNER MEDIA** uploads are saved in `public/uploads/`, with their image-slot mapping in `public/site-media.json`. These files are part of the repository. After uploading or replacing photos, share them with other clones by committing and pushing:
+   The Admin Portal's **OWNER MEDIA** uploads are saved in `public/uploads/`, with their image-slot mapping in `public/site-media.json`. Content-image slots support separate images per session; the NPL logo, stadium background, and main trophy image are shared across sessions. These files are part of the repository. After uploading or replacing photos, share them with other clones by committing and pushing:
 
    ```bash
    git add public/uploads public/site-media.json

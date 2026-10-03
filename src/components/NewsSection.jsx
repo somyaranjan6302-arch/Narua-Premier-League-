@@ -2,6 +2,7 @@ import React from 'react';
 import { useNpl } from '../context/NplContext';
 import { SessionSelector } from './SessionSelector';
 import { Newspaper, Calendar, Clock, ChevronRight, ArrowUpRight } from 'lucide-react';
+import { getSiteMedia } from '../utils/siteMedia';
 
 export const NewsSection = () => {
   const { news, openModal, siteMedia, seasons, selectedSeason, setSelectedSeason } = useNpl();
@@ -9,9 +10,10 @@ export const NewsSection = () => {
   const sessionNews = news.filter((item) => (item.season || item.session) === selectedSeason);
   const featuredNews = sessionNews.find(n => n.featured) || sessionNews[0];
   const otherNews = sessionNews.filter(n => n.id !== featuredNews?.id);
+  const getNewsImage = (item) => getSiteMedia(siteMedia, `news:${item.id}`, item.season || item.session, item.image);
 
   return (
-    <section id="news" className="py-20 bg-[#050B17] border-t border-slate-800">
+    <section id="news" className="py-20 bg-[var(--color-npl-navy)] border-t border-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Title */}
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-4">
@@ -45,13 +47,13 @@ export const NewsSection = () => {
             <div
               onClick={() => openModal('article-details', {
                 ...featuredNews,
-                image: siteMedia[`news:${featuredNews.id}`] || featuredNews.image
+                image: getNewsImage(featuredNews)
               })}
               className="lg:col-span-7 glass-panel-card rounded-3xl overflow-hidden border border-slate-800 hover:border-amber-500/50 transition-all duration-300 cursor-pointer group flex flex-col justify-between shadow-2xl"
             >
               <div className="relative h-[280px] sm:h-[340px] overflow-hidden">
                 <img
-                  src={siteMedia[`news:${featuredNews.id}`] || featuredNews.image}
+                  src={getNewsImage(featuredNews)}
                   alt={featuredNews.headline}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 filter brightness-90"
                 />
@@ -102,13 +104,13 @@ export const NewsSection = () => {
                 key={item.id}
                 onClick={() => openModal('article-details', {
                   ...item,
-                  image: siteMedia[`news:${item.id}`] || item.image
+                  image: getNewsImage(item)
                 })}
                 className="glass-panel-card p-5 rounded-2xl border border-slate-800 hover:border-amber-500/50 transition-all duration-300 cursor-pointer group flex items-start gap-4 shadow-xl"
               >
                 <div className="relative w-28 h-24 rounded-xl overflow-hidden flex-shrink-0 bg-slate-950 border border-slate-800">
                   <img
-                    src={siteMedia[`news:${item.id}`] || item.image}
+                    src={getNewsImage(item)}
                     alt={item.headline}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />

@@ -763,3 +763,33 @@ export const initialAuctionLiveState = {
     np: 5000000
   }
 };
+
+export const localizeOfflineMedia = (value, key = '') => {
+  if (Array.isArray(value)) {
+    value.forEach((item) => localizeOfflineMedia(item, key));
+    return value;
+  }
+
+  if (value && typeof value === 'object') {
+    Object.entries(value).forEach(([childKey, childValue]) => {
+      value[childKey] = localizeOfflineMedia(childValue, childKey);
+    });
+    return value;
+  }
+
+  if (typeof value !== 'string' || !value.startsWith('https://images.unsplash.com/')) return value;
+
+  if (key === 'photo') return '/assets/bajrangi11_team.png';
+  if (key === 'teamPhoto') return '/assets/bajrangi11_champions.png';
+  return '/assets/stadium.jpg';
+};
+
+[
+  initialChampions,
+  initialTeams,
+  initialSessionTeams,
+  initialTopPerformers,
+  initialGallery,
+  initialHighlights,
+  initialNews
+].forEach((data) => localizeOfflineMedia(data));

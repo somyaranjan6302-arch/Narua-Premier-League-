@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNpl } from '../../context/NplContext';
+import { ImageCropEditor } from '../ImageCropEditor';
 import { X, Flame, CheckCircle2, User, Award, Camera, QrCode, Printer } from 'lucide-react';
 
 export const AuctionRegistrationModal = ({ onClose }) => {
@@ -29,6 +30,12 @@ export const AuctionRegistrationModal = ({ onClose }) => {
     consent: false
   });
   const [photoError, setPhotoError] = useState('');
+  const [photoCropFile, setPhotoCropFile] = useState(null);
+  const photoPreviewUrl = useRef(null);
+
+  useEffect(() => () => {
+    if (photoPreviewUrl.current) URL.revokeObjectURL(photoPreviewUrl.current);
+  }, []);
 
   const handlePhotoUpload = async (event) => {
     const input = event.currentTarget;
@@ -46,31 +53,35 @@ export const AuctionRegistrationModal = ({ onClose }) => {
       return;
     }
 
-    try {
-      const image = await createImageBitmap(file);
-      const cropSize = Math.min(image.width, image.height);
-      const canvas = document.createElement('canvas');
-      canvas.width = 384;
-      canvas.height = 384;
-      const context = canvas.getContext('2d');
-      context.drawImage(
-        image,
-        (image.width - cropSize) / 2,
-        (image.height - cropSize) / 2,
-        cropSize,
-        cropSize,
-        0,
-        0,
-        canvas.width,
-        canvas.height
-      );
-      image.close();
-      setFormData((current) => ({ ...current, photo: canvas.toDataURL('image/jpeg', 0.8) }));
-      setPhotoError('');
-    } catch {
-      setPhotoError('This photo could not be opened. Try another image.');
-    }
+    if (photoPreviewUrl.current) URL.revokeObjectURL(photoPreviewUrl.current);
+    const previewUrl = URL.createObjectURL(file);
+    photoPreviewUrl.current = previewUrl;
+    setPhotoCropFile({ file, previewUrl });
+    setPhotoError('');
     input.value = '';
+  };
+
+  const handlePhotoCrop = (file) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== 'string') {
+        setPhotoError('This photo could not be prepared. Try another image.');
+        return;
+      }
+      setFormData((current) => ({ ...current, photo: reader.result }));
+      if (photoPreviewUrl.current) URL.revokeObjectURL(photoPreviewUrl.current);
+      photoPreviewUrl.current = null;
+      setPhotoCropFile(null);
+      setPhotoError('');
+    };
+    reader.onerror = () => setPhotoError('This photo could not be prepared. Try another image.');
+    reader.readAsDataURL(file);
+  };
+
+  const cancelPhotoCrop = () => {
+    if (photoPreviewUrl.current) URL.revokeObjectURL(photoPreviewUrl.current);
+    photoPreviewUrl.current = null;
+    setPhotoCropFile(null);
   };
 
   const handleSubmit = (e) => {
@@ -221,6 +232,17 @@ export const AuctionRegistrationModal = ({ onClose }) => {
                         <p className="text-[10px] text-slate-500">Select a photo from your phone or computer. Images are resized automatically (max 8 MB).</p>
                       </div>
                     </div>
+                    {photoCropFile && (
+                      <ImageCropEditor
+                        file={photoCropFile.file}
+                        previewUrl={photoCropFile.previewUrl}
+                        title="player profile"
+                        aspectRatio={1}
+                        rounded
+                        onApply={handlePhotoCrop}
+                        onCancel={cancelPhotoCrop}
+                      />
+                    )}
                     {photoError && <p role="alert" className="text-xs text-rose-400">{photoError}</p>}
                   </div>
                 </div>

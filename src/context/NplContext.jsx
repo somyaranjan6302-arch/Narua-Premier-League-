@@ -14,7 +14,8 @@ import {
   initialHighlights,
   initialNews,
   initialAuctionRegistrations,
-  initialAuctionLiveState
+  initialAuctionLiveState,
+  localizeOfflineMedia
 } from '../data/nplData';
 import confetti from 'canvas-confetti';
 import { sound } from '../utils/audio';
@@ -32,7 +33,7 @@ export const NplProvider = ({ children }) => {
   const loadState = (key, fallback) => {
     try {
       const saved = localStorage.getItem(`npl_${key}`);
-      return saved ? JSON.parse(saved) : fallback;
+      return saved ? localizeOfflineMedia(JSON.parse(saved)) : fallback;
     } catch {
       return fallback;
     }
@@ -173,7 +174,7 @@ export const NplProvider = ({ children }) => {
   useEffect(() => {
     fetch('/api/site-media')
       .then((response) => response.ok ? response.json() : {})
-      .then(setSiteMedia)
+      .then((media) => setSiteMedia(localizeOfflineMedia(media)))
       .catch(() => setSiteMedia({}));
   }, []);
 
@@ -253,7 +254,7 @@ export const NplProvider = ({ children }) => {
   const refreshSiteMedia = async () => {
     const response = await fetch('/api/site-media');
     if (!response.ok) throw new Error('Could not refresh site images.');
-    setSiteMedia(await response.json());
+    setSiteMedia(localizeOfflineMedia(await response.json()));
   };
 
   // Auction Registration submission

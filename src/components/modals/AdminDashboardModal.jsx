@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNpl } from '../../context/NplContext';
 import { TeamBadge } from '../TeamBadge';
 import { SessionSelector } from '../SessionSelector';
+import { ImageCropEditor } from '../ImageCropEditor';
+import { getSessionMediaKey } from '../../utils/siteMedia';
 import {
   X,
   Shield,
@@ -90,6 +92,9 @@ export const AdminDashboardModal = ({ onClose }) => {
   const [mediaSearch, setMediaSearch] = useState('');
   const [uploadingMediaKey, setUploadingMediaKey] = useState('');
   const [pendingMediaFiles, setPendingMediaFiles] = useState({});
+  const [mediaCropFiles, setMediaCropFiles] = useState({});
+  const [mediaSessionSelections, setMediaSessionSelections] = useState({});
+  const mediaPreviewUrls = useRef(new Set());
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [tournamentDraft, setTournamentDraft] = useState(() => ({ ...tournamentInfo }));
   const [teamSessionFocus, setTeamSessionFocus] = useState(selectedSeason || seasons[0]?.edition || 'Season 5');
@@ -106,6 +111,22 @@ export const AdminDashboardModal = ({ onClose }) => {
     slogan: '',
     sessions: [selectedSeason || seasons[0]?.edition || 'Season 5']
   });
+
+  const createMediaPreviewUrl = (file) => {
+    const previewUrl = URL.createObjectURL(file);
+    mediaPreviewUrls.current.add(previewUrl);
+    return previewUrl;
+  };
+
+  const revokeMediaPreviewUrl = (previewUrl) => {
+    if (!previewUrl || !mediaPreviewUrls.current.delete(previewUrl)) return;
+    URL.revokeObjectURL(previewUrl);
+  };
+
+  useEffect(() => () => {
+    mediaPreviewUrls.current.forEach((previewUrl) => URL.revokeObjectURL(previewUrl));
+    mediaPreviewUrls.current.clear();
+  }, []);
   const [teamError, setTeamError] = useState('');
   const [matchError, setMatchError] = useState('');
   const [matchDraft, setMatchDraft] = useState({
@@ -276,6 +297,12 @@ export const AdminDashboardModal = ({ onClose }) => {
     if (targetItem) showToast(`${targetItem.title} was removed from ${selectedSeason}.`);
   };
 
+  const handleGallerySeasonChange = (itemId, season) => {
+    setGallery((previousGallery) => previousGallery.map((item) => (
+      item.id === itemId ? { ...item, season } : item
+    )));
+  };
+
   const handleAddTeam = (event) => {
     event.preventDefault();
     if (adminUser?.role !== 'owner') {
@@ -317,7 +344,7 @@ export const AdminDashboardModal = ({ onClose }) => {
       wins: 0,
       losses: 0,
       winPercentage: 0,
-      banner: 'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?auto=format&fit=crop&w=1000&q=80',
+      banner: '/assets/stadium.jpg',
       squad: []
     }));
 
@@ -406,50 +433,28 @@ export const AdminDashboardModal = ({ onClose }) => {
     }
 
     setMediaError('');
-    const previewUrl = URL.createObjectURL(file);
+    revokeMediaPreviewUrl(mediaCropFiles[mediaKey]?.previewUrl);
+    revokeMediaPreviewUrl(pendingMediaFiles[mediaKey]?.previewUrl);
+    const previewUrl = createMediaPreviewUrl(file);
+    setMediaCropFiles((current) => ({ ...current, [mediaKey]: { file, previewUrl } }));
     setPendingMediaFiles((current) => {
-      if (current[mediaKey]) URL.revokeObjectURL(current[mediaKey].previewUrl);
-      return { ...current, [mediaKey]: { file, previewUrl, zoom: 1 } };
+      const next = { ...current };
+      delete next[mediaKey];
+      return next;
     });
     input.value = '';
   };
 
-  const handleMediaZoom = (mediaKey, zoom) => {
-    setPendingMediaFiles((current) => ({
-      ...current,
-      [mediaKey]: { ...current[mediaKey], zoom: Number(zoom) }
-    }));
-  };
-
-  const createAdjustedImage = async ({ file, previewUrl, zoom = 1 }) => {
-    if (zoom === 1) return file;
-
-    const image = new window.Image();
-    image.src = previewUrl;
-    await image.decode();
-
-    const canvas = document.createElement('canvas');
-    canvas.width = image.naturalWidth;
-    canvas.height = image.naturalHeight;
-    const context = canvas.getContext('2d');
-    if (!context) throw new Error('Could not adjust this image.');
-
-    const outputType = file.type === 'image/jpeg' || file.type === 'image/webp' ? file.type : 'image/png';
-    if (outputType === 'image/jpeg') {
-      context.fillStyle = '#071026';
-      context.fillRect(0, 0, canvas.width, canvas.height);
-    }
-
-    const scaledWidth = canvas.width * zoom;
-    const scaledHeight = canvas.height * zoom;
-    context.drawImage(image, (canvas.width - scaledWidth) / 2, (canvas.height - scaledHeight) / 2, scaledWidth, scaledHeight);
-
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, outputType));
-    if (!blob) throw new Error('Could not prepare the adjusted image.');
-
-    const extension = outputType === 'image/jpeg' ? '.jpg' : outputType === 'image/webp' ? '.webp' : '.png';
-    const baseName = file.name.replace(/\.[^.]+$/, '');
-    return new File([blob], `${baseName}${extension}`, { type: outputType });
+  const handleMediaCrop = (mediaKey, file) => {
+    const previewUrl = createMediaPreviewUrl(file);
+    revokeMediaPreviewUrl(pendingMediaFiles[mediaKey]?.previewUrl);
+    revokeMediaPreviewUrl(mediaCropFiles[mediaKey]?.previewUrl);
+    setPendingMediaFiles((current) => ({ ...current, [mediaKey]: { file, previewUrl } }));
+    setMediaCropFiles((current) => {
+      const next = { ...current };
+      delete next[mediaKey];
+      return next;
+    });
   };
 
   const handleMediaUpload = async (mediaKey) => {
@@ -462,12 +467,12 @@ export const AdminDashboardModal = ({ onClose }) => {
     formData.append('key', mediaKey);
 
     try {
-      formData.append('image', await createAdjustedImage(pendingMedia));
+      formData.append('image', pendingMedia.file);
       const response = await fetch('/api/admin/media', { method: 'POST', body: formData });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Image upload failed.');
       await refreshSiteMedia();
-      URL.revokeObjectURL(pendingMedia.previewUrl);
+      revokeMediaPreviewUrl(pendingMedia.previewUrl);
       setPendingMediaFiles((current) => {
         const next = { ...current };
         delete next[mediaKey];
@@ -481,13 +486,17 @@ export const AdminDashboardModal = ({ onClose }) => {
     }
   };
 
-  const mediaUploadControl = (mediaKey, title, description, fallbackImage = '') => {
+  const mediaUploadControl = (item) => {
+    const { key: baseMediaKey, title, description, fallback: fallbackImage = '', aspectRatio = 1, fit = false, galleryItem, sessionSpecific = false } = item;
+    const mediaSession = mediaSessionSelections[baseMediaKey] || item.defaultSession || selectedSeason;
+    const mediaKey = sessionSpecific ? getSessionMediaKey(baseMediaKey, mediaSession) : baseMediaKey;
     const pendingMedia = pendingMediaFiles[mediaKey];
+    const cropFile = mediaCropFiles[mediaKey];
     return (
-    <div key={mediaKey} className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3 border-b border-slate-800 py-4 last:border-0 xl:grid-cols-[5rem_minmax(0,1fr)_auto] xl:gap-4">
-      <label title={`Click to change ${title}`} className="group relative h-16 w-20 flex-shrink-0 cursor-pointer overflow-hidden rounded-lg border border-slate-700 bg-slate-950 focus-within:border-amber-400">
-        {(pendingMedia?.previewUrl || siteMedia[mediaKey] || fallbackImage) ? (
-          <img src={pendingMedia?.previewUrl || siteMedia[mediaKey] || fallbackImage} alt={`${title} preview`} className="h-full w-full object-cover transition-transform" style={{ transform: `scale(${pendingMedia?.zoom || 1})` }} />
+    <div key={baseMediaKey} className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3 border-b border-slate-800 py-4 last:border-0 xl:grid-cols-[5rem_minmax(0,1fr)_auto] xl:gap-4">
+      <label title={`Click to change ${title}`} className="group relative w-20 flex-shrink-0 cursor-pointer overflow-hidden rounded-lg border border-slate-700 bg-slate-950 focus-within:border-amber-400" style={{ aspectRatio }}>
+        {(pendingMedia?.previewUrl || cropFile?.previewUrl || siteMedia[mediaKey] || siteMedia[baseMediaKey] || fallbackImage) ? (
+          <img src={pendingMedia?.previewUrl || cropFile?.previewUrl || siteMedia[mediaKey] || siteMedia[baseMediaKey] || fallbackImage} alt={`${title} preview`} className={`h-full w-full ${fit ? 'object-contain' : 'object-cover'}`} />
         ) : (
           <div className="flex h-full items-center justify-center text-slate-600"><Image className="h-6 w-6" /></div>
         )}
@@ -507,6 +516,40 @@ export const AdminDashboardModal = ({ onClose }) => {
       <div className="min-w-0">
         <p className="text-sm font-bold text-white">{title}</p>
         <p className="text-xs text-slate-400">{description}</p>
+        {sessionSpecific && (
+          <label className="mt-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            Session
+            <select
+              value={mediaSession}
+              onChange={(event) => setMediaSessionSelections((current) => ({ ...current, [baseMediaKey]: event.target.value }))}
+              aria-label={`Session for ${title}`}
+              className="min-w-0 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs font-semibold normal-case tracking-normal text-white focus:border-amber-500 focus:outline-none"
+            >
+              {seasons.map((season) => (
+                <option key={season.edition} value={season.edition}>
+                  {season.edition} ({season.year || season.season})
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {galleryItem && (
+          <label className="mt-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            Session
+            <select
+              value={galleryItem.season || galleryItem.session || selectedSeason}
+              onChange={(event) => handleGallerySeasonChange(galleryItem.id, event.target.value)}
+              aria-label={`Session for ${galleryItem.title}`}
+              className="min-w-0 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs font-semibold normal-case tracking-normal text-white focus:border-amber-500 focus:outline-none"
+            >
+              {seasons.map((season) => (
+                <option key={season.edition} value={season.edition}>
+                  {season.edition} ({season.year || season.season})
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
       <div className="col-span-2 flex items-center justify-start gap-2 xl:col-span-1 xl:justify-end">
         <button
@@ -520,37 +563,41 @@ export const AdminDashboardModal = ({ onClose }) => {
           {uploadingMediaKey === mediaKey ? 'Saving...' : 'Save'}
         </button>
       </div>
-      {pendingMedia && (
-        <label className="col-span-2 grid grid-cols-[auto_minmax(0,1fr)_3.5rem] items-center gap-3 pt-1 text-xs text-slate-400 xl:col-span-3">
-          <span className="font-semibold">Zoom</span>
-          <input
-            type="range"
-            min="0.5"
-            max="2.5"
-            step="0.1"
-            value={pendingMedia.zoom}
-            disabled={Boolean(uploadingMediaKey)}
-            aria-label={`Adjust zoom for ${title}`}
-            onChange={(event) => handleMediaZoom(mediaKey, event.target.value)}
-            className="w-full accent-amber-500"
-          />
-          <output className="text-right font-mono text-slate-300">{Math.round(pendingMedia.zoom * 100)}%</output>
-        </label>
+      {cropFile && (
+        <ImageCropEditor
+          file={cropFile.file}
+          previewUrl={cropFile.previewUrl}
+          title={title}
+          aspectRatio={aspectRatio}
+          fit={fit}
+          onApply={(file) => handleMediaCrop(mediaKey, file)}
+          onCancel={() => {
+            revokeMediaPreviewUrl(cropFile.previewUrl);
+            setMediaCropFiles((current) => {
+              const next = { ...current };
+              delete next[mediaKey];
+              return next;
+            });
+          }}
+        />
       )}
     </div>
     );
   };
 
   const mediaItems = [
-    { key: 'logo', category: 'branding', title: 'NPL logo', description: 'Shown in the header and footer.' },
-    { key: 'stadium', category: 'branding', title: 'Stadium image', description: 'Shown on the home and league story pages.', fallback: '/assets/stadium.jpg' },
-    { key: 'trophy', category: 'branding', title: 'Championship trophy', description: 'Shown in the trophy showcase.', fallback: '/assets/trophy.jpg' },
+    { key: 'logo', category: 'branding', title: 'NPL logo', description: 'Shown in the header and footer.', aspectRatio: 1, fit: true },
+    { key: 'stadium', category: 'branding', title: 'Stadium image', description: 'Shown on the home and league story pages.', fallback: '/assets/stadium.jpg', aspectRatio: 16 / 9 },
+    { key: 'trophy', category: 'branding', title: 'Championship trophy', description: 'Shown in the trophy showcase.', fallback: '/assets/trophy.jpg', aspectRatio: 4 / 5 },
     ...champions.map((champion, index) => ({
       key: `champion:${index}`,
       category: 'champions',
       title: `${champion.season} ${champion.edition} • ${champion.championTeam}`,
       description: 'Champion feature photo.',
-      fallback: champion.teamPhoto
+      fallback: champion.teamPhoto,
+      aspectRatio: 4 / 3,
+      sessionSpecific: true,
+      defaultSession: seasons.find((season) => champion.edition.startsWith(season.edition))?.edition
     })),
     ...teams.flatMap((team) => [
       {
@@ -558,14 +605,21 @@ export const AdminDashboardModal = ({ onClose }) => {
         category: 'teams',
         title: `${team.name} banner`,
         description: 'Shown in team details.',
-        fallback: team.banner
+        fallback: team.banner,
+        aspectRatio: 16 / 9,
+        sessionSpecific: true,
+        defaultSession: getTeamSessions(team, seasons.map((season) => season.edition))[0]
       },
       {
         key: `team-logo:${team.id}`,
         category: 'teams',
         title: `${team.name} logo`,
         description: 'Shown inside the team badge.',
-        fallback: team.logo
+        fallback: team.logo,
+        aspectRatio: 1,
+        fit: true,
+        sessionSpecific: true,
+        defaultSession: getTeamSessions(team, seasons.map((season) => season.edition))[0]
       }
     ]),
     ...news.map((article) => ({
@@ -573,28 +627,38 @@ export const AdminDashboardModal = ({ onClose }) => {
       category: 'news',
       title: article.headline,
       description: `News image • ${article.category}`,
-      fallback: article.image
+      fallback: article.image,
+      aspectRatio: 16 / 9,
+      sessionSpecific: true,
+      defaultSession: article.season || article.session
     })),
     ...gallery.map((item) => ({
       key: `gallery:${item.id}`,
       category: 'gallery',
       title: item.title,
       description: `Gallery photo • ${item.category}`,
-      fallback: item.image
+      fallback: item.image,
+      aspectRatio: 4 / 3,
+      galleryItem: item
     })),
     ...highlights.map((item) => ({
       key: `highlight:${item.id}`,
       category: 'highlights',
       title: item.title,
       description: 'Video highlight thumbnail.',
-      fallback: item.thumbnail
+      fallback: item.thumbnail,
+      aspectRatio: 16 / 9,
+      sessionSpecific: true,
+      defaultSession: item.season || item.session
     })),
     ...Object.entries(topPerformers).map(([key, performer]) => ({
       key: `performer:${key}`,
       category: 'performers',
       title: `${performer.player} • ${key.replace(/([A-Z])/g, ' $1')}`,
       description: 'Top performer profile photo.',
-      fallback: performer.photo
+      fallback: performer.photo,
+      aspectRatio: 1,
+      sessionSpecific: true
     }))
   ];
   const mediaCategories = [
@@ -960,8 +1024,11 @@ export const AdminDashboardModal = ({ onClose }) => {
               <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6">
                 <div className="mb-4">
                   <h4 className="font-sports text-xl text-white">WEBSITE IMAGE LIBRARY</h4>
-                  <p className="mt-1 text-xs text-slate-400">Changes appear for every visitor. JPG, PNG, WebP, or GIF up to 8 MB.</p>
+                  <p className="mt-1 text-xs text-slate-400">Changes appear for every visitor. Content photos can have separate images for each session. The NPL logo, stadium, and trophy remain shared. JPG, PNG, WebP, or GIF up to 8 MB.</p>
                 </div>
+                <p className="mb-5 rounded-lg border border-amber-700/60 bg-amber-950/30 px-3 py-2.5 text-xs leading-relaxed text-amber-200">
+                  To keep uploaded images in other clones, commit and push <code className="font-mono text-amber-100">public/uploads/</code> and <code className="font-mono text-amber-100">public/site-media.json</code> after uploading.
+                </p>
                 <form onSubmit={handleAddSessionGalleryItem} className="mb-5 grid grid-cols-1 gap-3 rounded-xl border border-amber-800/60 bg-amber-950/20 p-4 sm:grid-cols-2">
                   <div className="sm:col-span-2 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                     <div>
@@ -1037,9 +1104,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                 </div>
                 {mediaError && <p role="alert" className="mb-3 rounded-lg border border-rose-800 bg-rose-950/70 px-3 py-2 text-sm text-rose-300">{mediaError}</p>}
                 <div className="divide-y divide-slate-800 rounded-xl border border-slate-800 bg-slate-950/50 px-4">
-                  {filteredMediaItems.length > 0 ? filteredMediaItems.map((item) => (
-                    mediaUploadControl(item.key, item.title, item.description, item.fallback)
-                  )) : (
+                  {filteredMediaItems.length > 0 ? filteredMediaItems.map((item) => mediaUploadControl(item)) : (
                     <p className="px-3 py-8 text-center text-sm text-slate-400">No image slots match that search.</p>
                   )}
                 </div>

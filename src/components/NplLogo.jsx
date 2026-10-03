@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const NplLogo = ({ size = "md", showText = true, imageSrc, compactOnMobile = false }) => {
+export const NplLogo = ({ size = "md", showText = true, imageSrc, compactOnMobile = false, compact = false }) => {
   const dimensionClass = {
     sm: "w-8 h-8",
     md: "w-11 h-11",
@@ -9,7 +9,7 @@ export const NplLogo = ({ size = "md", showText = true, imageSrc, compactOnMobil
   }[size] || "w-11 h-11";
 
   return (
-    <div className="flex min-w-0 max-w-full items-center gap-3 select-none group cursor-pointer">
+    <div className={`flex min-w-0 max-w-full items-center ${compact ? 'gap-2' : 'gap-3'} select-none group cursor-pointer`}>
       <div className={`relative ${dimensionClass} flex-shrink-0 transition-transform duration-300 group-hover:scale-105`}>
         {/* Glow backdrop */}
         <div className="absolute inset-0 bg-gradient-to-tr from-amber-500/30 to-blue-600/30 rounded-full blur-md" />
@@ -92,15 +92,15 @@ export const NplLogo = ({ size = "md", showText = true, imageSrc, compactOnMobil
 
       {showText && (
         <div className={`flex min-w-0 flex-col text-left ${compactOnMobile ? 'max-w-full' : ''}`}>
-          <div className={`flex items-center gap-x-1.5 gap-y-0.5 ${compactOnMobile ? 'flex-wrap' : ''}`}>
-            <span className={`font-sports ${compactOnMobile ? 'text-xl sm:text-2xl md:text-3xl' : 'text-2xl md:text-3xl'} leading-none tracking-wider text-white`}>
+          <div className={`flex items-center gap-x-1.5 gap-y-0.5 ${compact ? 'flex-nowrap whitespace-nowrap' : compactOnMobile ? 'flex-wrap' : ''}`}>
+            <span className={`font-sports ${compact ? 'text-base 2xl:text-xl' : compactOnMobile ? 'text-xl sm:text-2xl md:text-3xl' : 'text-2xl md:text-3xl'} leading-none tracking-wider text-white`}>
               NARUA
             </span>
-            <span className={`font-sports ${compactOnMobile ? 'text-xl sm:text-2xl md:text-3xl' : 'text-2xl md:text-3xl'} leading-none tracking-wider text-amber-400`}>
+            <span className={`font-sports ${compact ? 'text-base 2xl:text-xl' : compactOnMobile ? 'text-xl sm:text-2xl md:text-3xl' : 'text-2xl md:text-3xl'} leading-none tracking-wider text-amber-400`}>
               PREMIER LEAGUE
             </span>
           </div>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] md:text-xs text-slate-400 uppercase tracking-widest font-semibold">
+          <div className={`flex items-center gap-x-2 gap-y-1 text-[10px] md:text-xs text-slate-400 uppercase tracking-widest font-semibold ${compact ? 'whitespace-nowrap text-[9px]' : 'flex-wrap'}`}>
             <span className="text-amber-500">EST. 2024</span>
             <span className="w-1 h-1 rounded-full bg-slate-600"></span>
             <span>OFFICIAL T20 LEAGUE</span>

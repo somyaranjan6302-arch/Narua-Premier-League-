@@ -47,8 +47,8 @@ export const HeroSection = ({ scrollToSection }) => {
           className="w-full h-full object-cover object-center scale-105 filter brightness-75 contrast-110"
         />
         {/* Navy gradient overlays for deep sports vibe and readability */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#050B17] via-[#050B17]/80 to-[#07132F]/85" />
-        <div className="absolute inset-0 bg-radial-gradient from-transparent via-[#050B17]/60 to-[#050B17]" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-npl-navy)] via-[color-mix(in_srgb,var(--color-npl-navy)_80%,transparent)] to-[color-mix(in_srgb,var(--color-npl-blue)_85%,transparent)]" />
+        <div className="absolute inset-0 bg-radial-gradient from-transparent via-[color-mix(in_srgb,var(--color-npl-navy)_60%,transparent)] to-[var(--color-npl-navy)]" />
         
         {/* Laser beam light accent */}
         <div className="absolute -top-32 left-1/4 w-96 h-96 bg-blue-500/15 rounded-full blur-[120px] pointer-events-none" />
@@ -64,7 +64,7 @@ export const HeroSection = ({ scrollToSection }) => {
           </span>
           <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
           <span className="text-xs font-semibold text-slate-300 hidden sm:inline">
-            SEASON 3 READY
+            SEASON 6 READY
           </span>
         </div>
 

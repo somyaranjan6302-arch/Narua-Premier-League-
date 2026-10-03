@@ -19,7 +19,7 @@ export const TeamsSection = () => {
   });
 
   return (
-    <section id="teams" className="py-20 bg-[#050B17] border-t border-slate-800">
+    <section id="teams" className="py-20 bg-[var(--color-npl-navy)] border-t border-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Title */}
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-4">

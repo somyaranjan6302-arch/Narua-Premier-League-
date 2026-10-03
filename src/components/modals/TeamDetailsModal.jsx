@@ -1,10 +1,11 @@
 import React from 'react';
 import { useNpl } from '../../context/NplContext';
 import { TeamBadge } from '../TeamBadge';
+import { getSiteMedia } from '../../utils/siteMedia';
 import { X, Trophy, UserCheck, Shield, MapPin, Award } from 'lucide-react';
 
 export const TeamDetailsModal = ({ team, onClose }) => {
-  const { openModal, siteMedia } = useNpl();
+  const { openModal, siteMedia, selectedSeason } = useNpl();
   if (!team) return null;
 
   return (
@@ -13,7 +14,7 @@ export const TeamDetailsModal = ({ team, onClose }) => {
         {/* Header with franchise banner & color bar */}
         <div className="relative h-44 sm:h-52 bg-slate-950 overflow-hidden flex-shrink-0">
           <img
-            src={siteMedia[`team:${team.id}`] || team.banner}
+            src={getSiteMedia(siteMedia, `team:${team.id}`, selectedSeason, team.banner)}
             alt={team.name}
             className="w-full h-full object-cover filter brightness-50"
           />
