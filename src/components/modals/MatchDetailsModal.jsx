@@ -12,8 +12,8 @@ export const MatchDetailsModal = ({ match, onClose }) => {
   const team1Obj = teams.find(t => t.id === match.team1?.id) || match.team1;
   const team2Obj = teams.find(t => t.id === match.team2?.id) || match.team2;
 
-  // Simulated scorecard data
-  const battingTeam1 = [
+  // Older fixtures without innings data keep the legacy display; Session 4 uses the PDF scorecards.
+  const fallbackBatting = [
     { name: "Sourav Das (c)", dismissal: "c Indrajit b Sen", runs: 68, balls: 38, fours: 7, sixes: 4, sr: "178.9" },
     { name: "Rohit Samanta", dismissal: "b Prasenjit Das", runs: 42, balls: 26, fours: 4, sixes: 2, sr: "161.5" },
     { name: "Sayantan Roy", dismissal: "run out (Bhowmik)", runs: 34, balls: 20, fours: 3, sixes: 1, sr: "170.0" },
@@ -21,12 +21,15 @@ export const MatchDetailsModal = ({ match, onClose }) => {
     { name: "Abhishek Mukherjee", dismissal: "not out", runs: 12, balls: 7, fours: 1, sixes: 1, sr: "171.4" },
   ];
 
-  const bowlingTeam2 = [
+  const fallbackBowling = [
     { name: "Amit Sen", overs: "4.0", maidens: 0, runs: 32, wickets: 2, econ: "8.00" },
     { name: "Prasenjit Das", overs: "4.0", maidens: 0, runs: 36, wickets: 1, econ: "9.00" },
     { name: "Surajit Bhowmik", overs: "3.0", maidens: 0, runs: 28, wickets: 0, econ: "9.33" },
     { name: "Indrajit Roy", overs: "4.0", maidens: 0, runs: 44, wickets: 0, econ: "11.00" },
   ];
+  const scorecardInnings = match.innings?.length
+    ? match.innings
+    : [{ batting: fallbackBatting, bowling: fallbackBowling }];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md overflow-y-auto">
@@ -109,12 +112,15 @@ export const MatchDetailsModal = ({ match, onClose }) => {
         <div className="p-6 overflow-y-auto space-y-6 flex-grow">
           {activeTab === 'scorecard' ? (
             <div className="space-y-6">
-              {/* Batting Card */}
-              <div className="bg-slate-950/80 rounded-2xl border border-slate-800 p-4">
-                <h4 className="font-sports text-lg text-white tracking-wider mb-3">
-                  {match.team1?.name} Innings
-                </h4>
-                <div className="overflow-x-auto">
+              {scorecardInnings.map((innings, inningsIndex) => {
+                const battingTeam = inningsIndex === 0 ? match.team1 : match.team2;
+                const bowlingTeam = inningsIndex === 0 ? match.team2 : match.team1;
+                return <React.Fragment key={`${match.id}-innings-${inningsIndex}`}>
+                <div className="bg-slate-950/80 rounded-2xl border border-slate-800 p-4">
+                  <h4 className="font-sports text-lg text-white tracking-wider mb-3">
+                    {battingTeam?.name} Innings <span className="text-xs text-slate-500">{innings.total ?? battingTeam?.score} ({innings.overs ?? battingTeam?.overs} ov)</span>
+                  </h4>
+                  <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
                     <thead>
                       <tr className="border-b border-slate-800 text-slate-500 text-[10px] uppercase font-bold">
@@ -128,7 +134,7 @@ export const MatchDetailsModal = ({ match, onClose }) => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-850">
-                      {battingTeam1.map((b, i) => (
+                      {(innings.batting || []).map((b, i) => (
                         <tr key={i} className="hover:bg-slate-900/40">
                           <td className="py-2.5 font-bold text-white">{b.name}</td>
                           <td className="py-2.5 text-slate-400">{b.dismissal}</td>
@@ -147,7 +153,7 @@ export const MatchDetailsModal = ({ match, onClose }) => {
               {/* Bowling Card */}
               <div className="bg-slate-950/80 rounded-2xl border border-slate-800 p-4">
                 <h4 className="font-sports text-lg text-white tracking-wider mb-3">
-                  {match.team2?.name} Bowling Figures
+                  {bowlingTeam?.name} Bowling Figures
                 </h4>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
@@ -162,7 +168,7 @@ export const MatchDetailsModal = ({ match, onClose }) => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-850">
-                      {bowlingTeam2.map((bw, i) => (
+                      {(innings.bowling || []).map((bw, i) => (
                         <tr key={i} className="hover:bg-slate-900/40">
                           <td className="py-2.5 font-bold text-white">{bw.name}</td>
                           <td className="py-2.5 text-center text-slate-300 font-mono">{bw.overs}</td>
@@ -176,7 +182,13 @@ export const MatchDetailsModal = ({ match, onClose }) => {
                   </table>
                 </div>
               </div>
+              </React.Fragment>;
+              })}
             </div>
+          ) : match.innings?.length ? (
+            <p className="rounded-xl border border-slate-800 bg-slate-950 p-5 text-center text-sm text-slate-400">
+              Ball-by-ball commentary is not included in the Session 4 scorecards.
+            </p>
           ) : (
             /* Commentary View */
             <div className="space-y-3">

@@ -1,5 +1,6 @@
 // Narua Premier League (NPL) - Official Tournament Data Store
 // Established Since 2024 | All data is dynamically editable via Admin Dashboard
+import { session4Champion, session4Matches, session4Records, session4Standings, session4Teams } from './session4Data';
 
 export const initialTournamentInfo = {
   name: "Narua Premier League",
@@ -43,23 +44,7 @@ export const initialChampions = [
     description: "GCC Fighter Binjharpur lifted the Session 5 trophy after a dramatic final where HP No Compromise were restricted to 48/8 before GCC chased the target in just four overs.",
     featured: true
   },
-  {
-    season: "2026",
-    edition: "Season 4",
-    championTeam: "Titan Strikers",
-    championShort: "Titan Strikers",
-    captain: "Rahul Das",
-    runnerUp: "HP Commando 11 Binjharpur",
-    runnerUpShort: "HP Commando 11",
-    winningMargin: "Won By 8 Wicket",
-    finalScores: "HP Commando 11   16/10 (4.3) |Titan Strikers  20/2 (1.1)",
-    venue: "Narua Bada Padia",
-    playerOfFinal: "Rohan Das (4/3)",
-    teamPhoto: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?auto=format&fit=crop&w=1200&q=80",
-    trophyPhoto: "/assets/trophy.jpg",
-    description: "One of the greatest  finals in local cricket history. In front of 1,000 roaring spectators, No Compromise Kaina snatched victory from the jaws of defeat in an edge-of-the-seat.",
-    featured: true
-  },
+  session4Champion,
   {
     season: "2025",
     edition: "Season 3",
@@ -133,16 +118,16 @@ export const initialSeasons = [
     season: "2026",
     year: "2026",
     edition: "Season 4",
-    sampleData: true,
+    sampleData: false,
     status: "COMPLETED",
     teamsCount: 6,
     matchesCount: 15,
-    champion: "Titan Striker",
-    runnerUp: "HP Commondo 11",
+    champion: "Titan Strikers",
+    runnerUp: "HP Commando 11",
     topScorer: "Rohan Das (86 runs)",
-    topWicketTaker: "Soumya ranjan Das (11 wickets, Econ 6.1)",
-    playerOfTournament: "Rohan Das (Titan Striker - 86 runs & 10 wickets)",
-    description: "Expanded from 6 to 8 franchises. Introduced the franchise player auction system."
+    topWicketTaker: "Rohan Das (10 wickets)",
+    playerOfTournament: "Rohan Das (86 runs)",
+    description: "Six teams played a 12-match league, two semifinals, and a final at Narua Playground, Jajpur. Titan Strikers won the championship."
   },
   {
     season: "2025",
@@ -392,6 +377,7 @@ const createInitialSessionTeam = (team) => ({
 });
 
 export const initialSessionTeams = [
+  ...session4Teams,
   createInitialSessionTeam({
     id: 'gcc-fighter-binjharpur-season-5',
     name: 'GCC Fighter Binjharpur',
@@ -549,10 +535,7 @@ export const initialSessionTeams = [
   })
 ];
 
-export const initialMatches = [
-  // Upcoming and completed fixtures are temporarily commented out.
-  // Re-enable them later when the live tournament section is ready.
-];
+export const initialMatches = [...session4Matches];
 
 export const initialPointsTable = [
   { pos: 1, teamId: "rcn", team: "Royal Challengers Narua", short: "RCN", p: 7, w: 5, l: 2, nr: 0, nrr: "+1.240", pts: 10, form: ["W", "W", "L", "W", "W"], qualified: true, color: "#EF4444" },
@@ -601,7 +584,7 @@ export const initialSeasonStandings = Object.fromEntries(
     season.edition,
     season.edition === initialSeasons[0].edition
       ? initialPointsTable
-      : buildSampleStandings(season.season, season.teamsCount)
+      : season.edition === 'Season 4' ? session4Standings : buildSampleStandings(season.season, season.teamsCount)
   ])
 );
 
@@ -670,13 +653,13 @@ export const initialTopPerformers = {
 
 export const initialRecords = [
   { title: "Highest Team Total", holder: "Commando 11", value: "158/3", details: "10.0 Overs vs BMN Royals (Season 2)" },
-  { title: "Lowest Total ", holder: "HP Commando 11", value: "16 all out", details: " vs Titan Strikers (Season 4)" },
   { title: "Fastest Fifty", holder: "Chiku Das (BMN Royals)", value: "14 Balls", details: "7 Sixes, 2 Fours vs Star Xi Sayedpur (2025)" },
   { title: "Highest Partnership", holder: "Kamar & Banty", value: "104 Runs", details: "1st Wicket for Commando 11 vs BMN Royals (2025)" },
   { title: "Most Sixes in an Inning", holder: "Chiku Das", value: "14 Sixes", details: "88 runs off 32 balls (Season 2)" },
   { title: "Best Bowling in NPL History", holder: "Abhishek Das", value: "5/14", details: "Ramchandrapur Fighter (Season 3)" },
   { title: "Most Tournament Titles", holder: "No Compromise Kaina", value: "2 Title ", details: "Session 2 and Session 3" },
-  { title: "Most Catches by a Fielder", holder: "Rahul Das", value: "28 Catches", details: "Bajrangi 11 Narua (Across 2 seasons)" }
+  { title: "Most Catches by a Fielder", holder: "Rahul Das", value: "28 Catches", details: "Bajrangi 11 Narua (Across 2 seasons)" },
+  ...session4Records
 ];
 
 export const initialGallery = [

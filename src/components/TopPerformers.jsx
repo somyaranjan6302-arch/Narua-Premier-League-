@@ -3,6 +3,7 @@ import { useNpl } from '../context/NplContext';
 import { SessionSelector } from './SessionSelector';
 import { Award, Zap, Flame, Shield, Target, Sparkles } from 'lucide-react';
 import { getSiteMedia } from '../utils/siteMedia';
+import { session4Performers } from '../data/session4Data';
 
 export const TopPerformers = () => {
   const { topPerformers, openModal, siteMedia, seasons, selectedSeason, setSelectedSeason } = useNpl();
@@ -15,7 +16,12 @@ export const TopPerformers = () => {
     { key: 'highestScore', data: topPerformers.highestScore, icon: Zap, label: "HIGHEST SCORE" },
     { key: 'bestBowling', data: topPerformers.bestBowling, icon: Sparkles, label: "BEST BOWLING" },
   ];
-  const sessionPerformers = selectedSeason === 'Season 3' ? performerList : [];
+  const activePerformers = selectedSeason === 'Season 4'
+    ? session4Performers
+    : topPerformers;
+  const sessionPerformers = selectedSeason === 'Season 3' || selectedSeason === 'Season 4'
+    ? performerList.map((item) => ({ ...item, data: activePerformers[item.key] }))
+    : [];
 
   return (
     <section id="performers" className="py-20 bg-[#060D1E] border-t border-slate-800">

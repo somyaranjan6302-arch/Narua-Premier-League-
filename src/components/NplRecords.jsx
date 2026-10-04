@@ -3,7 +3,8 @@ import { useNpl } from '../context/NplContext';
 import { Trophy, Zap, Shield, Flame, Award, Target, Star } from 'lucide-react';
 
 export const NplRecords = () => {
-  const { records } = useNpl();
+  const { records, selectedSeason } = useNpl();
+  const visibleRecords = records.filter((record) => !record.season || record.season === selectedSeason);
 
   return (
     <section id="records" className="py-20 bg-[#060D1E] border-t border-slate-800">
@@ -24,7 +25,7 @@ export const NplRecords = () => {
 
         {/* Records Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {records.map((rec, idx) => (
+          {visibleRecords.map((rec, idx) => (
             <div
               key={idx}
               className="glass-panel-card p-5 rounded-2xl border border-slate-800 hover:border-amber-500/40 transition-all duration-300 hover:-translate-y-1 relative group shadow-lg"
