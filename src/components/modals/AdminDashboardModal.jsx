@@ -1027,7 +1027,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                   <p className="mt-1 text-xs text-slate-400">Changes appear for every visitor. Content photos can have separate images for each session. The NPL logo, stadium, and trophy remain shared. JPG, PNG, WebP, or GIF up to 8 MB.</p>
                 </div>
                 <p className="mb-5 rounded-lg border border-amber-700/60 bg-amber-950/30 px-3 py-2.5 text-xs leading-relaxed text-amber-200">
-                  To keep uploaded images in other clones, commit and push <code className="font-mono text-amber-100">public/uploads/</code> and <code className="font-mono text-amber-100">public/site-media.json</code> after uploading.
+                  Production uploads are saved in the shared database and appear for every visitor. For local clones, commit and push <code className="font-mono text-amber-100">public/uploads/</code> and <code className="font-mono text-amber-100">public/site-media.json</code> after uploading.
                 </p>
                 <form onSubmit={handleAddSessionGalleryItem} className="mb-5 grid grid-cols-1 gap-3 rounded-xl border border-amber-800/60 bg-amber-950/20 p-4 sm:grid-cols-2">
                   <div className="sm:col-span-2 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">

@@ -19,21 +19,20 @@ This project is a broadcast-grade sports tournament web platform for **Narua Pre
 
    On the first start, the server prints a randomly generated developer admin password in the terminal. Save it securely; it is shown only once. The developer account ID is `developer`. The developer can create additional admin accounts from the Admin Portal's **Admin Accounts** tab.
 
-3. **Share Uploaded Images:**
-   The Admin Portal's **OWNER MEDIA** uploads are saved in `public/uploads/`, with their image-slot mapping in `public/site-media.json`. Content-image slots support separate images per session; the NPL logo, stadium background, and main trophy image are shared across sessions. These files are part of the repository. After uploading or replacing photos, share them with other clones by committing and pushing:
-
-   ```bash
-   git add public/uploads public/site-media.json
-   git commit -m "Share uploaded NPL media"
-   git push
-   ```
-
-   The server copies legacy images from `server/data/uploads/` into `public/uploads/` at startup when possible. Check the copied files and `public/site-media.json`, then commit and push them. Admin credentials and session keys remain in the ignored `server/data/` folder and must not be committed.
-
-4. **Build for Production:**
+3. **Build for Production:**
    ```bash
    npm run build
    ```
+
+## Production Database and Deployment
+
+The production server uses Render Postgres for admin accounts, the session signing key, shared site content, private auction registrations, and newly uploaded media. The public website reads shared content from the server, so admin edits are visible to all visitors. Auction registrant details are only returned to authenticated admins. Local development continues to use the ignored `server/data/` files for admin credentials and local media uploads.
+
+This repository includes a `render.yaml` Blueprint. To deploy it, connect this GitHub repository in Render and create a Blueprint from the repo. Render will request `NPL_INITIAL_OWNER_PASSWORD`; set a unique password of at least 16 characters and save it securely. The initial owner account ID is `developer`.
+
+The Blueprint uses a free web service and a small paid PostgreSQL plan (`0.1c-256mb`, currently $6 USD/month). The database is persistent; the free web service may spin down after inactivity. Review the current Render plan and billing details in the Render dashboard before creating the Blueprint resources. A Render Free Postgres database is not used because it expires after 30 days.
+
+The server refuses to start in production without `DATABASE_URL`. The database schema is created automatically at startup. If shared content has not been initialized yet, the first owner sign-in saves that browser's current public content as the initial shared snapshot. Browser storage is scoped to its origin, so edits made at `localhost` do not automatically appear on the Render URL. Public registrations are saved directly to Postgres; the owner portal loads those records privately. Tracked files already under `public/uploads/` remain available as static assets, while future Owner Media uploads are stored in Postgres so they survive deploys.
 
 ## Features
 
@@ -51,6 +50,6 @@ This project is a broadcast-grade sports tournament web platform for **Narua Pre
 - **Auction Registration:** Public registration form that generates an official digital **NPL Player Pass** with ID & QR code.
 - **Live Auction Arena Simulator:** Interactive bidding simulator with team paddles, audio gavel strike, confetti, and purse tracking.
 - **Organizer Admin Console:** Server-authenticated admin portal with a developer owner account, owner-managed admin accounts, salted password hashes, and HTTP-only sessions.
-- **Developer Media Library:** The owner-only Admin Portal tab can replace the public logo, stadium and trophy art, champion/team photos, news images, gallery photos, highlight thumbnails, and top-performer portraits. Uploaded images are stored under `public/` so they can be versioned and shared with Git.
+- **Developer Media Library:** The owner-only Admin Portal tab can replace the public logo, stadium and trophy art, champion/team photos, news images, gallery photos, highlight thumbnails, and top-performer portraits. Production uploads are stored in Postgres; local development uploads use `public/`.
 
-Admin account hashes and the session signing key are stored under `server/data/`, which is excluded from Git. Back up this directory securely for deployments using local file storage. Production deployments must use HTTPS and persistent private storage for `server/data/`; deleting it will generate a new developer password and invalidate all existing accounts.
+In production, Postgres stores the password hashes and signing key; keep the Render database and its backups private. For local development, `server/data/` remains excluded from Git. Do not commit `.env` files or admin credentials.

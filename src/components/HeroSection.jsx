@@ -79,11 +79,11 @@ export const HeroSection = ({ scrollToSection }) => {
         </p>
 
         {/* Call to Action Buttons */}
-        <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 mb-14">
+        <div className="hero-actions flex flex-wrap items-center justify-center gap-3 sm:gap-4 mb-14">
           {/* Explore NPL Button */}
           <button
             onClick={() => scrollToSection('matches')}
-            className="px-7 py-3.5 rounded-xl font-sports text-lg sm:text-xl tracking-wider uppercase bg-slate-900/90 text-white border border-slate-700/80 hover:border-amber-400/80 hover:bg-slate-800/90 transition-all duration-300 shadow-lg hover:shadow-amber-500/10 flex items-center gap-2.5 group"
+            className="hero-button hero-button-secondary group"
           >
             <Trophy className="w-5 h-5 text-amber-400 group-hover:scale-110 transition-transform" />
             <span>EXPLORE NPL</span>
@@ -93,16 +93,16 @@ export const HeroSection = ({ scrollToSection }) => {
           {/* Register for Auction CTA */}
           <button
             onClick={() => openModal('auction-register')}
-            className="px-8 py-3.5 rounded-xl font-sports text-lg sm:text-xl tracking-wider uppercase bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 text-slate-950 font-black shadow-[0_0_25px_rgba(245,158,11,0.5)] hover:shadow-[0_0_35px_rgba(245,158,11,0.8)] hover:scale-105 active:scale-95 transition-all duration-300 flex items-center gap-2.5"
+            className="hero-button hero-button-primary group"
           >
-            <Flame className="w-5 h-5 text-slate-950 fill-current animate-bounce" />
+            <Flame className="w-5 h-5 text-slate-950 fill-current transition-transform duration-300 group-hover:rotate-[-12deg] group-hover:scale-110" />
             <span>REGISTER FOR AUCTION</span>
           </button>
 
           {/* Live Action Video Highlights */}
           <button
             onClick={() => scrollToSection('highlights')}
-            className="px-6 py-3.5 rounded-xl font-sports text-lg sm:text-xl tracking-wider uppercase bg-blue-950/60 text-blue-300 border border-blue-700/50 hover:bg-blue-900/70 hover:text-white transition-all flex items-center gap-2"
+            className="hero-button hero-button-tertiary group"
           >
             <Play className="w-4 h-4 text-blue-400 fill-current" />
             <span>WATCH HIGHLIGHTS</span>

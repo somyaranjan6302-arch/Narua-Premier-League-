@@ -85,8 +85,9 @@ export const Footer = ({ scrollToSection }) => {
                 </svg>
               </a>
               <a
-                href="#social"
-                onClick={(e) => e.preventDefault()}
+                href="https://chat.whatsapp.com/DwUomPVQh0oEfixMt1lOrs"
+                target="_blank"
+                rel="noopener noreferrer"
                 aria-label="WhatsApp"
                 className="w-9 h-9 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-300 hover:text-emerald-400 hover:border-emerald-500 transition-colors"
               >

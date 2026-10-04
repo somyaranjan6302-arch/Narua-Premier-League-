@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import multer from 'multer';
+import pg from 'pg';
 
 const scrypt = promisify(scryptCallback);
 const serverDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -20,6 +21,11 @@ const secretFile = path.join(dataDirectory, 'session-secret');
 const port = Number(process.env.PORT || 5173);
 const sessionDurationSeconds = 8 * 60 * 60;
 const loginAttempts = new Map();
+const registrationAttempts = new Map();
+const { Pool } = pg;
+const database = process.env.DATABASE_URL
+  ? new Pool({ connectionString: process.env.DATABASE_URL })
+  : null;
 const imageExtensions = {
   'image/jpeg': '.jpg',
   'image/png': '.png',
@@ -55,6 +61,26 @@ const migrateLegacyMediaToRepository = async (legacyMedia) => {
 };
 
 const savePublicUpload = async (file, mediaKey) => {
+  if (database) {
+    const url = `/api/media/${encodeURIComponent(mediaKey)}`;
+    await database.query(
+      `INSERT INTO npl_media (media_key, content_type, content)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (media_key) DO UPDATE SET content_type = EXCLUDED.content_type,
+         content = EXCLUDED.content, updated_at = NOW()`,
+      [mediaKey, file.mimetype, file.buffer]
+    );
+    const result = await database.query("SELECT value FROM npl_site_data WHERE data_key = 'site-media'");
+    const media = { ...(await readJson(mediaFile, {})), ...(result.rows[0]?.value || {}) };
+    media[mediaKey] = url;
+    await database.query(
+      `INSERT INTO npl_site_data (data_key, value) VALUES ('site-media', $1::jsonb)
+       ON CONFLICT (data_key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+      [JSON.stringify(media)]
+    );
+    return url;
+  }
+
   const filename = `${randomBytes(16).toString('hex')}${imageExtensions[file.mimetype]}`;
   await writeFile(path.join(uploadsDirectory, filename), file.buffer, { flag: 'wx', mode: 0o644 });
   const media = await readJson(mediaFile, {});
@@ -89,6 +115,80 @@ const verifyPassword = async (password, user) => {
 };
 
 const initializeAuth = async () => {
+  if (database) {
+    await database.query(`
+      CREATE TABLE IF NOT EXISTS npl_admin_users (
+        admin_id TEXT PRIMARY KEY,
+        role TEXT NOT NULL CHECK (role IN ('owner', 'admin')),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        salt TEXT NOT NULL,
+        password_hash TEXT NOT NULL,
+        auth_version INTEGER NOT NULL DEFAULT 0,
+        password_changed_at TIMESTAMPTZ
+      );
+      CREATE TABLE IF NOT EXISTS npl_site_data (
+        data_key TEXT PRIMARY KEY,
+        value JSONB NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS npl_media (
+        media_key TEXT PRIMARY KEY,
+        content_type TEXT NOT NULL,
+        content BYTEA NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS npl_app_secrets (
+        secret_key TEXT PRIMARY KEY,
+        secret_value BYTEA NOT NULL
+      );
+    `);
+
+    const secretResult = await database.query("SELECT secret_value FROM npl_app_secrets WHERE secret_key = 'session-signing'");
+    let sessionSecret = secretResult.rows[0]?.secret_value;
+    if (!sessionSecret) {
+      sessionSecret = randomBytes(48);
+      await database.query(
+        "INSERT INTO npl_app_secrets (secret_key, secret_value) VALUES ('session-signing', $1) ON CONFLICT DO NOTHING",
+        [sessionSecret]
+      );
+      const persistedSecret = await database.query("SELECT secret_value FROM npl_app_secrets WHERE secret_key = 'session-signing'");
+      sessionSecret = persistedSecret.rows[0].secret_value;
+    }
+
+    const userResult = await database.query('SELECT * FROM npl_admin_users ORDER BY created_at');
+    const users = userResult.rows.map((row) => ({
+      adminId: row.admin_id,
+      role: row.role,
+      createdAt: row.created_at,
+      salt: row.salt,
+      hash: row.password_hash,
+      authVersion: row.auth_version,
+      passwordChangedAt: row.password_changed_at
+    }));
+
+    if (users.length === 0) {
+      const initialPassword = process.env.NPL_INITIAL_OWNER_PASSWORD || randomBytes(24).toString('base64url');
+      if (initialPassword.length < 16) throw new Error('NPL_INITIAL_OWNER_PASSWORD must be at least 16 characters.');
+      const passwordHash = await createPasswordHash(initialPassword);
+      const user = { adminId: 'developer', role: 'owner', createdAt: new Date().toISOString(), ...passwordHash };
+      await database.query(
+        `INSERT INTO npl_admin_users (admin_id, role, salt, password_hash)
+         VALUES ($1, $2, $3, $4)`,
+        [user.adminId, user.role, user.salt, user.hash]
+      );
+      users.push(user);
+      if (!process.env.NPL_INITIAL_OWNER_PASSWORD) {
+        console.log('\nInitial NPL developer admin account (save this password now):');
+        console.log('Admin ID: developer');
+        console.log(`Password: ${initialPassword}\n`);
+      } else {
+        console.log('\nInitial NPL developer admin account created from the configured secret.');
+      }
+    }
+
+    return { users, sessionSecret, media: {} };
+  }
+
   await mkdir(dataDirectory, { recursive: true, mode: 0o700 });
   await mkdir(publicDirectory, { recursive: true });
   await mkdir(uploadsDirectory, { recursive: true });
@@ -166,11 +266,14 @@ const getSessionUser = (req, users, sessionSecret) => {
 const publicUser = ({ adminId, role }) => ({ adminId, role });
 
 const start = async () => {
+  if (process.env.NODE_ENV === 'production' && !database) {
+    throw new Error('DATABASE_URL is required in production so admin data and uploads are stored persistently.');
+  }
   const auth = await initializeAuth();
-  auth.media = await migrateLegacyMediaToRepository(auth.media);
+  if (!database) auth.media = await migrateLegacyMediaToRepository(auth.media);
   const app = express();
   app.disable('x-powered-by');
-  app.use(express.json({ limit: '10kb' }));
+  app.use(express.json({ limit: '12mb' }));
   app.use('/api', (_req, res, next) => {
     res.set('Cache-Control', 'no-store');
     res.set('X-Content-Type-Options', 'nosniff');
@@ -214,7 +317,82 @@ const start = async () => {
   });
 
   app.get('/api/site-media', async (_req, res) => {
+    if (database) {
+      const result = await database.query("SELECT value FROM npl_site_data WHERE data_key = 'site-media'");
+      return res.json({ ...(await readJson(mediaFile, {})), ...(result.rows[0]?.value || {}) });
+    }
     return res.json(await readJson(mediaFile, auth.media));
+  });
+
+  app.get('/api/media/:key', async (req, res) => {
+    if (!database) return res.status(404).end();
+    const result = await database.query('SELECT content_type, content FROM npl_media WHERE media_key = $1', [req.params.key]);
+    if (!result.rows[0]) return res.status(404).end();
+    res.set('Cache-Control', 'public, max-age=300');
+    res.set('X-Content-Type-Options', 'nosniff');
+    return res.type(result.rows[0].content_type).send(result.rows[0].content);
+  });
+
+  app.get('/api/site-data', async (_req, res) => {
+    if (!database) return res.json(null);
+    const result = await database.query("SELECT value FROM npl_site_data WHERE data_key = 'public-content'");
+    return res.json(result.rows[0]?.value || null);
+  });
+
+  app.put('/api/admin/site-data', requireAdmin, async (req, res) => {
+    if (!database) return res.status(503).json({ error: 'Persistent database is not configured.' });
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return res.status(400).json({ error: 'Site content must be an object.' });
+    }
+    await database.query(
+      `INSERT INTO npl_site_data (data_key, value) VALUES ('public-content', $1::jsonb)
+       ON CONFLICT (data_key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+      [JSON.stringify(req.body)]
+    );
+    return res.status(204).end();
+  });
+
+  app.get('/api/admin/registrations', requireAdmin, async (_req, res) => {
+    if (!database) return res.json({ registrations: null });
+    const result = await database.query("SELECT value FROM npl_site_data WHERE data_key = 'auction-registrations'");
+    return res.json({ registrations: result.rows[0]?.value || null });
+  });
+
+  app.put('/api/admin/registrations', requireAdmin, async (req, res) => {
+    if (!database) return res.status(503).json({ error: 'Persistent database is not configured.' });
+    if (!Array.isArray(req.body?.registrations)) return res.status(400).json({ error: 'Registrations must be a list.' });
+    await database.query(
+      `INSERT INTO npl_site_data (data_key, value) VALUES ('auction-registrations', $1::jsonb)
+       ON CONFLICT (data_key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+      [JSON.stringify(req.body.registrations)]
+    );
+    return res.status(204).end();
+  });
+
+  app.post('/api/auction-registrations', async (req, res) => {
+    if (!database) return res.status(503).json({ error: 'Player registration storage is not configured.' });
+    const now = Date.now();
+    const ip = req.ip || req.socket.remoteAddress;
+    const attempt = registrationAttempts.get(ip);
+    if (attempt && attempt.count >= 5 && now - attempt.startedAt < 60 * 60 * 1000) {
+      return res.status(429).json({ error: 'Too many registrations. Try again later.' });
+    }
+    if (!req.body || typeof req.body !== 'object' || typeof req.body.id !== 'string' ||
+      typeof req.body.fullName !== 'string' || typeof req.body.phone !== 'string' || req.body.consent !== true) {
+      return res.status(400).json({ error: 'Registration details are incomplete.' });
+    }
+    const currentResult = await database.query("SELECT value FROM npl_site_data WHERE data_key = 'auction-registrations'");
+    const registrations = currentResult.rows[0]?.value || [];
+    const existingIndex = registrations.findIndex((registration) => registration.id === req.body.id);
+    if (existingIndex >= 0) registrations.splice(existingIndex, 1);
+    registrations.unshift(req.body);
+    await database.query(
+      `INSERT INTO npl_site_data (data_key, value) VALUES ('auction-registrations', $1::jsonb)
+       ON CONFLICT (data_key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+      [JSON.stringify(registrations)]
+    );
+    registrationAttempts.set(ip, { count: (attempt?.count || 0) + 1, startedAt: attempt?.startedAt || now });
+    return res.status(201).json({ id: req.body.id });
   });
 
   app.post('/api/admin/login', async (req, res) => {
@@ -256,7 +434,15 @@ const start = async () => {
       authVersion: (req.adminUser.authVersion || 0) + 1,
       passwordChangedAt: new Date().toISOString()
     });
-    await writeJson(usersFile, auth.users);
+    if (database) {
+      await database.query(
+        `UPDATE npl_admin_users SET salt = $2, password_hash = $3,
+          auth_version = $4, password_changed_at = $5 WHERE admin_id = $1`,
+        [req.adminUser.adminId, req.adminUser.salt, req.adminUser.hash, req.adminUser.authVersion, req.adminUser.passwordChangedAt]
+      );
+    } else {
+      await writeJson(usersFile, auth.users);
+    }
 
     const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
     res.set('Set-Cookie', `npl_admin_session=${createSessionToken(req.adminUser, auth.sessionSecret)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${sessionDurationSeconds}${secure}`);
@@ -296,7 +482,14 @@ const start = async () => {
       ...passwordHash
     };
     auth.users.push(user);
-    await writeJson(usersFile, auth.users);
+    if (database) {
+      await database.query(
+        'INSERT INTO npl_admin_users (admin_id, role, salt, password_hash) VALUES ($1, $2, $3, $4)',
+        [user.adminId, user.role, user.salt, user.hash]
+      );
+    } else {
+      await writeJson(usersFile, auth.users);
+    }
     return res.status(201).json({ user: publicUser(user) });
   });
 

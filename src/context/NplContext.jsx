@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import {
   initialTournamentInfo,
   initialChampions,
@@ -150,6 +150,10 @@ export const NplProvider = ({ children }) => {
   });
   const auctionLiveState = auctionLiveStates[selectedSeason] || initialAuctionLiveState;
   const [siteMedia, setSiteMedia] = useState({});
+  const [siteDataLoaded, setSiteDataLoaded] = useState(false);
+  const [registrationDataLoaded, setRegistrationDataLoaded] = useState(false);
+  const siteDataSaveQueue = useRef(Promise.resolve());
+  const registrationSaveQueue = useRef(Promise.resolve());
 
   // Authentication is verified by the server; never trust persisted browser state.
   const [adminUser, setAdminUser] = useState(null);
@@ -177,6 +181,52 @@ export const NplProvider = ({ children }) => {
       .then((media) => setSiteMedia(localizeOfflineMedia(media)))
       .catch(() => setSiteMedia({}));
   }, []);
+
+  useEffect(() => {
+    fetch('/api/site-data')
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => {
+        if (!data || typeof data !== 'object') return;
+        if (data.tournamentInfo) setTournamentInfo(data.tournamentInfo);
+        if (Array.isArray(data.champions)) setChampions(data.champions);
+        if (Array.isArray(data.seasons)) setSeasons(data.seasons);
+        if (Array.isArray(data.teams)) setTeams(data.teams);
+        if (Array.isArray(data.matches)) setMatches(data.matches);
+        if (Array.isArray(data.pointsTable)) setPointsTable(data.pointsTable);
+        if (data.seasonStandings) setSeasonStandings(data.seasonStandings);
+        if (data.selectedSeason) setSelectedSeason(data.selectedSeason);
+        if (Array.isArray(data.topPerformers)) setTopPerformers(data.topPerformers);
+        if (Array.isArray(data.records)) setRecords(data.records);
+        if (Array.isArray(data.gallery)) setGallery(data.gallery);
+        if (Array.isArray(data.highlights)) setHighlights(data.highlights);
+        if (Array.isArray(data.news)) setNews(data.news);
+        if (data.auctionLiveStates) setAuctionLiveStates(data.auctionLiveStates);
+      })
+      .catch((error) => console.error('Could not load shared NPL content:', error))
+      .finally(() => setSiteDataLoaded(true));
+  }, []);
+
+  useEffect(() => {
+    if (!adminUser) {
+      setRegistrationDataLoaded(false);
+      return;
+    }
+
+    let active = true;
+    fetch('/api/admin/registrations')
+      .then((response) => response.ok ? response.json() : null)
+      .then((result) => {
+        if (active && Array.isArray(result?.registrations)) {
+          setAuctionRegistrations(result.registrations);
+        }
+      })
+      .catch((error) => console.error('Could not load private NPL registrations:', error))
+      .finally(() => {
+        if (active) setRegistrationDataLoaded(true);
+      });
+
+    return () => { active = false; };
+  }, [adminUser]);
 
   // Sync to local storage
   useEffect(() => {
@@ -235,6 +285,54 @@ export const NplProvider = ({ children }) => {
     localStorage.setItem('npl_gallery', JSON.stringify(gallery));
   }, [gallery]);
 
+  const publicSiteData = {
+    tournamentInfo,
+    champions,
+    seasons,
+    teams,
+    matches,
+    pointsTable,
+    seasonStandings,
+    selectedSeason,
+    topPerformers,
+    records,
+    gallery,
+    highlights,
+    news,
+    auctionLiveStates
+  };
+
+  useEffect(() => {
+    if (!import.meta.env.PROD || !adminUser || !siteDataLoaded) return;
+    siteDataSaveQueue.current = siteDataSaveQueue.current
+      .catch(() => {})
+      .then(() => fetch('/api/admin/site-data', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(publicSiteData)
+      }))
+      .then((response) => {
+        if (!response.ok) throw new Error('Could not save shared NPL content.');
+      })
+      .catch((error) => console.error(error));
+  }, [adminUser, siteDataLoaded, tournamentInfo, champions, seasons, teams, matches, pointsTable,
+    seasonStandings, selectedSeason, topPerformers, records, gallery, highlights, news, auctionLiveStates]);
+
+  useEffect(() => {
+    if (!import.meta.env.PROD || !adminUser || !registrationDataLoaded) return;
+    registrationSaveQueue.current = registrationSaveQueue.current
+      .catch(() => {})
+      .then(() => fetch('/api/admin/registrations', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ registrations: auctionRegistrations })
+      }))
+      .then((response) => {
+        if (!response.ok) throw new Error('Could not save private player registrations.');
+      })
+      .catch((error) => console.error(error));
+  }, [adminUser, registrationDataLoaded, auctionRegistrations]);
+
   // Toast notification
   const showToast = (msg, type = 'success') => {
     setToastMessage({ msg, type, id: Date.now() });
@@ -272,6 +370,15 @@ export const NplProvider = ({ children }) => {
     };
 
     setAuctionRegistrations(prev => [newPlayer, ...prev]);
+    if (import.meta.env.PROD) {
+      fetch('/api/auction-registrations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newPlayer)
+      }).then((response) => {
+        if (!response.ok) throw new Error('Could not securely save your registration. Please contact the NPL team.');
+      }).catch((error) => showToast(error.message, 'error'));
+    }
     showToast(`Registration Successful! Assigned ID: ${regId}`, 'success');
     confetti({
       particleCount: 80,
