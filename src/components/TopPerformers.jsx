@@ -3,6 +3,7 @@ import { useNpl } from '../context/NplContext';
 import { SessionSelector } from './SessionSelector';
 import { Award, Zap, Flame, Shield, Target, Sparkles } from 'lucide-react';
 import { getSiteMedia } from '../utils/siteMedia';
+import { session3Performers } from '../data/session3Data';
 import { session4Performers } from '../data/session4Data';
 
 export const TopPerformers = () => {
@@ -16,9 +17,9 @@ export const TopPerformers = () => {
     { key: 'highestScore', data: topPerformers.highestScore, icon: Zap, label: "HIGHEST SCORE" },
     { key: 'bestBowling', data: topPerformers.bestBowling, icon: Sparkles, label: "BEST BOWLING" },
   ];
-  const activePerformers = selectedSeason === 'Season 4'
-    ? session4Performers
-    : topPerformers;
+  const activePerformers = selectedSeason === 'Season 3'
+    ? session3Performers
+    : selectedSeason === 'Season 4' ? session4Performers : topPerformers;
   const sessionPerformers = selectedSeason === 'Season 3' || selectedSeason === 'Season 4'
     ? performerList.map((item) => ({ ...item, data: activePerformers[item.key] }))
     : [];

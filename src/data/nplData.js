@@ -1,5 +1,6 @@
 // Narua Premier League (NPL) - Official Tournament Data Store
 // Established Since 2024 | All data is dynamically editable via Admin Dashboard
+import { session3Champion, session3Matches, session3Records, session3Season, session3Standings, session3Teams } from './session3Data';
 import { session4Champion, session4Matches, session4Records, session4Standings, session4Teams } from './session4Data';
 
 export const initialTournamentInfo = {
@@ -45,23 +46,7 @@ export const initialChampions = [
     featured: true
   },
   session4Champion,
-  {
-    season: "2025",
-    edition: "Season 3",
-    championTeam: "No Compromise Kaina ",
-    championShort: "No Compromise",
-    captain: "Mojahid Khan",
-    runnerUp: "BMN Royals Narua",
-    runnerUpShort: "BMN Royals",
-    winningMargin: "Won By 22 Runs",
-    finalScores: "No Compromise Kaina  96/6 (8) |BMN Royals  74/8 (8)",
-    venue: "Narua Bada Padia",
-    playerOfFinal: "Sabir Khan (38 off 16 & 2/25)",
-    teamPhoto: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?auto=format&fit=crop&w=1200&q=80",
-    trophyPhoto: "/assets/trophy.jpg",
-    description: "One of the greatest  finals in local cricket history. In front of 1,000 roaring spectators, No Compromise Kaina snatched victory from the jaws of defeat in an edge-of-the-seat.",
-    featured: true
-  },
+  session3Champion,
   {
     season: "2025",
     edition: "Season 2",
@@ -129,21 +114,7 @@ export const initialSeasons = [
     playerOfTournament: "Rohan Das (86 runs)",
     description: "Six teams played a 12-match league, two semifinals, and a final at Narua Playground, Jajpur. Titan Strikers won the championship."
   },
-  {
-    season: "2025",
-    year: "2025",
-    edition: "Season 3",
-    sampleData: true,
-    status: "COMPLETED",
-    teamsCount: 6,
-    matchesCount: 15,
-    champion: "No Compromise Kaina",
-    runnerUp: "HP Commondo 11",
-    topScorer: "Kamar (207 runs)",
-    topWicketTaker: "Krishna (17 wickets)",
-    playerOfTournament: "Kamar  (HP Commondo 11 - 207 runs & 9 wickets)",
-    description: "The foundation year where grassroots cricketers from Narua and surrounding districts came together."
-  },
+  session3Season,
   {
     season: "2025",
     year: "2025",
@@ -377,6 +348,7 @@ const createInitialSessionTeam = (team) => ({
 });
 
 export const initialSessionTeams = [
+  ...session3Teams,
   ...session4Teams,
   createInitialSessionTeam({
     id: 'gcc-fighter-binjharpur-season-5',
@@ -535,7 +507,7 @@ export const initialSessionTeams = [
   })
 ];
 
-export const initialMatches = [...session4Matches];
+export const initialMatches = [...session3Matches, ...session4Matches];
 
 export const initialPointsTable = [
   { pos: 1, teamId: "rcn", team: "Royal Challengers Narua", short: "RCN", p: 7, w: 5, l: 2, nr: 0, nrr: "+1.240", pts: 10, form: ["W", "W", "L", "W", "W"], qualified: true, color: "#EF4444" },
@@ -584,7 +556,8 @@ export const initialSeasonStandings = Object.fromEntries(
     season.edition,
     season.edition === initialSeasons[0].edition
       ? initialPointsTable
-      : season.edition === 'Season 4' ? session4Standings : buildSampleStandings(season.season, season.teamsCount)
+      : season.edition === 'Season 3' ? session3Standings
+        : season.edition === 'Season 4' ? session4Standings : buildSampleStandings(season.season, season.teamsCount)
   ])
 );
 
@@ -659,6 +632,7 @@ export const initialRecords = [
   { title: "Best Bowling in NPL History", holder: "Abhishek Das", value: "5/14", details: "Ramchandrapur Fighter (Season 3)" },
   { title: "Most Tournament Titles", holder: "No Compromise Kaina", value: "2 Title ", details: "Session 2 and Session 3" },
   { title: "Most Catches by a Fielder", holder: "Rahul Das", value: "28 Catches", details: "Bajrangi 11 Narua (Across 2 seasons)" },
+  ...session3Records,
   ...session4Records
 ];
 

@@ -55,9 +55,9 @@ export const TrophySection = () => {
                     <span>2025 (Season 2)</span>
                     <span className="text-red-400">RCN</span>
                   </div>
-                  <div className="flex items-center justify-between text-slate-500">
-                    <span>2026 (Season 3)</span>
-                    <span className="text-slate-400 italic">Contested</span>
+                  <div className="flex items-center justify-between">
+                    <span>2025 (Season 3)</span>
+                    <span className="text-amber-400">No Compromise</span>
                   </div>
                 </div>
               </div>
