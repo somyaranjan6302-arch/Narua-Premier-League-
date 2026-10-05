@@ -8,6 +8,7 @@ import multer from 'multer';
 import pg from 'pg';
 import { mergeOfficialSession3Content } from '../src/data/session3Data.js';
 import { mergeOfficialSession4Content } from '../src/data/session4Data.js';
+import { mergeOfficialSession5Content } from '../src/data/session5Data.js';
 
 const scrypt = promisify(scryptCallback);
 const serverDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -339,7 +340,7 @@ const start = async () => {
     if (!database) return res.json(null);
     const result = await database.query("SELECT value FROM npl_site_data WHERE data_key = 'public-content'");
     const storedContent = result.rows[0]?.value || null;
-    return res.json(storedContent ? mergeOfficialSession4Content(mergeOfficialSession3Content(storedContent)) : null);
+    return res.json(storedContent ? mergeOfficialSession5Content(mergeOfficialSession4Content(mergeOfficialSession3Content(storedContent))) : null);
   });
 
   app.put('/api/admin/site-data', requireAdmin, async (req, res) => {

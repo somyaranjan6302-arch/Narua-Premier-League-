@@ -2,6 +2,7 @@
 // Established Since 2024 | All data is dynamically editable via Admin Dashboard
 import { session3Champion, session3Matches, session3Records, session3Season, session3Standings, session3Teams } from './session3Data';
 import { session4Champion, session4Matches, session4Records, session4Standings, session4Teams } from './session4Data';
+import { session5Champion, session5Matches, session5Records, session5Season, session5Standings, session5Teams } from './session5Data';
 
 export const initialTournamentInfo = {
   name: "Narua Premier League",
@@ -28,23 +29,7 @@ export const initialTournamentInfo = {
 };
 
 export const initialChampions = [
-  {
-    season: "2026",
-    edition: "Season 5",
-    championTeam: "GCC Fighter Binjharpur",
-    championShort: "GCC Fighter",
-    captain: "Farhan Khan",
-    runnerUp: "HP No Compromise",
-    runnerUpShort: "HP No Compromise",
-    winningMargin: "Won By 7 Wickets",
-    finalScores: "HP No Compromise 48/8 (8) | GCC Fighter 49/3 (4)",
-    venue: "Narua Playground, Jajpur",
-    playerOfFinal: "Amirul (23* off 11)",
-    teamPhoto: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?auto=format&fit=crop&w=1200&q=80",
-    trophyPhoto: "/assets/trophy.jpg",
-    description: "GCC Fighter Binjharpur lifted the Session 5 trophy after a dramatic final where HP No Compromise were restricted to 48/8 before GCC chased the target in just four overs.",
-    featured: true
-  },
+  session5Champion,
   session4Champion,
   session3Champion,
   {
@@ -84,21 +69,7 @@ export const initialChampions = [
 ];
 
 export const initialSeasons = [
-  {
-    season: "2026",
-    year: "2026",
-    edition: "Season 5",
-    sampleData: true,
-    status: "COMPLETED",
-    teamsCount: 6,
-    matchesCount: 16,
-    champion: "GCC Fighter Binjharpur",
-    runnerUp: "HP No Compromise",
-    topScorer: "Amirul (56* in final and strong tournament totals)",
-    topWicketTaker: "Banty (3/7 final + 4/8 vs Barpada XI)",
-    playerOfTournament: "Amirul",
-    description: "Session 5 featured six teams, a 12-match league phase, knockout clashes, and a final won by GCC Fighter Binjharpur over HP No Compromise."
-  },
+  session5Season,
   {
     season: "2026",
     year: "2026",
@@ -348,6 +319,7 @@ const createInitialSessionTeam = (team) => ({
 });
 
 export const initialSessionTeams = [
+  ...session5Teams,
   ...session3Teams,
   ...session4Teams,
   createInitialSessionTeam({
@@ -505,9 +477,9 @@ export const initialSessionTeams = [
       { id: 'k-12', name: 'Sk Ansarul Aziz', role: 'Bowler', runs: 8, wickets: 6, age: 25, style: 'Left-Arm Spin' }
     ]
   })
-];
+].filter((team) => !team.id.endsWith('-season-5'));
 
-export const initialMatches = [...session3Matches, ...session4Matches];
+export const initialMatches = [...session5Matches, ...session3Matches, ...session4Matches];
 
 export const initialPointsTable = [
   { pos: 1, teamId: "rcn", team: "Royal Challengers Narua", short: "RCN", p: 7, w: 5, l: 2, nr: 0, nrr: "+1.240", pts: 10, form: ["W", "W", "L", "W", "W"], qualified: true, color: "#EF4444" },
@@ -555,7 +527,7 @@ export const initialSeasonStandings = Object.fromEntries(
   initialSeasons.map((season) => [
     season.edition,
     season.edition === initialSeasons[0].edition
-      ? initialPointsTable
+      ? session5Standings
       : season.edition === 'Season 3' ? session3Standings
         : season.edition === 'Season 4' ? session4Standings : buildSampleStandings(season.season, season.teamsCount)
   ])
@@ -633,7 +605,8 @@ export const initialRecords = [
   { title: "Most Tournament Titles", holder: "No Compromise Kaina", value: "2 Title ", details: "Session 2 and Session 3" },
   { title: "Most Catches by a Fielder", holder: "Rahul Das", value: "28 Catches", details: "Bajrangi 11 Narua (Across 2 seasons)" },
   ...session3Records,
-  ...session4Records
+  ...session4Records,
+  ...session5Records
 ];
 
 export const initialGallery = [

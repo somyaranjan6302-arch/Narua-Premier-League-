@@ -12,7 +12,7 @@ export const MatchDetailsModal = ({ match, onClose }) => {
   const team1Obj = teams.find(t => t.id === match.team1?.id) || match.team1;
   const team2Obj = teams.find(t => t.id === match.team2?.id) || match.team2;
 
-  // Older fixtures without innings data keep the legacy display; Session 4 uses the PDF scorecards.
+  // Older fixtures without innings data keep the legacy display; Sessions 3-5 use PDF scorecards.
   const fallbackBatting = [
     { name: "Sourav Das (c)", dismissal: "c Indrajit b Sen", runs: 68, balls: 38, fours: 7, sixes: 4, sr: "178.9" },
     { name: "Rohit Samanta", dismissal: "b Prasenjit Das", runs: 42, balls: 26, fours: 4, sixes: 2, sr: "161.5" },
@@ -89,6 +89,7 @@ export const MatchDetailsModal = ({ match, onClose }) => {
             <span className="text-xs font-bold text-amber-300">
               {match.result || match.equation || match.preview}
             </span>
+            {match.sourceNote && <p className="text-xs text-amber-200/80 mt-2">{match.sourceNote}</p>}
           </div>
         </div>
 

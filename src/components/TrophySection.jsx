@@ -59,6 +59,14 @@ export const TrophySection = () => {
                     <span>2025 (Season 3)</span>
                     <span className="text-amber-400">No Compromise</span>
                   </div>
+                  <div className="flex items-center justify-between">
+                    <span>2026 (Season 4)</span>
+                    <span className="text-blue-400">Titan Strikers</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>2026 (Season 5)</span>
+                    <span className="text-indigo-400">GCC Fighter</span>
+                  </div>
                 </div>
               </div>
             </div>
