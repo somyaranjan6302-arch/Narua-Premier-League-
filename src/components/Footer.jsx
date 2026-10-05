@@ -24,11 +24,11 @@ export const Footer = ({ scrollToSection }) => {
           </span>
         </div>
 
-        <div className="mx-auto grid w-full max-w-5xl grid-cols-2 sm:grid-cols-4 gap-4 items-center">
+        <div className="mx-auto flex w-full flex-wrap items-center justify-center gap-4">
           {sponsors.map((sp, idx) => (
             <div
               key={idx}
-              className="p-3 rounded-xl bg-slate-900/60 border border-slate-800/80 text-center hover:border-slate-700 transition-colors"
+              className="w-full max-w-xs p-3 rounded-xl bg-slate-900/60 border border-slate-800/80 text-center hover:border-slate-700 transition-colors"
             >
               <span className="font-sports text-base sm:text-lg text-slate-200 block leading-tight">
                 {sp.name}
