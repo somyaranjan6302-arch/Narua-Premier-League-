@@ -8,11 +8,10 @@ export const Footer = ({ scrollToSection }) => {
   const { tournamentInfo, setIsAdminModalOpen, siteMedia } = useNpl();
 
   const sponsors = [
-    { name: "FIRE CLUB  ", role: "TITLE SPONSOR" },
+    { name: "FIRE CLUB", role: "TITLE SPONSOR" },
     { name: "YOUNG STAR CLUB", role: "OFFICIAL LOGISTICS" },
     { name: "MUKKE DA DOKAN", role: "HOSPITALITY PARTNER" },
     { name: "SUDHIR DADI VLOGS", role: "STREAMING PARTNER" },
-
   ];
 
   return (
@@ -25,7 +24,7 @@ export const Footer = ({ scrollToSection }) => {
           </span>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 items-center justify-center">
+        <div className="mx-auto grid w-full max-w-5xl grid-cols-2 sm:grid-cols-4 gap-4 items-center">
           {sponsors.map((sp, idx) => (
             <div
               key={idx}
