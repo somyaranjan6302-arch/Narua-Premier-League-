@@ -12,8 +12,7 @@ export const Footer = ({ scrollToSection }) => {
     { name: "YOUNG STAR CLUB", role: "OFFICIAL LOGISTICS" },
     { name: "MUKKE DA DOKAN", role: "HOSPITALITY PARTNER" },
     { name: "SUDHIR DADI VLOGS", role: "STREAMING PARTNER" },
-    { name: "BHAI BHAI GROUP", role: "BEVERAGE PARTNER" },
-    { name: "NPL INSTAGRAM", role: "ADVERTISING PARTNER" },
+
   ];
 
   return (
