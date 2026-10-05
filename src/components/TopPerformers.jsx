@@ -6,6 +6,7 @@ import { getSiteMedia } from '../utils/siteMedia';
 import { session3Performers } from '../data/session3Data';
 import { session4Performers } from '../data/session4Data';
 import { session5Performers } from '../data/session5Data';
+import { session2Performers } from '../data/session2Data';
 
 export const TopPerformers = () => {
   const { topPerformers, openModal, siteMedia, seasons, selectedSeason, setSelectedSeason } = useNpl();
@@ -20,9 +21,10 @@ export const TopPerformers = () => {
   ];
   const activePerformers = selectedSeason === 'Season 5'
     ? session5Performers
+    : selectedSeason === 'Season 2' ? session2Performers
     : selectedSeason === 'Season 3' ? session3Performers
       : selectedSeason === 'Season 4' ? session4Performers : topPerformers;
-  const sessionPerformers = selectedSeason === 'Season 3' || selectedSeason === 'Season 4' || selectedSeason === 'Season 5'
+  const sessionPerformers = selectedSeason === 'Season 2' || selectedSeason === 'Season 3' || selectedSeason === 'Season 4' || selectedSeason === 'Season 5'
     ? performerList.map((item) => ({ ...item, data: activePerformers[item.key] }))
     : [];
 

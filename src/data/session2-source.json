@@ -1,0 +1,2161 @@
+{
+  "matches": [
+    {
+      "id": "s2-m01",
+      "season": "Season 2",
+      "matchNumber": "MATCH 01",
+      "tournamentPhase": "LEAGUE",
+      "status": "COMPLETED",
+      "date": "2024-12-12",
+      "time": "05:30 AM UTC",
+      "venue": "Narua Playground, Jajpur",
+      "toss": "Mahaveer Warriors opt to field",
+      "result": "Kaina Tiger won by 4 runs",
+      "team1": {
+        "id": "kaina-tiger-s2",
+        "name": "Kaina Tiger",
+        "score": "72/0",
+        "overs": "8.0"
+      },
+      "team2": {
+        "id": "mahaveer-warriors-s2",
+        "name": "Mahaveer Warriors",
+        "score": "68/1",
+        "overs": "8.0"
+      },
+      "innings": [
+        {
+          "overs": "8.0",
+          "wickets": 0,
+          "total": 72,
+          "extras": 19,
+          "batting": [
+            {
+              "name": "Answar Kaina",
+              "dismissal": "c Bagan Sayedpur b Chandan Das",
+              "runs": 0,
+              "balls": 2,
+              "fours": 0,
+              "sixes": 0,
+              "strikeRate": "0.00"
+            },
+            {
+              "name": "Mojahid Ali Khan",
+              "dismissal": "b Chandan Das",
+              "runs": 4,
+              "balls": 2,
+              "fours": 1,
+              "sixes": 0,
+              "strikeRate": "200.00"
+            },
+            {
+              "name": "Sarjan Bankipal",
+              "dismissal": "c Suman b Ananta Sayedpur",
+              "runs": 10,
+              "balls": 8,
+              "fours": 0,
+              "sixes": 1,
+              "strikeRate": "125.00"
+            },
+            {
+              "name": "Tulu Madhapur",
+              "dismissal": "b Ananta Sayedpur",
+              "runs": 0,
+              "balls": 2,
+              "fours": 0,
+              "sixes": 0,
+              "strikeRate": "0.00"
+            },
+            {
+              "name": "Julkar Kaina",
+              "dismissal": "b Chandan Das",
+              "runs": 1,
+              "balls": 4,
+              "fours": 0,
+              "sixes": 0,
+              "strikeRate": "25.00"
+            },
+            {
+              "name": "Sabir",
+              "dismissal": "c Aditya Sayedpur b Ananta Sayedpur",
+              "runs": 1,
+              "balls": 2,
+              "fours": 0,
+              "sixes": 0,
+              "strikeRate": "50.00"
+            },
+            {
+              "name": "Bibhu Das",
+              "dismissal": "b Subham Kumar Das",
+              "runs": 8,
+              "balls": 6,
+              "fours": 1,
+              "sixes": 0,
+              "strikeRate": "133.33"
+            },
+            {
+              "name": "Safin Kaina",
+              "dismissal": "not out",
+              "runs": 18,
+              "balls": 11,
+              "fours": 1,
+              "sixes": 1,
+              "strikeRate": "163.64"
+            },
+            {
+              "name": "Jiban Madhapur",
+              "dismissal": "not out",
+              "runs": 11,
+              "balls": 11,
+              "fours": 2,
+              "sixes": 0,
+              "strikeRate": "100.00"
+            }
+          ],
+          "bowling": [
+            {
+              "name": "Chandan Das",
+              "overs": "2",
+              "maidens": 0,
+              "runs": 15,
+              "wickets": 3,
+              "economy": "7.50"
+            },
+            {
+              "name": "Ananta Sayedpur",
+              "overs": "2",
+              "maidens": 0,
+              "runs": 10,
+              "wickets": 3,
+              "economy": "5.00"
+            },
+            {
+              "name": "Subham Kumar Das",
+              "overs": "1",
+              "maidens": 0,
+              "runs": 5,
+              "wickets": 1,
+              "economy": "5.00"
+            },
+            {
+              "name": "Pinu Das",
+              "overs": "2",
+              "maidens": 0,
+              "runs": 31,
+              "wickets": 0,
+              "economy": "15.50"
+            },
+            {
+              "name": "Bagan Sayedpur",
+              "overs": "1",
+              "maidens": 0,
+              "runs": 11,
+              "wickets": 0,
+              "economy": "11.00"
+            }
+          ]
+        },
+        {
+          "overs": "8.0",
+          "wickets": 1,
+          "total": 68,
+          "extras": 15,
+          "batting": [
+            {
+              "name": "Chandan Das",
+              "dismissal": "b Answar Kaina",
+              "runs": 4,
+              "balls": 2,
+              "fours": 1,
+              "sixes": 0,
+              "strikeRate": "200.00"
+            },
+            {
+              "name": "Aditya Sayedpur",
+              "dismissal": "c †Mojahid Ali Khan b Tulu Madhapur",
+              "runs": 2,
+              "balls": 3,
+              "fours": 0,
+              "sixes": 0,
+              "strikeRate": "66.67"
+            },
+            {
+              "name": "Pinu Das",
+              "dismissal": "b Tulu Madhapur",
+              "runs": 5,
+              "balls": 5,
+              "fours": 1,
+              "sixes": 0,
+              "strikeRate": "100.00"
+            },
+            {
+              "name": "Pratish Sayedpur",
+              "dismissal": "c Julkar Kaina b Sarjan Bankipal",
+              "runs": 15,
+              "balls": 15,
+              "fours": 1,
+              "sixes": 0,
+              "strikeRate": "100.00"
+            },
+            {
+              "name": "Ananta Sayedpur",
+              "dismissal": "b Sabir",
+              "runs": 0,
+              "balls": 4,
+              "fours": 0,
+              "sixes": 0,
+              "strikeRate": "0.00"
+            },
+            {
+              "name": "Chhotu Akash",
+              "dismissal": "not out",
+              "runs": 21,
+              "balls": 18,
+              "fours": 1,
+              "sixes": 0,
+              "strikeRate": "116.67"
+            },
+            {
+              "name": "Bagan Sayedpur",
+              "dismissal": "not out",
+              "runs": 6,
+              "balls": 1,
+              "fours": 0,
+              "sixes": 1,
+              "strikeRate": "600.00"
+            }
+          ],
+          "bowling": [
+            {
+              "name": "Answar Kaina",
+              "overs": "1",
+              "maidens": 0,
+              "runs": 10,
+              "wickets": 1,
+              "economy": "10.00"
+            },
+            {
+              "name": "Tulu Madhapur",
+              "overs": "2",
+              "maidens": 0,
+              "runs": 15,
+              "wickets": 2,
+              "economy": "7.50"
+            },
+            {
+              "name": "Sabir",
+              "overs": "2",
+              "maidens": 0,
+              "runs": 14,
+              "wickets": 1,
+              "economy": "7.00"
+            },
+            {
+              "name": "Bibhu Das",
+              "overs": "2",
+              "maidens": 0,
+              "runs": 17,
+              "wickets": 0,
+              "economy": "8.50"
+            },
+            {
+              "name": "Sarjan Bankipal",
+              "overs": "1",
+              "maidens": 0,
+              "runs": 12,
+              "wickets": 1,
+              "economy": "12.00"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s2-m02",
+      "season": "Season 2",
+      "matchNumber": "MATCH 02",
+      "tournamentPhase": "QUARTER FINAL",
+      "status": "COMPLETED",
+      "date": "2024-12-12",
+      "time": "06:26 AM UTC",
+      "venue": "Narua Playground, Jajpur",
+      "toss": "BNM Royals Narua opt to field",
+      "result": "BNM Royals Narua won by 10 wickets",
+      "team1": {
+        "id": "11-star-sayedpur-s2",
+        "name": "11 Star Sayedpur",
+        "score": "64/2",
+        "overs": "8.0"
+      },
+      "team2": {
+        "id": "bnm-royals-narua-s2",
+        "name": "BNM Royals Narua",
+        "score": "65/0",
+        "overs": "3.2"
+      },
+      "innings": [
+        {
+          "overs": "8.0",
+          "wickets": 2,
+          "total": 64,
+          "extras": 20,
+          "batting": [
+            {
+              "name": "Kesab Gupchup",
+              "dismissal": "b Gourab Das",
+              "runs": 5,
+              "balls": 6,
+              "fours": 1,
+              "sixes": 0,
+              "strikeRate": "83.33"
+            },
+            {
+              "name": "Ashis kumar",
+              "dismissal": "b Chikuuuuu",
+              "runs": 3,
+              "balls": 7,
+              "fours": 0,
+              "sixes": 0,
+              "strikeRate": "42.86"
+            },
+            {
+              "name": "Aju Sayedpur",
+              "dismissal": "b Chikuuuuu",
+              "runs": 4,
+              "balls": 12,
+              "fours": 0,
+              "sixes": 0,
+              "strikeRate": "33.33"
+            },
+            {
+              "name": "Sunil Malik",
+              "dismissal": "b PRASAN JIT",
+              "runs": 30,
+              "balls": 18,
+              "fours": 7,
+              "sixes": 0,
+              "strikeRate": "166.67"
+            },
+            {
+              "name": "Tikina",
+              "dismissal": "run out Chikuuuuu",
+              "runs": 1,
+              "balls": 5,
+              "fours": 0,
+              "sixes": 0,
+              "strikeRate": "20.00"
+            },
+            {
+              "name": "Anil Sayedpur",
+              "dismissal": "b PRASAN JIT",
+              "runs": 0,
+              "balls": 2,
+              "fours": 0,
+              "sixes": 0,
+              "strikeRate": "0.00"
+            },
+            {
+              "name": "Dukhana",
+              "dismissal": "not out",
+              "runs": 0,
+              "balls": 0,
+              "fours": 0,
+              "sixes": 0,
+              "strikeRate": "0.00"
+            },
+            {
+              "name": "Babua Sayedpur",
+              "dismissal": "not out",
+              "runs": 1,
+              "balls": 1,
+              "fours": 0,
+              "sixes": 0,
+              "strikeRate": "100.00"
+            }
+          ],
+          "bowling": [
+            {
+              "name": "Akash Sayedpur",
+              "overs": "2",
+              "maidens": 0,
+              "runs": 18,
+              "wickets": 0,
+              "economy": "9.00"
+            },
+            {
+              "name": "Gourab Das",
+              "overs": "2",
+              "maidens": 0,
+              "runs": 13,
+              "wickets": 1,
+              "economy": "6.50"
+            },
+            {
+              "name": "Dipu Haripur",
+              "overs": "1",
+              "maidens": 0,
+              "runs": 3,
+              "wickets": 0,
+              "economy": "3.00"
+            },
+            {
+              "name": "Chikuuuuu",
+              "overs": "2",
+              "maidens": 0,
+              "runs": 18,
+              "wickets": 2,
+              "economy": "9.00"
+            },
+            {
+              "name": "PRASAN JIT",
+              "overs": "1",
+              "maidens": 0,
+              "runs": 4,
+              "wickets": 2,
+              "economy": "4.00"
+            }
+          ]
+        },
+        {
+          "overs": "3.2",
+          "wickets": 0,
+          "total": 65,
+          "extras": 16,
+          "batting": [
+            {
+              "name": "Chikuuuuu",
+              "dismissal": "not out",
+              "runs": 48,
+              "balls": 14,
+              "fours": 5,
+              "sixes": 4,
+              "strikeRate": "342.86"
+            },
+            {
+              "name": "Akash Sayedpur",
+              "dismissal": "not out",
+              "runs": 1,
+              "balls": 6,
+              "fours": 0,
+              "sixes": 0,
+              "strikeRate": "16.67"
+            }
+          ],
+          "bowling": [
+            {
+              "name": "Tikina",
+              "overs": "1",
+              "maidens": 0,
+              "runs": 10,
+              "wickets": 0,
+              "economy": "10.00"
+            },
+            {
+              "name": "Sunil Malik",
+              "overs": "1",
+              "maidens": 0,
+              "runs": 28,
+              "wickets": 0,
+              "economy": "28.00"
+            },
+            {
+              "name": "Aju Sayedpur",
+              "overs": "1",
+              "maidens": 0,
+              "runs": 14,
+              "wickets": 0,
+              "economy": "14.00"
+            },
+            {
+              "name": "Babul",
+              "overs": "0.2",
+              "maidens": 0,
+              "runs": 8,
+              "wickets": 0,
+              "economy": "24.00"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s2-m03",
+      "season": "Season 2",
+      "matchNumber": "MATCH 03",
+      "tournamentPhase": "QUARTER FINAL",
+      "status": "COMPLETED",
+      "date": "2024-12-12",
+      "time": "07:39 AM UTC",
+      "venue": "Narua Playground, Jajpur",
+      "toss": "Kaina Tiger opt to bat",
+      "result": "Kaina Tiger won by 1 run",
+      "team1": {
+        "id": "kaina-tiger-s2",
+        "name": "Kaina Tiger",
+        "score": "76/4",
+        "overs": "8.0"
+      },
+      "team2": {
+        "id": "bajarangi-11-s2",
+        "name": "Bajarangi 11",
+        "score": "75/2",
+        "overs": "8.0"
+      },
+      "innings": [
+        {
+          "overs": "8.0",
+          "wickets": 4,
+          "total": 76,
+          "extras": 23,
+          "batting": [
+            {
+              "name": "Sabir",
+              "dismissal": "c Rajan b Krishna Rout",
+              "runs": 3,
+              "balls": 6,
+              "fours": 0,
+              "sixes": 0,
+              "strikeRate": "50.00"
+            },
+            {
+              "name": "Sarjan Bankipal",
+              "dismissal": "b Rajan",
+              "runs": 6,
+              "balls": 2,
+              "fours": 0,
+              "sixes": 1,
+              "strikeRate": "300.00"
+            },
+            {
+              "name": "Mojahid Ali Khan",
+              "dismissal": "c Omm b Rahul Das",
+              "runs": 14,
+              "balls": 13,
+              "fours": 3,
+              "sixes": 0,
+              "strikeRate": "107.69"
+            },
+            {
+              "name": "Answar Kaina",
+              "dismissal": "c Rahul Das b Krishna Rout",
+              "runs": 4,
+              "balls": 3,
+              "fours": 1,
+              "sixes": 0,
+              "strikeRate": "133.33"
+            },
+            {
+              "name": "Tulu Madhapur",
+              "dismissal": "b Krishna Rout",
+              "runs": 0,
+              "balls": 1,
+              "fours": 0,
+              "sixes": 0,
+              "strikeRate": "0.00"
+            },
+            {
+              "name": "Bibhu Das",
+              "dismissal": "c Daku b Rahul Das",
+              "runs": 0,
+              "balls": 2,
+              "fours": 0,
+              "sixes": 0,
+              "strikeRate": "0.00"
+            },
+            {
+              "name": "Julkar Kaina",
+              "dismissal": "b Rahul Das",
+              "runs": 1,
+              "balls": 2,
+              "fours": 0,
+              "sixes": 0,
+              "strikeRate": "50.00"
+            },
+            {
+              "name": "Jiban Madhapur",
+              "dismissal": "b Krishna Rout",
+              "runs": 3,
+              "balls": 6,
+              "fours": 0,
+              "sixes": 0,
+              "strikeRate": "50.00"
+            },
+            {
+              "name": "Naresh Sayedpur",
+              "dismissal": "not out",
+              "runs": 20,
+              "balls": 10,
+              "fours": 2,
+              "sixes": 1,
+              "strikeRate": "200.00"
+            },
+            {
+              "name": "Safin Kaina",
+              "dismissal": "c Satyanshu Das b Rahul Das",
+              "runs": 2,
+              "balls": 5,
+              "fours": 0,
+              "sixes": 0,
+              "strikeRate": "40.00"
+            },
+            {
+              "name": "Subha",
+              "dismissal": "not out",
+              "runs": 0,
+              "balls": 2,
+              "fours": 0,
+              "sixes": 0,
+              "strikeRate": "0.00"
+            }
+          ],
+          "bowling": [
+            {
+              "name": "Rajan",
+              "overs": "1",
+              "maidens": 0,
+              "runs": 17,
+              "wickets": 1,
+              "economy": "17.00"
+            },
+            {
+              "name": "Satyanshu Das",
+              "overs": "2",
+              "maidens": 0,
+              "runs": 24,
+              "wickets": 0,
+              "economy": "12.00"
+            },
+            {
+              "name": "Malaya",
+              "overs": "1",
+              "maidens": 0,
+              "runs": 6,
+              "wickets": 0,
+              "economy": "6.00"
+            },
+            {
+              "name": "Krishna Rout",
+              "overs": "2",
+              "maidens": 0,
+              "runs": 9,
+              "wickets": 4,
+              "economy": "4.50"
+            },
+            {
+              "name": "Rahul Das",
+              "overs": "2",
+              "maidens": 0,
+              "runs": 16,
+              "wickets": 4,
+              "economy": "8.00"
+            }
+          ]
+        },
+        {
+          "overs": "8.0",
+          "wickets": 2,
+          "total": 75,
+          "extras": 9,
+          "batting": [
+            {
+              "name": "Rajan",
+              "dismissal": "b Tulu Madhapur",
+              "runs": 8,
+              "balls": 8,
+              "fours": 0,
+              "sixes": 1,
+              "strikeRate": "100.00"
+            },
+            {
+              "name": "Rosan",
+              "dismissal": "c Bibhu Das b Sarjan Bankipal",
+              "runs": 31,
+              "balls": 21,
+              "fours": 3,
+              "sixes": 2,
+              "strikeRate": "147.62"
+            },
+            {
+              "name": "Rahul Das",
+              "dismissal": "c Sarjan Bankipal b Bibhu Das",
+              "runs": 21,
+              "balls": 12,
+              "fours": 0,
+              "sixes": 3,
+              "strikeRate": "175.00"
+            },
+            {
+              "name": "Malaya",
+              "dismissal": "not out",
+              "runs": 6,
+              "balls": 6,
+              "fours": 1,
+              "sixes": 0,
+              "strikeRate": "100.00"
+            },
+            {
+              "name": "Krishna Rout",
+              "dismissal": "b Sarjan Bankipal",
+              "runs": 0,
+              "balls": 1,
+              "fours": 0,
+              "sixes": 0,
+              "strikeRate": "0.00"
+            }
+          ],
+          "bowling": [
+            {
+              "name": "Answar Kaina",
+              "overs": "1",
+              "maidens": 0,
+              "runs": 10,
+              "wickets": 0,
+              "economy": "10.00"
+            },
+            {
+              "name": "Bibhu Das",
+              "overs": "2",
+              "maidens": 0,
+              "runs": 19,
+              "wickets": 1,
+              "economy": "9.50"
+            },
+            {
+              "name": "Sabir",
+              "overs": "2",
+              "maidens": 0,
+              "runs": 19,
+              "wickets": 0,
+              "economy": "9.50"
+            },
+            {
+              "name": "Tulu Madhapur",
+              "overs": "2",
+              "maidens": 0,
+              "runs": 20,
+              "wickets": 1,
+              "economy": "10.00"
+            },
+            {
+              "name": "Sarjan Bankipal",
+              "overs": "1",
+              "maidens": 0,
+              "runs": 7,
+              "wickets": 2,
+              "economy": "7.00"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s2-m04",
+      "season": "Season 2",
+      "matchNumber": "MATCH 04",
+      "tournamentPhase": "QUARTER FINAL",
+      "status": "COMPLETED",
+      "date": "2024-12-12",
+      "time": "09:17 AM UTC",
+      "venue": "Narua Playground, Jajpur",
+      "toss": "Ramachandrapur Fighter opt to field",
+      "result": "Ramachandrapur Fighter won by 10 wickets",
+      "team1": {
+        "id": "11-star-sayedpur-s2",
+        "name": "11 Star Sayedpur",
+        "score": "58/2",
+        "overs": "8.0"
+      },
+      "team2": {
+        "id": "ramachandrapur-fighter-s2",
+        "name": "Ramachandrapur Fighter",
+        "score": "59/0",
+        "overs": "2.1"
+      },
+      "innings": [
+        {
+          "overs": "8.0",
+          "wickets": 2,
+          "total": 58,
+          "extras": 23,
+          "batting": [
+            {
+              "name": "Sunil Malik",
+              "dismissal": "c Suresh Haripur b Sankara Haripur",
+              "runs": 16,
+              "balls": 12,
+              "fours": 1,
+              "sixes": 1,
+              "strikeRate": "133.33"
+            },
+            {
+              "name": "Ashis kumar",
+              "dismissal": "c Sankara Haripur b Omm Das Haripur",
+              "runs": 7,
+              "balls": 6,
+              "fours": 0,
+              "sixes": 1,
+              "strikeRate": "116.67"
+            },
+            {
+              "name": "Kesab Gupchup",
+              "dismissal": "c Rahul Haripur b Sankara Haripur",
+              "runs": 6,
+              "balls": 8,
+              "fours": 1,
+              "sixes": 0,
+              "strikeRate": "75.00"
+            },
+            {
+              "name": "Dukhana",
+              "dismissal": "b Omm Guru Haripur",
+              "runs": 1,
+              "balls": 6,
+              "fours": 0,
+              "sixes": 0,
+              "strikeRate": "16.67"
+            },
+            {
+              "name": "Aju Sayedpur",
+              "dismissal": "run out MR SOUMYA",
+              "runs": 2,
+              "balls": 3,
+              "fours": 0,
+              "sixes": 0,
+              "strikeRate": "66.67"
+            },
+            {
+              "name": "Babua Sayedpur",
+              "dismissal": "b Taruna Haripur",
+              "runs": 0,
+              "balls": 5,
+              "fours": 0,
+              "sixes": 0,
+              "strikeRate": "0.00"
+            },
+            {
+              "name": "Anil Sayedpur",
+              "dismissal": "run out Omm Das Haripur",
+              "runs": 3,
+              "balls": 7,
+              "fours": 0,
+              "sixes": 0,
+              "strikeRate": "42.86"
+            },
+            {
+              "name": "Bhaskar Reddy",
+              "dismissal": "b Taruna Haripur",
+              "runs": 0,
+              "balls": 1,
+              "fours": 0,
+              "sixes": 0,
+              "strikeRate": "0.00"
+            },
+            {
+              "name": "Jit Sayedpur",
+              "dismissal": "not out",
+              "runs": 0,
+              "balls": 2,
+              "fours": 0,
+              "sixes": 0,
+              "strikeRate": "0.00"
+            },
+            {
+              "name": "Sagar",
+              "dismissal": "not out",
+              "runs": 0,
+              "balls": 0,
+              "fours": 0,
+              "sixes": 0,
+              "strikeRate": "0.00"
+            }
+          ],
+          "bowling": [
+            {
+              "name": "Rahul Haripur",
+              "overs": "2",
+              "maidens": 0,
+              "runs": 17,
+              "wickets": 0,
+              "economy": "8.50"
+            },
+            {
+              "name": "Omm Das Haripur",
+              "overs": "2",
+              "maidens": 0,
+              "runs": 16,
+              "wickets": 1,
+              "economy": "8.00"
+            },
+            {
+              "name": "Sankara Haripur",
+              "overs": "2",
+              "maidens": 0,
+              "runs": 9,
+              "wickets": 2,
+              "economy": "4.50"
+            },
+            {
+              "name": "Omm Guru Haripur",
+              "overs": "1",
+              "maidens": 0,
+              "runs": 1,
+              "wickets": 1,
+              "economy": "1.00"
+            },
+            {
+              "name": "Taruna Haripur",
+              "overs": "1",
+              "maidens": 0,
+              "runs": 6,
+              "wickets": 2,
+              "economy": "6.00"
+            }
+          ]
+        },
+        {
+          "overs": "2.1",
+          "wickets": 0,
+          "total": 59,
+          "extras": 5,
+          "batting": [
+            {
+              "name": "Jagan Haripur",
+              "dismissal": "not out",
+              "runs": 26,
+              "balls": 9,
+              "fours": 5,
+              "sixes": 1,
+              "strikeRate": "288.89"
+            },
+            {
+              "name": "Miju Haripur",
+              "dismissal": "not out",
+              "runs": 28,
+              "balls": 7,
+              "fours": 1,
+              "sixes": 4,
+              "strikeRate": "400.00"
+            }
+          ],
+          "bowling": [
+            {
+              "name": "Aju Sayedpur",
+              "overs": "1",
+              "maidens": 0,
+              "runs": 22,
+              "wickets": 0,
+              "economy": "22.00"
+            },
+            {
+              "name": "Babul",
+              "overs": "1",
+              "maidens": 0,
+              "runs": 29,
+              "wickets": 0,
+              "economy": "29.00"
+            },
+            {
+              "name": "Kesab Gupchup",
+              "overs": "0.1",
+              "maidens": 0,
+              "runs": 8,
+              "wickets": 0,
+              "economy": "48.00"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "standings": {
+    "Kaina Tiger": {
+      "p": 2,
+      "w": 2,
+      "l": 0,
+      "pts": 4,
+      "forRuns": 148,
+      "forBalls": 96,
+      "againstRuns": 143,
+      "againstBalls": 96,
+      "form": [
+        "W",
+        "W"
+      ],
+      "nrr": 0.312
+    },
+    "Mahaveer Warriors": {
+      "p": 1,
+      "w": 0,
+      "l": 1,
+      "pts": 0,
+      "forRuns": 68,
+      "forBalls": 48,
+      "againstRuns": 72,
+      "againstBalls": 48,
+      "form": [
+        "L"
+      ],
+      "nrr": -0.5
+    },
+    "11 Star Sayedpur": {
+      "p": 2,
+      "w": 0,
+      "l": 2,
+      "pts": 0,
+      "forRuns": 122,
+      "forBalls": 96,
+      "againstRuns": 124,
+      "againstBalls": 33,
+      "form": [
+        "L",
+        "L"
+      ],
+      "nrr": -14.92
+    },
+    "BNM Royals Narua": {
+      "p": 1,
+      "w": 1,
+      "l": 0,
+      "pts": 2,
+      "forRuns": 65,
+      "forBalls": 20,
+      "againstRuns": 64,
+      "againstBalls": 48,
+      "form": [
+        "W"
+      ],
+      "nrr": 11.5
+    },
+    "Bajarangi 11": {
+      "p": 1,
+      "w": 0,
+      "l": 1,
+      "pts": 0,
+      "forRuns": 75,
+      "forBalls": 48,
+      "againstRuns": 76,
+      "againstBalls": 48,
+      "form": [
+        "L"
+      ],
+      "nrr": -0.125
+    },
+    "Ramachandrapur Fighter": {
+      "p": 1,
+      "w": 1,
+      "l": 0,
+      "pts": 2,
+      "forRuns": 59,
+      "forBalls": 13,
+      "againstRuns": 58,
+      "againstBalls": 48,
+      "form": [
+        "W"
+      ],
+      "nrr": 19.981
+    }
+  },
+  "rosters": {
+    "Ramachandrapur Fighter": {
+      "rahul haripur": {
+        "name": "Rahul Haripur",
+        "captain": true,
+        "wicketkeeper": false
+      },
+      "chandan mallik": {
+        "name": "Chandan Mallik",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "chhota happy narua": {
+        "name": "Chhota Happy Narua",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "jagan haripur": {
+        "name": "Jagan Haripur",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "miju haripur": {
+        "name": "Miju Haripur",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "omm das haripur": {
+        "name": "Omm Das Haripur",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "omm guru haripur": {
+        "name": "Omm Guru Haripur",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "sankara haripur": {
+        "name": "Sankara Haripur",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "soumya ranjan das": {
+        "name": "Soumya Ranjan Das",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "suresh haripur": {
+        "name": "Suresh Haripur",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "taruna haripur": {
+        "name": "Taruna Haripur",
+        "captain": false,
+        "wicketkeeper": false
+      }
+    },
+    "11 Star Sayedpur": {
+      "sunil malik": {
+        "name": "Sunil Malik",
+        "captain": true,
+        "wicketkeeper": false
+      },
+      "aju sayedpur": {
+        "name": "Aju Sayedpur",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "anil sayedpur": {
+        "name": "Anil Sayedpur",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "ashis kumar": {
+        "name": "Ashis Kumar",
+        "captain": true,
+        "wicketkeeper": true
+      },
+      "babua sayedpur": {
+        "name": "Babua Sayedpur",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "babul": {
+        "name": "Babul",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "dukhana": {
+        "name": "Dukhana",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "kanha": {
+        "name": "Kanha",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "kesab gupchup": {
+        "name": "Kesab Gupchup",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "sagar": {
+        "name": "Sagar",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "jit sayedpur": {
+        "name": "Jit Sayedpur",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "tikina": {
+        "name": "Tikina",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "jit sayedpur ( 12th man )": {
+        "name": "Jit Sayedpur ( 12th Man )",
+        "captain": false,
+        "wicketkeeper": false
+      }
+    },
+    "Bajarangi 11": {
+      "omm": {
+        "name": "Omm",
+        "captain": true,
+        "wicketkeeper": false
+      },
+      "daku": {
+        "name": "Daku",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "krishna": {
+        "name": "Krishna",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "malaya": {
+        "name": "Malaya",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "rahul": {
+        "name": "Rahul",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "rahul das": {
+        "name": "Rahul Das",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "rajan": {
+        "name": "Rajan",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "rosan": {
+        "name": "Rosan",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "sangram": {
+        "name": "Sangram",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "sanu": {
+        "name": "Sanu",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "satyanshu das": {
+        "name": "Satyanshu Das",
+        "captain": false,
+        "wicketkeeper": false
+      }
+    },
+    "Kaina Tiger": {
+      "mojahid ali khan": {
+        "name": "Mojahid Ali Khan",
+        "captain": true,
+        "wicketkeeper": true
+      },
+      "answar kaina": {
+        "name": "Answar Kaina",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "bibhu das": {
+        "name": "Bibhu Das",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "jiban madhapur": {
+        "name": "Jiban Madhapur",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "julkar kaina": {
+        "name": "Julkar Kaina",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "naresh sayedpur": {
+        "name": "Naresh Sayedpur",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "sabir": {
+        "name": "Sabir",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "safin kaina": {
+        "name": "Safin Kaina",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "sarjan bankipal": {
+        "name": "Sarjan Bankipal",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "subha": {
+        "name": "Subha",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "tulu madhapur": {
+        "name": "Tulu Madhapur",
+        "captain": false,
+        "wicketkeeper": false
+      }
+    },
+    "BNM Royals Narua": {
+      "gourab das": {
+        "name": "Gourab Das",
+        "captain": true,
+        "wicketkeeper": false
+      },
+      "akash sayedpur": {
+        "name": "Akash Sayedpur",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "chintu": {
+        "name": "Chintu",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "dipu haripur": {
+        "name": "Dipu Haripur",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "gopala narua": {
+        "name": "Gopala Narua",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "jojo": {
+        "name": "Jojo",
+        "captain": false,
+        "wicketkeeper": true
+      },
+      "kanha (faf)": {
+        "name": "Kanha (faf)",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "muna": {
+        "name": "Muna",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "muna narua": {
+        "name": "Muna Narua",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "omm bentali": {
+        "name": "Omm Bentali",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "somya das": {
+        "name": "Somya Das",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "sankara bankipal ( 12th man )": {
+        "name": "Sankara Bankipal ( 12th Man )",
+        "captain": false,
+        "wicketkeeper": false
+      }
+    },
+    "Mahaveer Warriors": {
+      "ananta sayedpur": {
+        "name": "Ananta Sayedpur",
+        "captain": true,
+        "wicketkeeper": false
+      },
+      "aditya sayedpur": {
+        "name": "Aditya Sayedpur",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "bagan sayedpur": {
+        "name": "Bagan Sayedpur",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "chandan das": {
+        "name": "Chandan Das",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "chhotu akash": {
+        "name": "Chhotu Akash",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "lipu sayedpur": {
+        "name": "Lipu Sayedpur",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "manty sayedpur": {
+        "name": "Manty Sayedpur",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "pinu das": {
+        "name": "Pinu Das",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "pratish sayedpur": {
+        "name": "Pratish Sayedpur",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "subham gaming": {
+        "name": "Subham Gaming",
+        "captain": false,
+        "wicketkeeper": false
+      },
+      "suman": {
+        "name": "Suman",
+        "captain": false,
+        "wicketkeeper": false
+      }
+    }
+  },
+  "batting": {
+    "sunil malik": {
+      "name": "Sunil Malik",
+      "runs": 46,
+      "balls": 30,
+      "fours": 8,
+      "sixes": 1,
+      "innings": 2,
+      "highestScore": 30,
+      "bestScoreBalls": 18
+    },
+    "ashis kumar": {
+      "name": "Ashis kumar",
+      "runs": 10,
+      "balls": 13,
+      "fours": 0,
+      "sixes": 1,
+      "innings": 2,
+      "highestScore": 7,
+      "bestScoreBalls": 6
+    },
+    "kesab gupchup": {
+      "name": "Kesab Gupchup",
+      "runs": 11,
+      "balls": 14,
+      "fours": 2,
+      "sixes": 0,
+      "innings": 2,
+      "highestScore": 6,
+      "bestScoreBalls": 8
+    },
+    "dukhana": {
+      "name": "Dukhana",
+      "runs": 1,
+      "balls": 6,
+      "fours": 0,
+      "sixes": 0,
+      "innings": 2,
+      "highestScore": 1,
+      "bestScoreBalls": 6
+    },
+    "aju sayedpur": {
+      "name": "Aju Sayedpur",
+      "runs": 6,
+      "balls": 15,
+      "fours": 0,
+      "sixes": 0,
+      "innings": 2,
+      "highestScore": 4,
+      "bestScoreBalls": 12
+    },
+    "babua sayedpur": {
+      "name": "Babua Sayedpur",
+      "runs": 1,
+      "balls": 6,
+      "fours": 0,
+      "sixes": 0,
+      "innings": 2,
+      "highestScore": 1,
+      "bestScoreBalls": 1
+    },
+    "anil sayedpur": {
+      "name": "Anil Sayedpur",
+      "runs": 3,
+      "balls": 9,
+      "fours": 0,
+      "sixes": 0,
+      "innings": 2,
+      "highestScore": 3,
+      "bestScoreBalls": 7
+    },
+    "bhaskar reddy": {
+      "name": "Bhaskar Reddy",
+      "runs": 0,
+      "balls": 1,
+      "fours": 0,
+      "sixes": 0,
+      "innings": 1,
+      "highestScore": 0,
+      "bestScoreBalls": 1
+    },
+    "jit sayedpur": {
+      "name": "Jit Sayedpur",
+      "runs": 0,
+      "balls": 2,
+      "fours": 0,
+      "sixes": 0,
+      "innings": 1,
+      "highestScore": 0,
+      "bestScoreBalls": 2
+    },
+    "sagar": {
+      "name": "Sagar",
+      "runs": 0,
+      "balls": 0,
+      "fours": 0,
+      "sixes": 0,
+      "innings": 1,
+      "highestScore": 0,
+      "bestScoreBalls": 0
+    },
+    "jagan haripur": {
+      "name": "Jagan Haripur",
+      "runs": 26,
+      "balls": 9,
+      "fours": 5,
+      "sixes": 1,
+      "innings": 1,
+      "highestScore": 26,
+      "bestScoreBalls": 9
+    },
+    "miju haripur": {
+      "name": "Miju Haripur",
+      "runs": 28,
+      "balls": 7,
+      "fours": 1,
+      "sixes": 4,
+      "innings": 1,
+      "highestScore": 28,
+      "bestScoreBalls": 7
+    },
+    "sabir": {
+      "name": "Sabir",
+      "runs": 4,
+      "balls": 8,
+      "fours": 0,
+      "sixes": 0,
+      "innings": 2,
+      "highestScore": 3,
+      "bestScoreBalls": 6
+    },
+    "sarjan bankipal": {
+      "name": "Sarjan Bankipal",
+      "runs": 16,
+      "balls": 10,
+      "fours": 0,
+      "sixes": 2,
+      "innings": 2,
+      "highestScore": 10,
+      "bestScoreBalls": 8
+    },
+    "mojahid ali khan": {
+      "name": "Mojahid Ali Khan",
+      "runs": 18,
+      "balls": 15,
+      "fours": 4,
+      "sixes": 0,
+      "innings": 2,
+      "highestScore": 14,
+      "bestScoreBalls": 13
+    },
+    "answar kaina": {
+      "name": "Answar Kaina",
+      "runs": 4,
+      "balls": 5,
+      "fours": 1,
+      "sixes": 0,
+      "innings": 2,
+      "highestScore": 4,
+      "bestScoreBalls": 3
+    },
+    "tulu madhapur": {
+      "name": "Tulu Madhapur",
+      "runs": 0,
+      "balls": 3,
+      "fours": 0,
+      "sixes": 0,
+      "innings": 2,
+      "highestScore": 0,
+      "bestScoreBalls": 1
+    },
+    "bibhu das": {
+      "name": "Bibhu Das",
+      "runs": 8,
+      "balls": 8,
+      "fours": 1,
+      "sixes": 0,
+      "innings": 2,
+      "highestScore": 8,
+      "bestScoreBalls": 6
+    },
+    "julkar kaina": {
+      "name": "Julkar Kaina",
+      "runs": 2,
+      "balls": 6,
+      "fours": 0,
+      "sixes": 0,
+      "innings": 2,
+      "highestScore": 1,
+      "bestScoreBalls": 2
+    },
+    "jiban madhapur": {
+      "name": "Jiban Madhapur",
+      "runs": 14,
+      "balls": 17,
+      "fours": 2,
+      "sixes": 0,
+      "innings": 2,
+      "highestScore": 11,
+      "bestScoreBalls": 11
+    },
+    "naresh sayedpur": {
+      "name": "Naresh Sayedpur",
+      "runs": 20,
+      "balls": 10,
+      "fours": 2,
+      "sixes": 1,
+      "innings": 1,
+      "highestScore": 20,
+      "bestScoreBalls": 10
+    },
+    "safin kaina": {
+      "name": "Safin Kaina",
+      "runs": 20,
+      "balls": 16,
+      "fours": 1,
+      "sixes": 1,
+      "innings": 2,
+      "highestScore": 18,
+      "bestScoreBalls": 11
+    },
+    "subha": {
+      "name": "Subha",
+      "runs": 0,
+      "balls": 2,
+      "fours": 0,
+      "sixes": 0,
+      "innings": 1,
+      "highestScore": 0,
+      "bestScoreBalls": 2
+    },
+    "rajan": {
+      "name": "Rajan",
+      "runs": 8,
+      "balls": 8,
+      "fours": 0,
+      "sixes": 1,
+      "innings": 1,
+      "highestScore": 8,
+      "bestScoreBalls": 8
+    },
+    "rosan": {
+      "name": "Rosan",
+      "runs": 31,
+      "balls": 21,
+      "fours": 3,
+      "sixes": 2,
+      "innings": 1,
+      "highestScore": 31,
+      "bestScoreBalls": 21
+    },
+    "rahul das": {
+      "name": "Rahul Das",
+      "runs": 21,
+      "balls": 12,
+      "fours": 0,
+      "sixes": 3,
+      "innings": 1,
+      "highestScore": 21,
+      "bestScoreBalls": 12
+    },
+    "malaya": {
+      "name": "Malaya",
+      "runs": 6,
+      "balls": 6,
+      "fours": 1,
+      "sixes": 0,
+      "innings": 1,
+      "highestScore": 6,
+      "bestScoreBalls": 6
+    },
+    "krishna rout": {
+      "name": "Krishna Rout",
+      "runs": 0,
+      "balls": 1,
+      "fours": 0,
+      "sixes": 0,
+      "innings": 1,
+      "highestScore": 0,
+      "bestScoreBalls": 1
+    },
+    "tikina": {
+      "name": "Tikina",
+      "runs": 1,
+      "balls": 5,
+      "fours": 0,
+      "sixes": 0,
+      "innings": 1,
+      "highestScore": 1,
+      "bestScoreBalls": 5
+    },
+    "chikuuuuu": {
+      "name": "Chikuuuuu",
+      "runs": 48,
+      "balls": 14,
+      "fours": 5,
+      "sixes": 4,
+      "innings": 1,
+      "highestScore": 48,
+      "bestScoreBalls": 14
+    },
+    "akash sayedpur": {
+      "name": "Akash Sayedpur",
+      "runs": 1,
+      "balls": 6,
+      "fours": 0,
+      "sixes": 0,
+      "innings": 1,
+      "highestScore": 1,
+      "bestScoreBalls": 6
+    },
+    "chandan das": {
+      "name": "Chandan Das",
+      "runs": 4,
+      "balls": 2,
+      "fours": 1,
+      "sixes": 0,
+      "innings": 1,
+      "highestScore": 4,
+      "bestScoreBalls": 2
+    },
+    "aditya sayedpur": {
+      "name": "Aditya Sayedpur",
+      "runs": 2,
+      "balls": 3,
+      "fours": 0,
+      "sixes": 0,
+      "innings": 1,
+      "highestScore": 2,
+      "bestScoreBalls": 3
+    },
+    "pinu das": {
+      "name": "Pinu Das",
+      "runs": 5,
+      "balls": 5,
+      "fours": 1,
+      "sixes": 0,
+      "innings": 1,
+      "highestScore": 5,
+      "bestScoreBalls": 5
+    },
+    "pratish sayedpur": {
+      "name": "Pratish Sayedpur",
+      "runs": 15,
+      "balls": 15,
+      "fours": 1,
+      "sixes": 0,
+      "innings": 1,
+      "highestScore": 15,
+      "bestScoreBalls": 15
+    },
+    "ananta sayedpur": {
+      "name": "Ananta Sayedpur",
+      "runs": 0,
+      "balls": 4,
+      "fours": 0,
+      "sixes": 0,
+      "innings": 1,
+      "highestScore": 0,
+      "bestScoreBalls": 4
+    },
+    "chhotu akash": {
+      "name": "Chhotu Akash",
+      "runs": 21,
+      "balls": 18,
+      "fours": 1,
+      "sixes": 0,
+      "innings": 1,
+      "highestScore": 21,
+      "bestScoreBalls": 18
+    },
+    "bagan sayedpur": {
+      "name": "Bagan Sayedpur",
+      "runs": 6,
+      "balls": 1,
+      "fours": 0,
+      "sixes": 1,
+      "innings": 1,
+      "highestScore": 6,
+      "bestScoreBalls": 1
+    }
+  },
+  "bowling": {
+    "rahul haripur": {
+      "name": "Rahul Haripur",
+      "runsConceded": 17,
+      "wickets": 0,
+      "ballsBowled": 12,
+      "innings": 1,
+      "bestBowling": {
+        "wickets": 0,
+        "runs": 17,
+        "figures": "0/17"
+      }
+    },
+    "omm das haripur": {
+      "name": "Omm Das Haripur",
+      "runsConceded": 16,
+      "wickets": 1,
+      "ballsBowled": 12,
+      "innings": 1,
+      "bestBowling": {
+        "wickets": 1,
+        "runs": 16,
+        "figures": "1/16"
+      }
+    },
+    "sankara haripur": {
+      "name": "Sankara Haripur",
+      "runsConceded": 9,
+      "wickets": 2,
+      "ballsBowled": 12,
+      "innings": 1,
+      "bestBowling": {
+        "wickets": 2,
+        "runs": 9,
+        "figures": "2/9"
+      }
+    },
+    "omm guru haripur": {
+      "name": "Omm Guru Haripur",
+      "runsConceded": 1,
+      "wickets": 1,
+      "ballsBowled": 6,
+      "innings": 1,
+      "bestBowling": {
+        "wickets": 1,
+        "runs": 1,
+        "figures": "1/1"
+      }
+    },
+    "taruna haripur": {
+      "name": "Taruna Haripur",
+      "runsConceded": 6,
+      "wickets": 2,
+      "ballsBowled": 6,
+      "innings": 1,
+      "bestBowling": {
+        "wickets": 2,
+        "runs": 6,
+        "figures": "2/6"
+      }
+    },
+    "aju sayedpur": {
+      "name": "Aju Sayedpur",
+      "runsConceded": 36,
+      "wickets": 0,
+      "ballsBowled": 12,
+      "innings": 2,
+      "bestBowling": {
+        "wickets": 0,
+        "runs": 14,
+        "figures": "0/14"
+      }
+    },
+    "babul": {
+      "name": "Babul",
+      "runsConceded": 37,
+      "wickets": 0,
+      "ballsBowled": 8,
+      "innings": 2,
+      "bestBowling": {
+        "wickets": 0,
+        "runs": 8,
+        "figures": "0/8"
+      }
+    },
+    "kesab gupchup": {
+      "name": "Kesab Gupchup",
+      "runsConceded": 8,
+      "wickets": 0,
+      "ballsBowled": 1,
+      "innings": 1,
+      "bestBowling": {
+        "wickets": 0,
+        "runs": 8,
+        "figures": "0/8"
+      }
+    },
+    "rajan": {
+      "name": "Rajan",
+      "runsConceded": 17,
+      "wickets": 1,
+      "ballsBowled": 6,
+      "innings": 1,
+      "bestBowling": {
+        "wickets": 1,
+        "runs": 17,
+        "figures": "1/17"
+      }
+    },
+    "satyanshu das": {
+      "name": "Satyanshu Das",
+      "runsConceded": 24,
+      "wickets": 0,
+      "ballsBowled": 12,
+      "innings": 1,
+      "bestBowling": {
+        "wickets": 0,
+        "runs": 24,
+        "figures": "0/24"
+      }
+    },
+    "malaya": {
+      "name": "Malaya",
+      "runsConceded": 6,
+      "wickets": 0,
+      "ballsBowled": 6,
+      "innings": 1,
+      "bestBowling": {
+        "wickets": 0,
+        "runs": 6,
+        "figures": "0/6"
+      }
+    },
+    "krishna rout": {
+      "name": "Krishna Rout",
+      "runsConceded": 9,
+      "wickets": 4,
+      "ballsBowled": 12,
+      "innings": 1,
+      "bestBowling": {
+        "wickets": 4,
+        "runs": 9,
+        "figures": "4/9"
+      }
+    },
+    "rahul das": {
+      "name": "Rahul Das",
+      "runsConceded": 16,
+      "wickets": 4,
+      "ballsBowled": 12,
+      "innings": 1,
+      "bestBowling": {
+        "wickets": 4,
+        "runs": 16,
+        "figures": "4/16"
+      }
+    },
+    "answar kaina": {
+      "name": "Answar Kaina",
+      "runsConceded": 20,
+      "wickets": 1,
+      "ballsBowled": 12,
+      "innings": 2,
+      "bestBowling": {
+        "wickets": 1,
+        "runs": 10,
+        "figures": "1/10"
+      }
+    },
+    "bibhu das": {
+      "name": "Bibhu Das",
+      "runsConceded": 36,
+      "wickets": 1,
+      "ballsBowled": 24,
+      "innings": 2,
+      "bestBowling": {
+        "wickets": 1,
+        "runs": 19,
+        "figures": "1/19"
+      }
+    },
+    "sabir": {
+      "name": "Sabir",
+      "runsConceded": 33,
+      "wickets": 1,
+      "ballsBowled": 24,
+      "innings": 2,
+      "bestBowling": {
+        "wickets": 1,
+        "runs": 14,
+        "figures": "1/14"
+      }
+    },
+    "tulu madhapur": {
+      "name": "Tulu Madhapur",
+      "runsConceded": 35,
+      "wickets": 3,
+      "ballsBowled": 24,
+      "innings": 2,
+      "bestBowling": {
+        "wickets": 2,
+        "runs": 15,
+        "figures": "2/15"
+      }
+    },
+    "sarjan bankipal": {
+      "name": "Sarjan Bankipal",
+      "runsConceded": 19,
+      "wickets": 3,
+      "ballsBowled": 12,
+      "innings": 2,
+      "bestBowling": {
+        "wickets": 2,
+        "runs": 7,
+        "figures": "2/7"
+      }
+    },
+    "akash sayedpur": {
+      "name": "Akash Sayedpur",
+      "runsConceded": 18,
+      "wickets": 0,
+      "ballsBowled": 12,
+      "innings": 1,
+      "bestBowling": {
+        "wickets": 0,
+        "runs": 18,
+        "figures": "0/18"
+      }
+    },
+    "gourab das": {
+      "name": "Gourab Das",
+      "runsConceded": 13,
+      "wickets": 1,
+      "ballsBowled": 12,
+      "innings": 1,
+      "bestBowling": {
+        "wickets": 1,
+        "runs": 13,
+        "figures": "1/13"
+      }
+    },
+    "dipu haripur": {
+      "name": "Dipu Haripur",
+      "runsConceded": 3,
+      "wickets": 0,
+      "ballsBowled": 6,
+      "innings": 1,
+      "bestBowling": {
+        "wickets": 0,
+        "runs": 3,
+        "figures": "0/3"
+      }
+    },
+    "chikuuuuu": {
+      "name": "Chikuuuuu",
+      "runsConceded": 18,
+      "wickets": 2,
+      "ballsBowled": 12,
+      "innings": 1,
+      "bestBowling": {
+        "wickets": 2,
+        "runs": 18,
+        "figures": "2/18"
+      }
+    },
+    "prasan jit": {
+      "name": "PRASAN JIT",
+      "runsConceded": 4,
+      "wickets": 2,
+      "ballsBowled": 6,
+      "innings": 1,
+      "bestBowling": {
+        "wickets": 2,
+        "runs": 4,
+        "figures": "2/4"
+      }
+    },
+    "tikina": {
+      "name": "Tikina",
+      "runsConceded": 10,
+      "wickets": 0,
+      "ballsBowled": 6,
+      "innings": 1,
+      "bestBowling": {
+        "wickets": 0,
+        "runs": 10,
+        "figures": "0/10"
+      }
+    },
+    "sunil malik": {
+      "name": "Sunil Malik",
+      "runsConceded": 28,
+      "wickets": 0,
+      "ballsBowled": 6,
+      "innings": 1,
+      "bestBowling": {
+        "wickets": 0,
+        "runs": 28,
+        "figures": "0/28"
+      }
+    },
+    "chandan das": {
+      "name": "Chandan Das",
+      "runsConceded": 15,
+      "wickets": 3,
+      "ballsBowled": 12,
+      "innings": 1,
+      "bestBowling": {
+        "wickets": 3,
+        "runs": 15,
+        "figures": "3/15"
+      }
+    },
+    "ananta sayedpur": {
+      "name": "Ananta Sayedpur",
+      "runsConceded": 10,
+      "wickets": 3,
+      "ballsBowled": 12,
+      "innings": 1,
+      "bestBowling": {
+        "wickets": 3,
+        "runs": 10,
+        "figures": "3/10"
+      }
+    },
+    "subham kumar das": {
+      "name": "Subham Kumar Das",
+      "runsConceded": 5,
+      "wickets": 1,
+      "ballsBowled": 6,
+      "innings": 1,
+      "bestBowling": {
+        "wickets": 1,
+        "runs": 5,
+        "figures": "1/5"
+      }
+    },
+    "pinu das": {
+      "name": "Pinu Das",
+      "runsConceded": 31,
+      "wickets": 0,
+      "ballsBowled": 12,
+      "innings": 1,
+      "bestBowling": {
+        "wickets": 0,
+        "runs": 31,
+        "figures": "0/31"
+      }
+    },
+    "bagan sayedpur": {
+      "name": "Bagan Sayedpur",
+      "runsConceded": 11,
+      "wickets": 0,
+      "ballsBowled": 6,
+      "innings": 1,
+      "bestBowling": {
+        "wickets": 0,
+        "runs": 11,
+        "figures": "0/11"
+      }
+    }
+  }
+}

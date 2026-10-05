@@ -52,8 +52,8 @@ export const TrophySection = () => {
                     <span className="text-amber-400">NSK</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span>2025 (Season 2)</span>
-                    <span className="text-red-400">RCN</span>
+                    <span>2024 (Season 2)</span>
+                    <span className="text-slate-400">Pending final data</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span>2025 (Season 3)</span>
