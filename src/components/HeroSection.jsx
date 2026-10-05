@@ -57,7 +57,7 @@ export const HeroSection = ({ scrollToSection }) => {
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center flex flex-col items-center">
         {/* League Established Badge */}
-        <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-slate-900/80 border border-amber-500/40 backdrop-blur-md shadow-[0_0_15px_rgba(245,158,11,0.25)] mb-6 animate-fade-in">
+        <div className="inline-flex items-center gap-2.5 px-4 py-1.5 mt-3 rounded-full bg-slate-900/80 border border-amber-500/40 backdrop-blur-md shadow-[0_0_15px_rgba(245,158,11,0.25)] mb-6 animate-fade-in">
           <Sparkles className="w-4 h-4 text-amber-400 animate-spin-slow" />
           <span className="text-xs sm:text-sm font-bold tracking-widest uppercase text-amber-300">
             OFFICIAL T20 LEAGUE • SINCE 2024
