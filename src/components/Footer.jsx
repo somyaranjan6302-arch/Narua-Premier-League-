@@ -8,11 +8,12 @@ export const Footer = ({ scrollToSection }) => {
   const { tournamentInfo, setIsAdminModalOpen, siteMedia } = useNpl();
 
   const sponsors = [
-    { name: "FIRE CLUB ASSOCIATION ", role: "TITLE SPONSOR" },
+    { name: "FIRE CLUB  ", role: "TITLE SPONSOR" },
     { name: "YOUNG STAR CLUB", role: "OFFICIAL LOGISTICS" },
     { name: "MUKKE DA DOKAN", role: "HOSPITALITY PARTNER" },
     { name: "SUDHIR DADI VLOGS", role: "STREAMING PARTNER" },
     { name: "BHAI BHAI GROUP", role: "BEVERAGE PARTNER" },
+    { name: "NPL INSTAGRAM", role: "ADVERTISING PARTNER" },
   ];
 
   return (
