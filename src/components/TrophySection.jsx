@@ -14,7 +14,7 @@ export const TrophySection = () => {
         {/* Section Pill */}
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-sports tracking-widest uppercase mb-4">
           <Sparkles className="w-3.5 h-3.5" />
-          <span>THE ULTIMATE T20 HONOUR</span>
+          <span>THE ULTIMATE T10 HONOUR</span>
         </div>
 
         {/* Section Heading */}
@@ -22,7 +22,7 @@ export const TrophySection = () => {
           THE PRIZE <span className="text-gold-gradient">EVERYONE WANTS</span>
         </h2>
         <p className="text-slate-300 text-sm sm:text-lg max-w-2xl mx-auto mt-3">
-          Handcrafted in pure polished gold and silver alloy, engraved with the names of the conquering champions of Bengal.
+          Handcrafted in pure polished gold and silver alloy, engraved with the names of the conquering champions.
         </p>
 
         {/* Big Trophy Presentation Card */}
@@ -49,15 +49,15 @@ export const TrophySection = () => {
                 <div className="mt-2 space-y-1.5 text-xs font-heading font-semibold text-slate-200">
                   <div className="flex items-center justify-between">
                     <span>2024 (Inaugural)</span>
-                    <span className="text-amber-400">NSK</span>
+                    <span className="text-amber-400">Bajrangi 11</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span>2024 (Season 2)</span>
-                    <span className="text-slate-400">Pending final data</span>
+                    <span className="text-slate-400">No Compromise Kaina</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span>2025 (Season 3)</span>
-                    <span className="text-amber-400">No Compromise</span>
+                    <span className="text-amber-400">No Compromise Kaina</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span>2026 (Season 4)</span>
@@ -100,7 +100,7 @@ export const TrophySection = () => {
                   PRIZE MONEY PURSE
                 </span>
                 <span className="font-sports text-2xl text-emerald-400 block mt-0.5">
-                  ₹5,00,000 + RINGS
+                  ₹5,000 + Trophy
                 </span>
                 <span className="text-xs text-slate-400">
                   Awarded to the Winning Franchise Squad
