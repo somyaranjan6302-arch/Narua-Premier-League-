@@ -159,8 +159,17 @@ export const PlayerSection = () => {
             <div
               key={`${player.teamId}-${player.id}`}
               onClick={() => openModal('player-profile', player)}
-              className="glass-panel-card rounded-2xl p-5 border border-slate-800 hover:border-amber-500/50 transition-all duration-300 hover:-translate-y-1 cursor-pointer group flex flex-col justify-between shadow-xl"
+              className="glass-panel-card relative overflow-hidden rounded-2xl p-5 border border-slate-700/70 hover:border-amber-400/70 transition-all duration-300 hover:-translate-y-1 cursor-pointer group flex flex-col justify-between shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+              role="button"
+              tabIndex={0}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  openModal('player-profile', player);
+                }
+              }}
             >
+              <div className="absolute inset-x-0 top-0 h-1 opacity-80" style={{ backgroundColor: player.teamColor || '#F59E0B' }} />
               <div>
                 {/* Header: Role Badge and Team Pill */}
                 <div className="flex items-center justify-between mb-4">
@@ -177,19 +186,20 @@ export const PlayerSection = () => {
                 </div>
 
                 {/* Player Name and Style */}
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-slate-800 overflow-hidden flex-shrink-0 border border-slate-700">
+                <div className="flex items-center gap-3.5">
+                  <div className="relative w-16 h-16 rounded-2xl bg-slate-800 overflow-hidden flex-shrink-0 border border-amber-400/40 ring-2 ring-slate-950 shadow-lg">
                     <img
-                      src="/assets/bajrangi11_team.png"
+                      src={player.photo || '/assets/bajrangi11_team.png'}
                       alt={player.name}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     />
+                    <div className="absolute inset-x-0 bottom-0 h-5 bg-gradient-to-t from-slate-950/80 to-transparent" />
                   </div>
-                  <div>
-                    <h3 className="font-heading font-bold text-base text-white group-hover:text-amber-400 transition-colors line-clamp-1">
+                  <div className="min-w-0">
+                    <h3 className="font-heading font-bold text-base text-white group-hover:text-amber-300 transition-colors line-clamp-2 leading-tight">
                       {player.name}
                     </h3>
-                    <span className="text-[11px] text-slate-400 block line-clamp-1">
+                    <span className="text-[11px] text-slate-400 block line-clamp-1 mt-1">
                       {player.style}
                     </span>
                   </div>
@@ -197,22 +207,22 @@ export const PlayerSection = () => {
 
                 {/* Statistics Grid */}
                 <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-slate-800 text-xs">
-                  <div className="bg-slate-950/80 p-2 rounded-lg text-center">
+                  <div className="bg-slate-950/65 p-2.5 rounded-xl text-center border border-white/[0.04]">
                     <span className="text-[10px] text-slate-400 uppercase block">Total Runs</span>
                     <span className="font-sports text-lg text-amber-400 leading-none">{player.runs || 0}</span>
                   </div>
 
-                  <div className="bg-slate-950/80 p-2 rounded-lg text-center">
+                  <div className="bg-slate-950/65 p-2.5 rounded-xl text-center border border-white/[0.04]">
                     <span className="text-[10px] text-slate-400 uppercase block">Wickets</span>
                     <span className="font-sports text-lg text-purple-400 leading-none">{player.wickets || 0}</span>
                   </div>
 
-                  <div className="bg-slate-950/80 p-2 rounded-lg text-center">
+                  <div className="bg-slate-950/65 p-2.5 rounded-xl text-center border border-white/[0.04]">
                     <span className="text-[10px] text-slate-400 uppercase block">Strike Rate</span>
                     <span className="font-mono text-xs font-semibold text-slate-200">{player.strikeRate}</span>
                   </div>
 
-                  <div className="bg-slate-950/80 p-2 rounded-lg text-center">
+                  <div className="bg-slate-950/65 p-2.5 rounded-xl text-center border border-white/[0.04]">
                     <span className="text-[10px] text-slate-400 uppercase block">Best Score</span>
                     <span className="font-mono text-xs font-semibold text-slate-200">{player.bestScore}</span>
                   </div>

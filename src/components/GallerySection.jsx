@@ -79,18 +79,19 @@ export const GallerySection = () => {
             <div
               key={item.id || index}
               onClick={() => openModal('lightbox', { item, all: filteredGallery, currentIndex: index })}
-              className={`group relative rounded-2xl overflow-hidden cursor-pointer border border-slate-800 hover:border-amber-500/50 shadow-xl transition-all duration-300 hover:-translate-y-1 ${
+              className={`group relative rounded-[1.35rem] overflow-hidden cursor-pointer border border-white/10 hover:border-amber-400/70 shadow-xl shadow-black/25 transition-all duration-300 hover:-translate-y-1 ring-1 ring-inset ring-white/[0.03] ${
                 index % 5 === 0 ? "sm:col-span-2 sm:row-span-2 h-[380px]" : "h-[240px]"
               }`}
             >
               <img
                 src={item.image}
                 alt={item.title}
-                className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500 filter brightness-95"
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 filter brightness-90 group-hover:brightness-100"
               />
 
               {/* Gradient Dark Backdrop on hover */}
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent opacity-80 group-hover:opacity-95 transition-opacity" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#050b18] via-slate-950/30 to-slate-950/5 opacity-90 group-hover:opacity-100 transition-opacity" />
+              <div className="absolute inset-2 rounded-[1rem] border border-white/10 pointer-events-none transition-colors group-hover:border-amber-300/40" />
 
               {/* Category Badge top left */}
               <div className="absolute top-3 left-3">
@@ -106,16 +107,21 @@ export const GallerySection = () => {
               </div>
 
               {/* Captions and Date at bottom */}
-              <div className="absolute bottom-3 left-3 right-3">
-                <span className="text-[10px] text-slate-400 font-semibold block mb-0.5">
-                  {item.date}
-                </span>
-                <h3 className="font-sports text-lg sm:text-xl text-white tracking-wide leading-tight group-hover:text-amber-400 transition-colors">
+              <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="h-px w-5 bg-amber-400" />
+                  <span className="text-[10px] text-amber-200/90 font-bold uppercase tracking-[0.16em]">
+                    {item.date || 'NPL MOMENT'}
+                  </span>
+                </div>
+                <h3 className="font-sports text-lg sm:text-xl text-white tracking-wide leading-tight group-hover:text-amber-300 transition-colors">
                   {item.title}
                 </h3>
-                <p className="text-xs text-slate-300 mt-1 line-clamp-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {item.caption}
-                </p>
+                {item.caption && (
+                  <p className="text-xs sm:text-[13px] text-slate-200/85 mt-1.5 line-clamp-2 leading-relaxed">
+                    {item.caption}
+                  </p>
+                )}
               </div>
             </div>
           ))}
