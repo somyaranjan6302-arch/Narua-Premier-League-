@@ -143,8 +143,10 @@ export const AdminDashboardModal = ({ onClose }) => {
     title: '',
     category: 'MATCH DAY',
     caption: '',
-    date: ''
+    date: '',
+    season: selectedSeason
   });
+  const [editingGalleryItemId, setEditingGalleryItemId] = useState(null);
   const nextTeamSession = `Season ${(Number(teamSessionFocus.match(/\d+/)?.[0]) || 0) + 1}`;
 
   const ensureTeamSessionExists = (edition) => {
@@ -276,6 +278,25 @@ export const AdminDashboardModal = ({ onClose }) => {
       return;
     }
 
+    if (editingGalleryItemId) {
+      setGallery((previousGallery) => previousGallery.map((item) => (
+        item.id === editingGalleryItemId
+          ? {
+              ...item,
+              season: galleryDraft.season || selectedSeason,
+              category: galleryDraft.category,
+              title,
+              caption: galleryDraft.caption.trim(),
+              date: galleryDraft.date.trim()
+            }
+          : item
+      )));
+      showToast(`"${title}" was updated.`);
+      setEditingGalleryItemId(null);
+      setGalleryDraft({ title: '', category: 'MATCH DAY', caption: '', date: '', season: selectedSeason });
+      return;
+    }
+
     const newItem = {
       id: `gallery-${Date.now()}`,
       season: selectedSeason,
@@ -286,14 +307,31 @@ export const AdminDashboardModal = ({ onClose }) => {
       date: galleryDraft.date.trim() || selectedSeason
     };
     setGallery((previousGallery) => [newItem, ...previousGallery]);
-    setGalleryDraft({ title: '', category: 'MATCH DAY', caption: '', date: '' });
+    setGalleryDraft({ title: '', category: 'MATCH DAY', caption: '', date: '', season: selectedSeason });
     showToast(`Gallery photo slot added to ${selectedSeason}. Upload its image in Owner Media.`);
+  };
+
+  const handleEditSessionGalleryItem = (item) => {
+    setEditingGalleryItemId(item.id);
+    setGalleryDraft({
+      title: item.title || '',
+      category: item.category || 'MATCH DAY',
+      caption: item.caption || '',
+      date: item.date || '',
+      season: item.season || item.session || selectedSeason
+    });
+  };
+
+  const handleCancelGalleryEdit = () => {
+    setEditingGalleryItemId(null);
+    setGalleryDraft({ title: '', category: 'MATCH DAY', caption: '', date: '', season: selectedSeason });
   };
 
   const handleRemoveSessionGalleryItem = (itemId) => {
     if (adminUser?.role !== 'owner') return;
     const targetItem = gallery.find((item) => item.id === itemId);
     setGallery((previousGallery) => previousGallery.filter((item) => item.id !== itemId));
+    if (editingGalleryItemId === itemId) handleCancelGalleryEdit();
     if (targetItem) showToast(`${targetItem.title} was removed from ${selectedSeason}.`);
   };
 
@@ -1032,10 +1070,16 @@ export const AdminDashboardModal = ({ onClose }) => {
                 <form onSubmit={handleAddSessionGalleryItem} className="mb-5 grid grid-cols-1 gap-3 rounded-xl border border-amber-800/60 bg-amber-950/20 p-4 sm:grid-cols-2">
                   <div className="sm:col-span-2 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                     <div>
-                      <h5 className="font-sports text-base text-amber-300">ADD PHOTO TO {selectedSeason.toUpperCase()}</h5>
-                      <p className="text-xs text-slate-400">The new photo slot belongs only to this session.</p>
+                      <h5 className="font-sports text-base text-amber-300">
+                        {editingGalleryItemId ? 'EDIT GALLERY PHOTO' : `ADD PHOTO TO ${selectedSeason.toUpperCase()}`}
+                      </h5>
+                      <p className="text-xs text-slate-400">
+                        {editingGalleryItemId ? 'Update the photo information. The uploaded image will stay unchanged.' : 'The new photo slot belongs only to this session.'}
+                      </p>
                     </div>
-                    <SessionSelector seasons={seasons} selectedSeason={selectedSeason} setSelectedSeason={setSelectedSeason} />
+                    {!editingGalleryItemId && (
+                      <SessionSelector seasons={seasons} selectedSeason={selectedSeason} setSelectedSeason={setSelectedSeason} />
+                    )}
                   </div>
                   <label className="text-xs font-bold text-slate-400">
                     Photo title
@@ -1047,27 +1091,72 @@ export const AdminDashboardModal = ({ onClose }) => {
                       {['MATCH DAY', 'FINALS', 'CHAMPIONS', 'AUCTION', 'TEAMS', 'PLAYERS', 'CELEBRATIONS', 'BEHIND THE SCENES'].map((category) => <option key={category}>{category}</option>)}
                     </select>
                   </label>
+                  {editingGalleryItemId && (
+                    <label className="text-xs font-bold text-slate-400">
+                      Session
+                      <select
+                        value={galleryDraft.season}
+                        onChange={(event) => setGalleryDraft((current) => ({ ...current, season: event.target.value }))}
+                        className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white"
+                      >
+                        {seasons.map((season) => (
+                          <option key={season.edition} value={season.edition}>{season.edition} ({season.year || season.season})</option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
                   <label className="text-xs font-bold text-slate-400">
                     Caption
-                    <input value={galleryDraft.caption} onChange={(event) => setGalleryDraft((current) => ({ ...current, caption: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white" />
+                    <textarea value={galleryDraft.caption} onChange={(event) => setGalleryDraft((current) => ({ ...current, caption: event.target.value }))} rows={2} className="mt-1 w-full resize-y rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white" />
                   </label>
                   <label className="text-xs font-bold text-slate-400">
                     Date or event
                     <input value={galleryDraft.date} onChange={(event) => setGalleryDraft((current) => ({ ...current, date: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white" placeholder={selectedSeason} />
                   </label>
                   <div className="sm:col-span-2 flex justify-end">
-                    <button type="submit" className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-amber-400"><Plus className="h-4 w-4" />Add photo slot</button>
+                    {editingGalleryItemId && (
+                      <button type="button" onClick={handleCancelGalleryEdit} className="mr-2 rounded-lg border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-800">
+                        Cancel
+                      </button>
+                    )}
+                    <button type="submit" className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-amber-400">
+                      {editingGalleryItemId ? <Save className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                      {editingGalleryItemId ? 'Save changes' : 'Add photo slot'}
+                    </button>
                   </div>
                 </form>
                 <div className="mb-5 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
                   <h5 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">Gallery entries in {selectedSeason}</h5>
                   <div className="space-y-2">
                     {gallery.filter((item) => (item.season || item.session) === selectedSeason).map((item) => (
-                      <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2">
-                        <span className="min-w-0 truncate text-sm font-semibold text-white">{item.title}</span>
-                        <button type="button" onClick={() => handleRemoveSessionGalleryItem(item.id)} aria-label={`Remove ${item.title} from ${selectedSeason}`} className="rounded-lg border border-rose-800 bg-rose-950/60 p-2 text-rose-300 hover:bg-rose-900">
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                      <div key={item.id} className="flex flex-col justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950 px-3 py-3 sm:flex-row sm:items-center">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-white">{item.title}</p>
+                          <p className="mt-1 text-xs text-slate-400">
+                            {item.category}{item.date ? ` • ${item.date}` : ''}
+                          </p>
+                          {item.caption && <p className="mt-1 line-clamp-2 text-xs text-slate-500">{item.caption}</p>}
+                        </div>
+                        <div className="flex flex-shrink-0 items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleEditSessionGalleryItem(item)}
+                            aria-label={`Edit ${item.title}`}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-800 bg-amber-950/50 px-3 py-2 text-xs font-bold text-amber-300 hover:bg-amber-900"
+                          >
+                            <Edit className="h-4 w-4" />
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSessionGalleryItem(item.id)}
+                            aria-label={`Delete ${item.title}`}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-rose-800 bg-rose-950/60 px-3 py-2 text-xs font-bold text-rose-300 hover:bg-rose-900"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Delete
+                          </button>
+                        </div>
                       </div>
                     ))}
                     {gallery.filter((item) => (item.season || item.session) === selectedSeason).length === 0 && (
