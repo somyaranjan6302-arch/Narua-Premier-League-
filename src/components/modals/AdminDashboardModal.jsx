@@ -332,7 +332,7 @@ export const AdminDashboardModal = ({ onClose }) => {
     const targetItem = gallery.find((item) => item.id === itemId);
     setGallery((previousGallery) => previousGallery.filter((item) => item.id !== itemId));
     if (editingGalleryItemId === itemId) handleCancelGalleryEdit();
-    if (targetItem) showToast(`${targetItem.title} was removed from ${selectedSeason}.`);
+    if (targetItem) showToast(`"${targetItem.title}" was deleted from the gallery.`);
   };
 
   const handleGallerySeasonChange = (itemId, season) => {
@@ -1126,16 +1126,25 @@ export const AdminDashboardModal = ({ onClose }) => {
                   </div>
                 </form>
                 <div className="mb-5 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-                  <h5 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">Gallery entries in {selectedSeason}</h5>
+                  <h5 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    All gallery entries ({gallery.length})
+                  </h5>
                   <div className="space-y-2">
-                    {gallery.filter((item) => (item.season || item.session) === selectedSeason).map((item) => (
+                    {gallery.map((item) => (
                       <div key={item.id} className="flex flex-col justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950 px-3 py-3 sm:flex-row sm:items-center">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-white">{item.title}</p>
-                          <p className="mt-1 text-xs text-slate-400">
-                            {item.category}{item.date ? ` • ${item.date}` : ''}
-                          </p>
-                          {item.caption && <p className="mt-1 line-clamp-2 text-xs text-slate-500">{item.caption}</p>}
+                        <div className="flex min-w-0 items-center gap-3">
+                          <img
+                            src={siteMedia[getSessionMediaKey(`gallery:${item.id}`, item.season || item.session)] || siteMedia[`gallery:${item.id}`] || item.image}
+                            alt=""
+                            className="h-14 w-20 flex-shrink-0 rounded-md border border-slate-800 object-cover"
+                          />
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-white">{item.title}</p>
+                            <p className="mt-1 text-xs text-slate-400">
+                              {item.category} • {item.season || item.session || 'Unassigned'}{item.date ? ` • ${item.date}` : ''}
+                            </p>
+                            {item.caption && <p className="mt-1 line-clamp-2 text-xs text-slate-500">{item.caption}</p>}
+                          </div>
                         </div>
                         <div className="flex flex-shrink-0 items-center gap-2">
                           <button
@@ -1159,8 +1168,8 @@ export const AdminDashboardModal = ({ onClose }) => {
                         </div>
                       </div>
                     ))}
-                    {gallery.filter((item) => (item.season || item.session) === selectedSeason).length === 0 && (
-                      <p className="py-3 text-sm text-slate-500">No gallery entries are assigned to this session.</p>
+                    {gallery.length === 0 && (
+                      <p className="py-3 text-sm text-slate-500">No gallery entries have been added yet.</p>
                     )}
                   </div>
                 </div>
