@@ -652,13 +652,23 @@ export const AdminDashboardModal = ({ onClose }) => {
         key: `team-logo:${team.id}`,
         category: 'teams',
         title: `${team.name} logo`,
-        description: 'Shown inside the team badge.',
+        description: 'Square franchise crest shown on team badges and player cards.',
         fallback: team.logo,
         aspectRatio: 1,
         fit: true,
         sessionSpecific: true,
         defaultSession: getTeamSessions(team, seasons.map((season) => season.edition))[0]
-      }
+      },
+      ...(team.squad || []).map((player) => ({
+        key: `player-photo:${team.id}-${player.id}`,
+        category: 'performers',
+        title: `${player.name} portrait`,
+        description: `${team.name} • vertical 4:5 player photo`,
+        fallback: player.photo,
+        aspectRatio: 4 / 5,
+        sessionSpecific: true,
+        defaultSession: getTeamSessions(team, seasons.map((season) => season.edition))[0]
+      }))
     ]),
     ...news.map((article) => ({
       key: `news:${article.id}`,
@@ -1062,7 +1072,7 @@ export const AdminDashboardModal = ({ onClose }) => {
               <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6">
                 <div className="mb-4">
                   <h4 className="font-sports text-xl text-white">WEBSITE IMAGE LIBRARY</h4>
-                  <p className="mt-1 text-xs text-slate-400">Changes appear for every visitor. Content photos can have separate images for each session. The NPL logo, stadium, and trophy remain shared. JPG, PNG, WebP, or GIF up to 8 MB.</p>
+                  <p className="mt-1 text-xs text-slate-400">Changes appear for every visitor. Player portraits use a vertical 4:5 crop; franchise logos use a square crop. Content photos can have separate images for each session. JPG, PNG, WebP, or GIF up to 8 MB.</p>
                 </div>
                 <p className="mb-5 rounded-lg border border-amber-700/60 bg-amber-950/30 px-3 py-2.5 text-xs leading-relaxed text-amber-200">
                   Production uploads are saved in the shared database and appear for every visitor. For local clones, commit and push <code className="font-mono text-amber-100">public/uploads/</code> and <code className="font-mono text-amber-100">public/site-media.json</code> after uploading.

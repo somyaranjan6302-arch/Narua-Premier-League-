@@ -120,7 +120,16 @@ export const TeamDetailsModal = ({ team, onClose }) => {
             {team.squad?.map((player) => (
               <div
                 key={player.id}
-                onClick={() => openModal('player-profile', { ...player, teamName: team.name, teamShort: team.shortName })}
+                onClick={() => openModal('player-profile', {
+                  ...player,
+                  teamId: team.id,
+                  teamName: team.name,
+                  teamShort: team.shortName,
+                  teamColor: team.primaryColor,
+                  teamLogo: getSiteMedia(siteMedia, `team-logo:${team.id}`, selectedSeason, team.logo),
+                  photo: getSiteMedia(siteMedia, `player-photo:${team.id}-${player.id}`, selectedSeason, player.photo),
+                  season: selectedSeason
+                })}
                 className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800 hover:border-amber-500/50 cursor-pointer transition-all flex items-center justify-between text-xs group"
               >
                 <div>

@@ -2,9 +2,11 @@ import React, { useState, useMemo } from 'react';
 import { useNpl } from '../context/NplContext';
 import { SessionSelector } from './SessionSelector';
 import { Search, UserCheck } from 'lucide-react';
+import { getSiteMedia } from '../utils/siteMedia';
+import { PlayerPortrait } from './PlayerPortrait';
 
 export const PlayerSection = () => {
-  const { teams, openModal, seasons, selectedSeason, setSelectedSeason } = useNpl();
+  const { teams, openModal, seasons, selectedSeason, setSelectedSeason, siteMedia } = useNpl();
   const [selectedRole, setSelectedRole] = useState('ALL');
   const [selectedTeam, setSelectedTeam] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -32,18 +34,21 @@ export const PlayerSection = () => {
             teamId: team.id,
             teamName: team.name,
             teamShort: team.shortName,
+            season: selectedSeason,
             teamColor: team.primaryColor,
+            teamSecondaryColor: team.secondaryColor,
+            teamLogo: getSiteMedia(siteMedia, `team-logo:${team.id}`, selectedSeason, team.logo),
             strikeRate: player.strikeRate || (player.role === 'Bowler' ? '112.5' : '148.6'),
             economy: player.economy || (player.wickets > 0 ? '6.85' : '-'),
             bestScore: player.bestScore || (player.runs > 500 ? '94*' : '58*'),
             bestBowling: player.bestBowling || (player.wickets > 20 ? '4/18' : '2/24'),
-            photo: player.photo || '/assets/bajrangi11_team.png'
+            photo: getSiteMedia(siteMedia, `player-photo:${team.id}-${player.id}`, selectedSeason, player.photo)
           });
         });
       }
     });
     return list;
-  }, [sessionTeams]);
+  }, [sessionTeams, siteMedia, selectedSeason]);
 
   // Filtering
   const filteredPlayers = allPlayers.filter(p => {
@@ -188,11 +193,7 @@ export const PlayerSection = () => {
                 {/* Player Name and Style */}
                 <div className="flex items-center gap-3.5">
                   <div className="relative w-16 h-16 rounded-2xl bg-slate-800 overflow-hidden flex-shrink-0 border border-amber-400/40 ring-2 ring-slate-950 shadow-lg">
-                    <img
-                      src={player.photo || '/assets/bajrangi11_team.png'}
-                      alt={player.name}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                    />
+                    <PlayerPortrait photo={player.photo} alt={player.name} teamColor={player.teamColor} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                     <div className="absolute inset-x-0 bottom-0 h-5 bg-gradient-to-t from-slate-950/80 to-transparent" />
                   </div>
                   <div className="min-w-0">

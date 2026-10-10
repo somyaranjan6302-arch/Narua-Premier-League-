@@ -9,7 +9,7 @@ import { session5Performers } from '../data/session5Data';
 import { session2Performers } from '../data/session2Data';
 
 export const TopPerformers = () => {
-  const { topPerformers, openModal, siteMedia, seasons, selectedSeason, setSelectedSeason } = useNpl();
+  const { topPerformers, teams, openModal, siteMedia, seasons, selectedSeason, setSelectedSeason } = useNpl();
 
   const performerList = [
     { key: 'orangeCap', data: topPerformers.orangeCap, icon: Award, label: "ORANGE CAP" },
@@ -53,12 +53,21 @@ export const TopPerformers = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {sessionPerformers.map(({ key, data, icon: Icon, label }) => {
             if (!data) return null;
+            const rosterTeam = teams.find((team) => (
+              (team.name === data.team || team.shortName === data.teamShort) &&
+              (team.sessions || team.seasons || [team.session]).includes(selectedSeason)
+            ));
             return (
               <div
                 key={key}
                 onClick={() => openModal('player-profile', {
                   name: data.player,
                   team: data.team,
+                  teamName: data.team,
+                  teamShort: data.teamShort || rosterTeam?.shortName,
+                  teamColor: rosterTeam?.primaryColor,
+                  teamLogo: rosterTeam ? getSiteMedia(siteMedia, `team-logo:${rosterTeam.id}`, selectedSeason, rosterTeam.logo) : undefined,
+                  season: selectedSeason,
                   role: data.category,
                   runs: data.stat,
                       photo: getSiteMedia(siteMedia, `performer:${key}`, selectedSeason, data.photo),
