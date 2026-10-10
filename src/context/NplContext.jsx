@@ -28,6 +28,25 @@ const attachDefaultSeason = (items, defaultSeason) => (
     : items
 );
 
+const savePublicSiteData = (saveQueue, data) => {
+  if (!import.meta.env.PROD) return Promise.resolve();
+
+  saveQueue.current = saveQueue.current
+    .catch(() => {})
+    .then(async () => {
+      const response = await fetch('/api/admin/site-data', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (!response.ok) {
+        const result = await response.json().catch(() => null);
+        throw new Error(result?.error || 'Could not save shared NPL content.');
+      }
+    });
+  return saveQueue.current;
+};
+
 export const NplProvider = ({ children }) => {
   // Helper for localStorage
   const loadState = (key, fallback) => {
@@ -287,18 +306,13 @@ export const NplProvider = ({ children }) => {
     auctionLiveStates
   };
 
+  const persistPublicSiteData = (overrides = {}) => {
+    return savePublicSiteData(siteDataSaveQueue, { ...publicSiteData, ...overrides });
+  };
+
   useEffect(() => {
     if (!import.meta.env.PROD || !adminUser || !siteDataLoaded) return;
-    siteDataSaveQueue.current = siteDataSaveQueue.current
-      .catch(() => {})
-      .then(() => fetch('/api/admin/site-data', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(publicSiteData)
-      }))
-      .then((response) => {
-        if (!response.ok) throw new Error('Could not save shared NPL content.');
-      })
+    savePublicSiteData(siteDataSaveQueue, publicSiteData)
       .catch((error) => console.error(error));
   }, [adminUser, siteDataLoaded, tournamentInfo, champions, seasons, teams, matches, pointsTable,
     seasonStandings, selectedSeason, topPerformers, records, gallery, legacyPhotos, highlights, news, auctionLiveStates]);
@@ -547,6 +561,7 @@ export const NplProvider = ({ children }) => {
         auctionLiveState,
         placeLiveBid,
         sellLivePlayer,
+        persistPublicSiteData,
         siteMedia,
         refreshSiteMedia,
         isAdminLoggedIn,

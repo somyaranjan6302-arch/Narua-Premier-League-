@@ -140,6 +140,7 @@ export const AdminDashboardModal = ({ onClose }) => {
     siteMedia,
     refreshSiteMedia,
     showToast,
+    persistPublicSiteData,
     loginAdmin,
     logoutAdmin,
     resetToFactoryDefaults,
@@ -158,6 +159,7 @@ export const AdminDashboardModal = ({ onClose }) => {
   const [adminAccounts, setAdminAccounts] = useState([]);
   const [adminAccountError, setAdminAccountError] = useState('');
   const [mediaError, setMediaError] = useState('');
+  const [isSavingMediaInfo, setIsSavingMediaInfo] = useState(false);
   const [mediaCategory, setMediaCategory] = useState('all');
   const [mediaSearch, setMediaSearch] = useState('');
   const [uploadingMediaKey, setUploadingMediaKey] = useState('');
@@ -652,7 +654,7 @@ export const AdminDashboardModal = ({ onClose }) => {
     setMediaInfoDraft(Object.fromEntries(fields.map((field) => [field.key, item.record?.[field.key] ?? ''])));
   };
 
-  const handleSaveMediaInfo = (event) => {
+  const handleSaveMediaInfo = async (event) => {
     event.preventDefault();
     if (!editingMediaInfo) return;
     const { target, fields } = editingMediaInfo;
@@ -661,29 +663,39 @@ export const AdminDashboardModal = ({ onClose }) => {
       field.numeric ? (mediaInfoDraft[field.key] === '' ? 0 : Number(mediaInfoDraft[field.key])) : mediaInfoDraft[field.key]
     ]));
 
-    if (target.type === 'team') {
-      setTeams((previous) => previous.map((team) => team.id === target.teamId ? { ...team, ...updates } : team));
-    } else if (target.type === 'player') {
-      setTeams((previous) => previous.map((team) => team.id === target.teamId
-        ? { ...team, squad: (team.squad || []).map((player) => player.id === target.playerId ? { ...player, ...updates } : player) }
-        : team));
-    } else if (target.type === 'champion') {
-      setChampions((previous) => previous.map((record, index) => index === target.index ? { ...record, ...updates } : record));
-    } else if (target.type === 'news') {
-      setNews((previous) => previous.map((record) => record.id === target.id ? { ...record, ...updates } : record));
-    } else if (target.type === 'highlight') {
-      setHighlights((previous) => previous.map((record) => record.id === target.id ? { ...record, ...updates } : record));
-    } else if (target.type === 'legacyPhoto') {
-      setLegacyPhotos((previous) => previous.map((photo) => photo.id === target.id ? { ...photo, ...updates } : photo));
-    } else if (target.type === 'performer') {
-      setTopPerformers((previous) => Array.isArray(previous)
-        ? previous.map((record) => record.key === target.key ? { ...record, ...updates } : record)
-        : { ...previous, [target.key]: { ...previous[target.key], ...updates } });
-    }
+    setMediaError('');
+    setIsSavingMediaInfo(true);
+    try {
+      if (target.type === 'team') {
+        setTeams((previous) => previous.map((team) => team.id === target.teamId ? { ...team, ...updates } : team));
+      } else if (target.type === 'player') {
+        setTeams((previous) => previous.map((team) => team.id === target.teamId
+          ? { ...team, squad: (team.squad || []).map((player) => player.id === target.playerId ? { ...player, ...updates } : player) }
+          : team));
+      } else if (target.type === 'champion') {
+        setChampions((previous) => previous.map((record, index) => index === target.index ? { ...record, ...updates } : record));
+      } else if (target.type === 'news') {
+        setNews((previous) => previous.map((record) => record.id === target.id ? { ...record, ...updates } : record));
+      } else if (target.type === 'highlight') {
+        setHighlights((previous) => previous.map((record) => record.id === target.id ? { ...record, ...updates } : record));
+      } else if (target.type === 'legacyPhoto') {
+        const updatedPhotos = legacyPhotos.map((photo) => photo.id === target.id ? { ...photo, ...updates } : photo);
+        await persistPublicSiteData({ legacyPhotos: updatedPhotos });
+        setLegacyPhotos(updatedPhotos);
+      } else if (target.type === 'performer') {
+        setTopPerformers((previous) => Array.isArray(previous)
+          ? previous.map((record) => record.key === target.key ? { ...record, ...updates } : record)
+          : { ...previous, [target.key]: { ...previous[target.key], ...updates } });
+      }
 
-    showToast(`${editingMediaInfo.item.title} information updated.`);
-    setEditingMediaInfo(null);
-    setMediaInfoDraft({});
+      showToast(`${editingMediaInfo.item.title} information updated.`);
+      setEditingMediaInfo(null);
+      setMediaInfoDraft({});
+    } catch (error) {
+      setMediaError(error.message || 'The photo information could not be saved.');
+    } finally {
+      setIsSavingMediaInfo(false);
+    }
   };
 
   const handleDeleteMediaItem = async (item) => {
@@ -1550,8 +1562,8 @@ export const AdminDashboardModal = ({ onClose }) => {
                       ))}
                     </div>
                     <div className="mt-4 flex justify-end">
-                      <button type="submit" className="inline-flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-bold text-white hover:bg-blue-400">
-                        <Save className="h-4 w-4" /> Save information
+                      <button type="submit" disabled={isSavingMediaInfo} className="inline-flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-bold text-white hover:bg-blue-400 disabled:cursor-wait disabled:opacity-60">
+                        <Save className="h-4 w-4" /> {isSavingMediaInfo ? 'Saving...' : 'Save information'}
                       </button>
                     </div>
                   </form>
