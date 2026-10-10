@@ -37,7 +37,7 @@ export const TeamBadge = ({ team, size = "md", showName = false }) => {
                 <path d="M0,0 L40,40 M40,0 L0,40" stroke="#FFF" strokeWidth="2" />
               </svg>
             </div>
-            <span className="relative z-10 font-bold drop-shadow-md">{shortName}</span>
+            <span className="relative z-10 max-w-full break-words px-0.5 text-center text-[clamp(8px,2.5vw,1rem)] font-bold leading-tight drop-shadow-md">{shortName}</span>
           </>
         )}
 

@@ -99,52 +99,52 @@ export const AuctionSection = () => {
             {/* Right Card / Player Registration Pulse (5 cols) */}
             <div className="lg:col-span-5">
               <div className="glass-panel-card p-6 sm:p-8 rounded-3xl border border-amber-500/40 shadow-2xl relative space-y-6">
-                <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-4">
+                  <div className="flex min-w-0 items-center gap-2">
                     <Sparkles className="w-4 h-4 text-amber-400" />
-                    <span className="font-sports text-lg text-white tracking-wider">
+                    <span className="font-sports text-sm tracking-wide text-white sm:text-lg sm:tracking-wider">
                       AUCTION POOL STATUS
                     </span>
                   </div>
-                  <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-400">
+                  <span className="flex-shrink-0 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-400 sm:px-2.5 sm:text-xs">
                     PORTAL OPEN
                   </span>
                 </div>
 
                 {/* Metrics */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-slate-950/80 p-4 rounded-2xl border border-slate-800 text-center">
-                    <span className="font-sports text-4xl text-amber-400 block leading-none">
+                <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                  <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-950/80 p-2.5 text-center sm:p-4">
+                    <span className="block break-words font-sports text-3xl leading-tight text-amber-400 sm:text-4xl sm:leading-none">
                       {totalRegistered}
                     </span>
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mt-1 block">
+                    <span className="mt-1 block text-[9px] font-bold uppercase leading-tight tracking-wide text-slate-400 sm:text-[11px] sm:tracking-wider">
                       PLAYERS APPLIED
                     </span>
                   </div>
 
-                  <div className="bg-slate-950/80 p-4 rounded-2xl border border-slate-800 text-center">
-                    <span className="font-sports text-4xl text-emerald-400 block leading-none">
+                  <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-950/80 p-2.5 text-center sm:p-4">
+                    <span className="block break-words font-sports text-3xl leading-tight text-emerald-400 sm:text-4xl sm:leading-none">
                       {verifiedCount}
                     </span>
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mt-1 block">
+                    <span className="mt-1 block text-[9px] font-bold uppercase leading-tight tracking-wide text-slate-400 sm:text-[11px] sm:tracking-wider">
                       VERIFIED & SHORTLISTED
                     </span>
                   </div>
 
-                  <div className="bg-slate-950/80 p-4 rounded-2xl border border-slate-800 text-center">
-                    <span className="font-sports text-3xl text-white block leading-none">
+                  <div className="col-span-2 min-w-0 rounded-2xl border border-slate-800 bg-slate-950/80 p-2.5 text-center sm:col-span-1 sm:p-4">
+                    <span className="block break-words font-sports text-2xl leading-tight text-white sm:text-3xl sm:leading-none">
                       {tournamentInfo.auctionPursePerTeam}
                     </span>
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mt-1 block">
+                    <span className="mt-1 block text-[9px] font-bold uppercase leading-tight tracking-wide text-slate-400 sm:text-[11px] sm:tracking-wider">
                       PURSE PER FRANCHISE
                     </span>
                   </div>
 
-                  <div className="bg-slate-950/80 p-4 rounded-2xl border border-slate-800 text-center">
-                    <span className="font-sports text-3xl text-white block leading-none">
+                  <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-950/80 p-2.5 text-center sm:p-4">
+                    <span className="block break-words font-sports text-2xl leading-tight text-white sm:text-3xl sm:leading-none">
                       120+
                     </span>
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mt-1 block">
+                    <span className="mt-1 block text-[9px] font-bold uppercase leading-tight tracking-wide text-slate-400 sm:text-[11px] sm:tracking-wider">
                       SLOTS AVAILABLE
                     </span>
                   </div>

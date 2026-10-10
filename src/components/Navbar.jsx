@@ -53,21 +53,21 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
     <header className="fixed top-0 left-0 right-0 z-50 transition-all duration-300">
       {/* Top Live Match Strip / Broadcast Ticker */}
       {liveMatch && (
-        <div className="bg-gradient-to-r from-slate-950 via-blue-950 to-slate-950 border-b border-blue-900/50 py-1.5 px-4 text-xs font-medium text-slate-300 flex items-center justify-between overflow-x-auto whitespace-nowrap">
-          <div className="flex items-center gap-3 mx-auto">
-            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-600/90 text-white font-bold text-[10px] tracking-wider animate-pulse">
+        <div className="flex items-center justify-between gap-2 overflow-hidden whitespace-nowrap border-b border-blue-900/50 bg-gradient-to-r from-slate-950 via-blue-950 to-slate-950 px-2 py-1.5 text-[10px] font-medium text-slate-300 sm:gap-4 sm:px-4 sm:text-xs">
+          <div className="mx-0 flex min-w-0 flex-1 items-center justify-start gap-2 sm:mx-auto sm:gap-3">
+            <span className="flex flex-shrink-0 items-center gap-1.5 rounded-full bg-red-600/90 px-2 py-0.5 text-[9px] font-bold tracking-wider text-white animate-pulse sm:text-[10px]">
               <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
               {liveMatch.status}
             </span>
-            <span className="text-amber-400 font-semibold">{liveMatch.matchNumber}:</span>
-            <span className="text-white font-bold">{liveMatch.team1.shortName} {liveMatch.team1.score}</span>
-            <span className="text-slate-400">vs</span>
-            <span className="text-white font-bold">{liveMatch.team2.shortName} {liveMatch.team2.score || "Yet to bat"}</span>
+            <span className="flex-shrink-0 font-semibold text-amber-400">{liveMatch.matchNumber}:</span>
+            <span className="max-w-[5.5rem] min-w-0 truncate font-bold text-white sm:max-w-none">{liveMatch.team1.shortName} {liveMatch.team1.score}</span>
+            <span className="flex-shrink-0 text-slate-400">vs</span>
+            <span className="max-w-[5.5rem] min-w-0 truncate font-bold text-white sm:max-w-none">{liveMatch.team2.shortName} {liveMatch.team2.score || "Yet to bat"}</span>
             <span className="hidden md:inline text-slate-400">•</span>
             <span className="hidden md:inline text-amber-300/90 italic">{liveMatch.equation || liveMatch.preview}</span>
             <button
               onClick={() => openModal('match-details', liveMatch)}
-              className="text-blue-400 hover:text-amber-400 underline ml-2 text-[11px] font-semibold transition-colors"
+              className="ml-2 hidden flex-shrink-0 text-[11px] font-semibold text-blue-400 underline transition-colors hover:text-amber-400 sm:inline"
             >
               Match Center →
             </button>

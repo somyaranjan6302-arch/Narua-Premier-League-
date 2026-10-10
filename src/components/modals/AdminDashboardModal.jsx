@@ -120,6 +120,8 @@ export const AdminDashboardModal = ({ onClose }) => {
     setTopPerformers,
     gallery,
     setGallery,
+    legacyPhotos,
+    setLegacyPhotos,
     highlights,
     setHighlights,
     auctionRegistrations,
@@ -407,6 +409,14 @@ export const AdminDashboardModal = ({ onClose }) => {
     )));
   };
 
+  const handleAddLegacyPhoto = () => {
+    if (adminUser?.role !== 'owner') return;
+    const id = `memory-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    setLegacyPhotos((previousPhotos) => [{ id }, ...previousPhotos]);
+    setMediaCategory('memories');
+    showToast('Photo slot added. Choose and save its image below.');
+  };
+
   const handleAddTeam = (event) => {
     event.preventDefault();
     if (adminUser?.role !== 'owner') {
@@ -688,6 +698,7 @@ export const AdminDashboardModal = ({ onClose }) => {
       else if (target.type === 'news') setNews((previous) => previous.filter((record) => record.id !== target.id));
       else if (target.type === 'highlight') setHighlights((previous) => previous.filter((record) => record.id !== target.id));
       else if (target.type === 'gallery') handleRemoveSessionGalleryItem(target.id);
+      else if (target.type === 'legacyPhoto') setLegacyPhotos((previous) => previous.filter((photo) => photo.id !== target.id));
       else if (target.type === 'performer') {
         setTopPerformers((previous) => {
           if (Array.isArray(previous)) return previous.filter((record) => record.key !== target.key);
@@ -914,6 +925,15 @@ export const AdminDashboardModal = ({ onClose }) => {
       aspectRatio: 4 / 3,
       galleryItem: item
     })),
+    ...legacyPhotos.map((photo, index) => ({
+      key: `memory-photo:${photo.id}`,
+      category: 'memories',
+      record: photo,
+      editTarget: { type: 'legacyPhoto', id: photo.id },
+      title: `League memory photo ${legacyPhotos.length - index}`,
+      description: 'Photo in the Memories and Legacy archive.',
+      aspectRatio: 4 / 3
+    })),
     ...highlights.map((item) => ({
       key: `highlight:${item.id}`,
       category: 'highlights',
@@ -946,6 +966,7 @@ export const AdminDashboardModal = ({ onClose }) => {
     { value: 'player-assets', label: 'Player & team photos' },
     { value: 'news', label: 'News' },
     { value: 'gallery', label: 'Gallery' },
+    { value: 'memories', label: 'Memories and Legacy' },
     { value: 'highlights', label: 'Video highlights' },
     { value: 'performers', label: 'Player profiles' }
   ];
@@ -1111,29 +1132,29 @@ export const AdminDashboardModal = ({ onClose }) => {
     || (selectedSeason === seasons[0]?.edition ? pointsTable : []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/90 backdrop-blur-md overflow-y-auto">
-      <div className="relative w-full max-w-6xl bg-[#070D1E] border-2 border-slate-700 rounded-3xl shadow-2xl overflow-hidden my-6 max-h-[94vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/90 p-0 backdrop-blur-md sm:p-4">
+      <div className="relative my-0 flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden rounded-none border-0 border-slate-700 bg-[#070D1E] shadow-2xl sm:my-6 sm:h-auto sm:max-h-[94vh] sm:max-w-6xl sm:rounded-3xl sm:border-2">
         {/* Header */}
-        <div className="relative z-20 bg-gradient-to-r from-slate-950 via-[#0A142D] to-slate-950 p-5 border-b border-slate-800 flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/50 flex items-center justify-center text-amber-400">
+        <div className="relative z-20 flex flex-shrink-0 items-center justify-between gap-2 border-b border-slate-800 bg-gradient-to-r from-slate-950 via-[#0A142D] to-slate-950 p-3 sm:gap-3 sm:p-5">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-amber-500/50 bg-amber-500/20 text-amber-400 sm:h-10 sm:w-10">
               <Shield className="w-5 h-5" />
             </div>
-            <div>
-              <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block">
+            <div className="min-w-0">
+              <span className="block text-[8px] font-bold uppercase tracking-widest text-amber-400 sm:text-[10px]">
                 ORGANIZER CONTROL CENTER
               </span>
-              <h3 className="font-sports text-2xl sm:text-3xl text-white tracking-wide leading-none">
+              <h3 className="break-words font-sports text-base leading-tight tracking-wide text-white sm:text-3xl">
                 NPL TOURNAMENT DIRECTOR PORTAL
               </h3>
             </div>
           </div>
 
-          <div className="relative flex items-center gap-2">
+          <div className="relative flex flex-shrink-0 items-center gap-1.5 sm:gap-2">
             {isAdminLoggedIn && (
               <button
                 onClick={logoutAdmin}
-                className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs font-bold text-slate-300 hover:text-white"
+                className="min-h-10 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-[10px] font-bold text-slate-300 hover:text-white sm:px-3 sm:text-xs"
               >
                 Sign Out
               </button>
@@ -1164,13 +1185,13 @@ export const AdminDashboardModal = ({ onClose }) => {
         {/* Content */}
         {!isAdminLoggedIn ? (
           /* Authentication Screen */
-          <div className="p-8 sm:p-16 flex flex-col items-center justify-center text-center space-y-6">
+          <div className="flex flex-col items-center justify-center space-y-5 overflow-y-auto p-5 text-center sm:space-y-6 sm:p-16">
             <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border-2 border-amber-500/40 flex items-center justify-center text-amber-400">
               <Shield className="w-8 h-8" />
             </div>
 
             <div>
-              <h4 className="font-sports text-3xl sm:text-4xl text-white tracking-wide">
+              <h4 className="font-sports text-2xl tracking-wide text-white sm:text-4xl">
                 RESTRICTED TOURNAMENT ACCESS
               </h4>
               <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1">
@@ -1225,7 +1246,7 @@ export const AdminDashboardModal = ({ onClose }) => {
           /* Main Admin Panel Dashboard */
           <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
             {/* Top Metrics Row */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 p-4 bg-slate-950 border-b border-slate-800 text-center text-xs flex-shrink-0">
+            <div className="grid flex-shrink-0 grid-cols-2 gap-2 border-b border-slate-800 bg-slate-950 p-2 text-center text-xs sm:grid-cols-4 sm:gap-3 sm:p-4 lg:grid-cols-6">
               <div className="p-2 bg-slate-900/60 rounded-xl">
                 <span className="text-[10px] text-slate-400 uppercase font-bold block">Registrations</span>
                 <span className="font-sports text-2xl text-amber-400">{registrationsForSelectedSession.length}</span>
@@ -1263,35 +1284,39 @@ export const AdminDashboardModal = ({ onClose }) => {
             </div>
 
             {/* Navigation Tabs */}
-            <div className="flex border-b border-slate-800 px-4 bg-[#060D1E] overflow-x-auto flex-shrink-0">
+            <div className="flex flex-shrink-0 touch-pan-x overflow-x-auto border-b border-slate-800 bg-[#060D1E] px-1 sm:px-4">
               <button
                 onClick={() => setActiveTab('registrations')}
-                className={`py-3 px-4 font-sports text-base tracking-wider whitespace-nowrap transition-colors border-b-2 ${activeTab === 'registrations' ? 'border-amber-500 text-amber-400' : 'border-transparent text-slate-400 hover:text-white'}`}
+                className={`min-h-12 whitespace-nowrap border-b-2 px-3 py-2 font-sports text-sm tracking-wider transition-colors sm:px-4 sm:py-3 sm:text-base ${activeTab === 'registrations' ? 'border-amber-500 text-amber-400' : 'border-transparent text-slate-400 hover:text-white'}`}
               >
-                AUCTION REGISTRATIONS ({registrationsForSelectedSession.length})
+                <span className="sm:hidden">REG ({registrationsForSelectedSession.length})</span>
+                <span className="hidden sm:inline">AUCTION REGISTRATIONS ({registrationsForSelectedSession.length})</span>
               </button>
               <button
                 onClick={() => setActiveTab('livescore')}
-                className={`py-3 px-4 font-sports text-base tracking-wider whitespace-nowrap transition-colors border-b-2 ${activeTab === 'livescore' ? 'border-amber-500 text-amber-400' : 'border-transparent text-slate-400 hover:text-white'}`}
+                className={`min-h-12 whitespace-nowrap border-b-2 px-3 py-2 font-sports text-sm tracking-wider transition-colors sm:px-4 sm:py-3 sm:text-base ${activeTab === 'livescore' ? 'border-amber-500 text-amber-400' : 'border-transparent text-slate-400 hover:text-white'}`}
               >
-                LIVE MATCH SCORER
+                <span className="sm:hidden">LIVE SCORE</span>
+                <span className="hidden sm:inline">LIVE MATCH SCORER</span>
               </button>
               <button
                 onClick={() => setActiveTab('teams')}
-                className={`py-3 px-4 font-sports text-base tracking-wider whitespace-nowrap transition-colors border-b-2 ${activeTab === 'teams' ? 'border-amber-500 text-amber-400' : 'border-transparent text-slate-400 hover:text-white'}`}
+                className={`min-h-12 whitespace-nowrap border-b-2 px-3 py-2 font-sports text-sm tracking-wider transition-colors sm:px-4 sm:py-3 sm:text-base ${activeTab === 'teams' ? 'border-amber-500 text-amber-400' : 'border-transparent text-slate-400 hover:text-white'}`}
               >
-                POINTS TABLE & TEAMS
+                <span className="sm:hidden">TEAMS</span>
+                <span className="hidden sm:inline">POINTS TABLE &amp; TEAMS</span>
               </button>
               <button
                 onClick={() => setActiveTab('tournament')}
-                className={`py-3 px-4 font-sports text-base tracking-wider whitespace-nowrap transition-colors border-b-2 ${activeTab === 'tournament' ? 'border-amber-500 text-amber-400' : 'border-transparent text-slate-400 hover:text-white'}`}
+                className={`min-h-12 whitespace-nowrap border-b-2 px-3 py-2 font-sports text-sm tracking-wider transition-colors sm:px-4 sm:py-3 sm:text-base ${activeTab === 'tournament' ? 'border-amber-500 text-amber-400' : 'border-transparent text-slate-400 hover:text-white'}`}
               >
-                EDIT TOURNAMENT SETTINGS
+                <span className="sm:hidden">SETTINGS</span>
+                <span className="hidden sm:inline">EDIT TOURNAMENT SETTINGS</span>
               </button>
               {adminUser?.role === 'owner' && (
                 <button
                   onClick={() => setActiveTab('media')}
-                  className={`py-3 px-4 font-sports text-base tracking-wider whitespace-nowrap transition-colors border-b-2 ${activeTab === 'media' ? 'border-amber-500 text-amber-400' : 'border-transparent text-slate-400 hover:text-white'}`}
+                  className={`min-h-12 whitespace-nowrap border-b-2 px-3 py-2 font-sports text-sm tracking-wider transition-colors sm:px-4 sm:py-3 sm:text-base ${activeTab === 'media' ? 'border-amber-500 text-amber-400' : 'border-transparent text-slate-400 hover:text-white'}`}
                 >
                   OWNER MEDIA
                 </button>
@@ -1299,7 +1324,7 @@ export const AdminDashboardModal = ({ onClose }) => {
             </div>
 
             {activeTab === 'media' && adminUser?.role === 'owner' && (
-              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6">
+              <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-6">
                 <div className="mb-4">
                   <h4 className="font-sports text-xl text-white">WEBSITE IMAGE LIBRARY</h4>
                   <p className="mt-1 text-xs text-slate-400">Changes appear for every visitor. Player portraits use a vertical 4:5 crop; franchise logos use a square crop. Content photos can have separate images for each session. JPG, PNG, WebP, or GIF up to 8 MB.</p>
@@ -1384,7 +1409,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                     All gallery entries ({gallery.length})
                   </h5>
                   <p className="mb-3 text-xs text-slate-500">
-                    Gallery photos and captions are also shown in the public Memories and Legacy section.
+                    These are session gallery photos and are managed separately from Memories and Legacy.
                   </p>
                   <div className="space-y-2">
                     {gallery.map((item) => (
@@ -1429,6 +1454,22 @@ export const AdminDashboardModal = ({ onClose }) => {
                       <p className="py-3 text-sm text-slate-500">No gallery entries have been added yet.</p>
                     )}
                   </div>
+                </div>
+                <div className="mb-5 flex flex-col gap-3 rounded-xl border border-violet-800/60 bg-violet-950/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h5 className="font-sports text-base text-violet-300">MEMORIES AND LEGACY PHOTOS</h5>
+                    <p className="mt-1 text-xs text-slate-400">
+                      Add an old league or organization photo slot, then choose and save its image in the Memories and Legacy image slots below. These photos have no title or caption.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddLegacyPhoto}
+                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-violet-500 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-white transition hover:bg-violet-400"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add old photo
+                  </button>
                 </div>
                 <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-[minmax(12rem,0.7fr)_minmax(14rem,1fr)]">
                   <label className="text-xs font-bold text-slate-400">
@@ -1506,7 +1547,7 @@ export const AdminDashboardModal = ({ onClose }) => {
 
             {/* Tab 1: Auction Registrations Management */}
             {activeTab === 'registrations' && (
-              <div className="p-5 overflow-y-auto space-y-4 flex-grow">
+              <div className="flex-grow space-y-4 overflow-y-auto p-3 sm:p-5">
                 {/* Search & Action bar */}
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
                   <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -1625,7 +1666,7 @@ export const AdminDashboardModal = ({ onClose }) => {
 
             {/* Tab 2: Live Match Scoreboard Adjuster */}
             {activeTab === 'livescore' && (
-              <div className="p-6 overflow-y-auto space-y-6 flex-grow">
+              <div className="flex-grow space-y-5 overflow-y-auto p-3 sm:space-y-6 sm:p-6">
                 {adminUser?.role === 'owner' && (
                   <form onSubmit={handleAddSessionMatch} className="grid grid-cols-1 gap-3 rounded-2xl border border-amber-800/60 bg-amber-950/20 p-4 sm:grid-cols-2 lg:grid-cols-3">
                     <div className="sm:col-span-2 lg:col-span-3">
@@ -1784,7 +1825,7 @@ export const AdminDashboardModal = ({ onClose }) => {
 
             {/* Tab 3: Teams & Points Table Editor */}
             {activeTab === 'teams' && (
-              <div className="p-6 overflow-y-auto space-y-4 flex-grow">
+              <div className="flex-grow space-y-4 overflow-y-auto p-3 sm:p-6">
                 <div className="flex items-center justify-between pb-2 border-b border-slate-800">
                   <h4 className="font-sports text-xl text-white tracking-wider">
                     EDIT POINTS TABLE & FRANCHISE RECORDS
@@ -2050,7 +2091,7 @@ export const AdminDashboardModal = ({ onClose }) => {
 
             {/* Tab 4: Tournament Settings Editor */}
             {activeTab === 'tournament' && (
-              <div className="p-6 overflow-y-auto space-y-4 flex-grow">
+              <div className="flex-grow space-y-4 overflow-y-auto p-3 sm:p-6">
                 <h4 className="font-sports text-xl text-white tracking-wider">
                   GENERAL LEAGUE SETTINGS
                 </h4>

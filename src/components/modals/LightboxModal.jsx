@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, ChevronLeft, ChevronRight, Tag, Calendar, Download } from 'lucide-react';
 
 export const LightboxModal = ({ data, onClose }) => {
-  const { item, all, currentIndex: initialIndex = 0 } = data || {};
+  const { item, all, currentIndex: initialIndex = 0, photosOnly = false } = data || {};
   const [index, setIndex] = useState(initialIndex);
 
   const galleryList = all && all.length > 0 ? all : [item];
@@ -65,22 +65,22 @@ export const LightboxModal = ({ data, onClose }) => {
           />
         </div>
 
-        {/* Caption Card */}
-        <div className="mt-4 p-4 rounded-2xl bg-slate-900/90 border border-slate-800 text-center max-w-xl w-full">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[10px] font-bold uppercase tracking-widest border border-amber-500/30">
-              {currentItem.category}
-            </span>
-            <span className="text-xs text-slate-400 font-semibold">{currentItem.date}</span>
+        {!photosOnly && (
+          <div className="mt-4 p-4 rounded-2xl bg-slate-900/90 border border-slate-800 text-center max-w-xl w-full">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[10px] font-bold uppercase tracking-widest border border-amber-500/30">
+                {currentItem.category}
+              </span>
+              <span className="text-xs text-slate-400 font-semibold">{currentItem.date}</span>
+            </div>
+            <h3 className="font-sports text-xl text-white tracking-wide">
+              {currentItem.title}
+            </h3>
+            <p className="text-xs text-slate-300 mt-1">
+              {currentItem.caption}
+            </p>
           </div>
-
-          <h3 className="font-sports text-xl text-white tracking-wide">
-            {currentItem.title}
-          </h3>
-          <p className="text-xs text-slate-300 mt-1">
-            {currentItem.caption}
-          </p>
-        </div>
+        )}
       </div>
     </div>
   );

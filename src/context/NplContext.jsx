@@ -98,6 +98,10 @@ export const NplProvider = ({ children }) => {
     if (!Array.isArray(savedGallery)) return attachDefaultSeason(initialGallery, initialSelectedSeason);
     return attachDefaultSeason(savedGallery, initialSelectedSeason);
   });
+  const [legacyPhotos, setLegacyPhotos] = useState(() => {
+    const savedPhotos = loadState('legacyPhotos', []);
+    return Array.isArray(savedPhotos) ? savedPhotos : [];
+  });
   const [highlights, setHighlights] = useState(() => attachDefaultSeason(loadState('highlights', initialHighlights), initialSelectedSeason));
   const [news, setNews] = useState(() => {
     const savedNews = loadState('news', null);
@@ -165,6 +169,7 @@ export const NplProvider = ({ children }) => {
         }
         if (Array.isArray(data.records)) setRecords(data.records);
         if (Array.isArray(data.gallery)) setGallery(data.gallery);
+        if (Array.isArray(data.legacyPhotos)) setLegacyPhotos(data.legacyPhotos);
         if (Array.isArray(data.highlights)) setHighlights(data.highlights);
         if (Array.isArray(data.news)) setNews(data.news);
         if (data.auctionLiveStates) setAuctionLiveStates(data.auctionLiveStates);
@@ -260,6 +265,10 @@ export const NplProvider = ({ children }) => {
     localStorage.setItem('npl_gallery', JSON.stringify(gallery));
   }, [gallery]);
 
+  useEffect(() => {
+    localStorage.setItem('npl_legacyPhotos', JSON.stringify(legacyPhotos));
+  }, [legacyPhotos]);
+
   const publicSiteData = {
     tournamentInfo,
     champions,
@@ -272,6 +281,7 @@ export const NplProvider = ({ children }) => {
     topPerformers,
     records,
     gallery,
+    legacyPhotos,
     highlights,
     news,
     auctionLiveStates
@@ -291,7 +301,7 @@ export const NplProvider = ({ children }) => {
       })
       .catch((error) => console.error(error));
   }, [adminUser, siteDataLoaded, tournamentInfo, champions, seasons, teams, matches, pointsTable,
-    seasonStandings, selectedSeason, topPerformers, records, gallery, highlights, news, auctionLiveStates]);
+    seasonStandings, selectedSeason, topPerformers, records, gallery, legacyPhotos, highlights, news, auctionLiveStates]);
 
   useEffect(() => {
     if (!import.meta.env.PROD || !adminUser || !registrationDataLoaded) return;
@@ -491,6 +501,7 @@ export const NplProvider = ({ children }) => {
     setTopPerformers(initialTopPerformers);
     setRecords(initialRecords);
     setGallery(initialGallery);
+    setLegacyPhotos([]);
     setHighlights(initialHighlights);
     setNews(initialNews);
     setAuctionRegistrations(initialAuctionRegistrations);
@@ -524,6 +535,8 @@ export const NplProvider = ({ children }) => {
         setRecords,
         gallery,
         setGallery,
+        legacyPhotos,
+        setLegacyPhotos,
         highlights,
         setHighlights,
         news,
