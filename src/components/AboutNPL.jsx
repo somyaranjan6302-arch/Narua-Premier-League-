@@ -1,3 +1,6 @@
+
+
+
 import React from 'react';
 import { useNpl } from '../context/NplContext';
 import { History, Award, Flag, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
