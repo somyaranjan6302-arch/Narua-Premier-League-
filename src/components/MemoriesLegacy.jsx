@@ -7,6 +7,8 @@ export const MemoriesLegacy = () => {
   const memories = legacyPhotos
     .map((photo) => ({
       id: photo.id,
+      title: photo.title || '',
+      caption: photo.caption || '',
       image: siteMedia[`memory-photo:${photo.id}`]
     }))
     .filter((photo) => photo.image);
@@ -40,10 +42,16 @@ export const MemoriesLegacy = () => {
               >
                 <img
                   src={item.image}
-                  alt="NPL league memory"
+                  alt={item.title || 'NPL league memory'}
                   className="h-full w-full object-cover brightness-90 transition-transform duration-700 group-hover:scale-105 group-hover:brightness-100"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#050b18] via-slate-950/30 to-slate-950/5 opacity-40 transition-opacity group-hover:opacity-70" />
+                {(item.title || item.caption) && (
+                  <div className="absolute inset-x-0 bottom-0 p-4">
+                    {item.title && <h2 className="font-sports text-lg tracking-wide text-white">{item.title}</h2>}
+                    {item.caption && <p className="mt-1 text-xs leading-relaxed text-slate-200">{item.caption}</p>}
+                  </div>
+                )}
                 <div className="pointer-events-none absolute inset-2 rounded-[1rem] border border-white/10 transition-colors group-hover:border-amber-300/40" />
                 <div className="absolute right-3 top-3 rounded-xl border border-slate-700 bg-slate-900/80 p-2 text-white opacity-0 transition-opacity group-hover:opacity-100">
                   <Maximize2 className="h-3.5 w-3.5" />

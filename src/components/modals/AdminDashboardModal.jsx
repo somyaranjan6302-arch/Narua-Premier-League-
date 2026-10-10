@@ -96,6 +96,10 @@ const mediaInfoFields = {
     { key: 'category', label: 'Category' },
     { key: 'stat', label: 'Stat' },
     { key: 'details', label: 'Description', multiline: true }
+  ],
+  legacyPhoto: [
+    { key: 'title', label: 'Title' },
+    { key: 'caption', label: 'Caption', multiline: true }
   ]
 };
 
@@ -395,12 +399,23 @@ export const AdminDashboardModal = ({ onClose }) => {
     setGalleryDraft({ title: '', category: 'MATCH DAY', caption: '', date: '', season: selectedSeason });
   };
 
-  const handleRemoveSessionGalleryItem = (itemId) => {
+  const handleRemoveSessionGalleryItem = async (itemId) => {
     if (adminUser?.role !== 'owner') return;
     const targetItem = gallery.find((item) => item.id === itemId);
+    if (!targetItem || !window.confirm(`Delete “${targetItem.title}” and its uploaded image? This cannot be undone.`)) return;
+
+    setMediaError('');
+    try {
+      await deleteMediaImage(`gallery:${targetItem.id}`, false);
+      await refreshSiteMedia();
+    } catch (error) {
+      setMediaError(error.message || 'The gallery photo could not be deleted.');
+      return;
+    }
+
     setGallery((previousGallery) => previousGallery.filter((item) => item.id !== itemId));
     if (editingGalleryItemId === itemId) handleCancelGalleryEdit();
-    if (targetItem) showToast(`"${targetItem.title}" was deleted from the gallery.`);
+    showToast(`"${targetItem.title}" was deleted from the gallery.`);
   };
 
   const handleGallerySeasonChange = (itemId, season) => {
@@ -658,6 +673,8 @@ export const AdminDashboardModal = ({ onClose }) => {
       setNews((previous) => previous.map((record) => record.id === target.id ? { ...record, ...updates } : record));
     } else if (target.type === 'highlight') {
       setHighlights((previous) => previous.map((record) => record.id === target.id ? { ...record, ...updates } : record));
+    } else if (target.type === 'legacyPhoto') {
+      setLegacyPhotos((previous) => previous.map((photo) => photo.id === target.id ? { ...photo, ...updates } : photo));
     } else if (target.type === 'performer') {
       setTopPerformers((previous) => Array.isArray(previous)
         ? previous.map((record) => record.key === target.key ? { ...record, ...updates } : record)
@@ -697,7 +714,10 @@ export const AdminDashboardModal = ({ onClose }) => {
       } else if (target.type === 'champion') setChampions((previous) => previous.filter((_, index) => index !== target.index));
       else if (target.type === 'news') setNews((previous) => previous.filter((record) => record.id !== target.id));
       else if (target.type === 'highlight') setHighlights((previous) => previous.filter((record) => record.id !== target.id));
-      else if (target.type === 'gallery') handleRemoveSessionGalleryItem(target.id);
+      else if (target.type === 'gallery') {
+        setGallery((previous) => previous.filter((record) => record.id !== target.id));
+        if (editingGalleryItemId === target.id) handleCancelGalleryEdit();
+      }
       else if (target.type === 'legacyPhoto') setLegacyPhotos((previous) => previous.filter((photo) => photo.id !== target.id));
       else if (target.type === 'performer') {
         setTopPerformers((previous) => {
@@ -1459,7 +1479,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                   <div>
                     <h5 className="font-sports text-base text-violet-300">MEMORIES AND LEGACY PHOTOS</h5>
                     <p className="mt-1 text-xs text-slate-400">
-                      Add an old league or organization photo slot, then choose and save its image in the Memories and Legacy image slots below. These photos have no title or caption.
+                      Add an old league or organization photo slot, then choose and save its image in the Memories and Legacy image slots below. Titles and captions are optional.
                     </p>
                   </div>
                   <button
