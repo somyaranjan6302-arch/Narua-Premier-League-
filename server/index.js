@@ -518,6 +518,37 @@ const start = async () => {
     return res.status(201).json({ key: mediaKey, url });
   });
 
+  app.delete('/api/admin/media/:key', requireAdmin, requireOwner, async (req, res) => {
+    const mediaKey = req.params.key;
+    if (!['logo', 'trophy', 'stadium'].includes(mediaKey) && !/^(news|champion|team-logo|team|gallery|highlight|performer|player-photo):[A-Za-z0-9 _.\-]{1,80}$/.test(mediaKey)) {
+      return res.status(400).json({ error: 'Choose a supported site image slot.' });
+    }
+
+    delete auth.media[mediaKey];
+    if (database) {
+      await database.query('DELETE FROM npl_media WHERE media_key = $1', [mediaKey]);
+      const result = await database.query("SELECT value FROM npl_site_data WHERE data_key = 'site-media'");
+      const media = { ...(result.rows[0]?.value || {}) };
+      delete media[mediaKey];
+      await database.query(
+        `INSERT INTO npl_site_data (data_key, value) VALUES ('site-media', $1::jsonb)
+         ON CONFLICT (data_key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+        [JSON.stringify(media)]
+      );
+      const localMedia = await readJson(mediaFile, {});
+      if (localMedia[mediaKey]) {
+        delete localMedia[mediaKey];
+        await writeJson(mediaFile, localMedia);
+      }
+    } else {
+      const media = await readJson(mediaFile, auth.media);
+      delete media[mediaKey];
+      await writeJson(mediaFile, media);
+    }
+
+    return res.status(204).end();
+  });
+
   app.use('/api', (_req, res) => res.status(404).json({ error: 'API endpoint not found.' }));
 
   if (process.env.NODE_ENV === 'production') {

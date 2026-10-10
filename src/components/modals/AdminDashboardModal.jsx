@@ -524,10 +524,28 @@ export const AdminDashboardModal = ({ onClose }) => {
     }
   };
 
+  const handleMediaDelete = async (mediaKey, title) => {
+    if (!window.confirm(`Remove the uploaded image for “${title}”? The original fallback image will be used if one exists.`)) return;
+    setMediaError('');
+    setUploadingMediaKey(mediaKey);
+    try {
+      const response = await fetch(`/api/admin/media/${encodeURIComponent(mediaKey)}`, { method: 'DELETE' });
+      const result = response.status === 204 ? null : await response.json();
+      if (!response.ok) throw new Error(result?.error || 'Image could not be removed.');
+      await refreshSiteMedia();
+      showToast(`Uploaded image removed for ${title}.`);
+    } catch (error) {
+      setMediaError(error.message || 'Image could not be removed.');
+    } finally {
+      setUploadingMediaKey('');
+    }
+  };
+
   const mediaUploadControl = (item) => {
     const { key: baseMediaKey, title, description, fallback: fallbackImage = '', aspectRatio = 1, fit = false, galleryItem, sessionSpecific = false } = item;
     const mediaSession = mediaSessionSelections[baseMediaKey] || item.defaultSession || selectedSeason;
     const mediaKey = sessionSpecific ? getSessionMediaKey(baseMediaKey, mediaSession) : baseMediaKey;
+    const activeMediaKey = siteMedia[mediaKey] ? mediaKey : siteMedia[baseMediaKey] ? baseMediaKey : null;
     const pendingMedia = pendingMediaFiles[mediaKey];
     const cropFile = mediaCropFiles[mediaKey];
     return (
@@ -600,6 +618,18 @@ export const AdminDashboardModal = ({ onClose }) => {
           <Save className="h-4 w-4" />
           {uploadingMediaKey === mediaKey ? 'Saving...' : 'Save'}
         </button>
+        {activeMediaKey && (
+          <button
+            type="button"
+            onClick={() => handleMediaDelete(activeMediaKey, title)}
+            disabled={Boolean(uploadingMediaKey)}
+            title={`Remove uploaded image for ${title}`}
+            className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-rose-800 bg-rose-950/70 px-3 py-2 text-xs font-bold text-rose-300 hover:bg-rose-900 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Trash2 className="h-4 w-4" />
+            Remove
+          </button>
+        )}
       </div>
       {cropFile && (
         <ImageCropEditor
@@ -650,7 +680,7 @@ export const AdminDashboardModal = ({ onClose }) => {
       },
       {
         key: `team-logo:${team.id}`,
-        category: 'teams',
+        category: 'player-assets',
         title: `${team.name} logo`,
         description: 'Square franchise crest shown on team badges and player cards.',
         fallback: team.logo,
@@ -661,7 +691,7 @@ export const AdminDashboardModal = ({ onClose }) => {
       },
       ...(team.squad || []).map((player) => ({
         key: `player-photo:${team.id}-${player.id}`,
-        category: 'performers',
+        category: 'player-assets',
         title: `${player.name} portrait`,
         description: `${team.name} • vertical 4:5 player photo`,
         fallback: player.photo,
@@ -713,7 +743,8 @@ export const AdminDashboardModal = ({ onClose }) => {
     { value: 'all', label: 'All image slots' },
     { value: 'branding', label: 'Brand & venue' },
     { value: 'champions', label: 'Champions' },
-    { value: 'teams', label: 'Teams' },
+    { value: 'teams', label: 'Team banners' },
+    { value: 'player-assets', label: 'Player & team photos' },
     { value: 'news', label: 'News' },
     { value: 'gallery', label: 'Gallery' },
     { value: 'highlights', label: 'Video highlights' },
@@ -1073,6 +1104,20 @@ export const AdminDashboardModal = ({ onClose }) => {
                 <div className="mb-4">
                   <h4 className="font-sports text-xl text-white">WEBSITE IMAGE LIBRARY</h4>
                   <p className="mt-1 text-xs text-slate-400">Changes appear for every visitor. Player portraits use a vertical 4:5 crop; franchise logos use a square crop. Content photos can have separate images for each session. JPG, PNG, WebP, or GIF up to 8 MB.</p>
+                </div>
+                <div className="mb-5 flex flex-col gap-3 rounded-xl border border-blue-700/50 bg-blue-950/30 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h5 className="font-sports text-base text-white">PLAYER & TEAM PHOTO DESK</h5>
+                    <p className="mt-1 text-xs text-slate-300">Upload portrait photos for every roster player and square franchise logos. Missing player portraits use the virtual player illustration.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMediaCategory('player-assets')}
+                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-blue-500 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-white transition hover:bg-blue-400"
+                  >
+                    <Users className="h-4 w-4" />
+                    Manage player & team photos
+                  </button>
                 </div>
                 <p className="mb-5 rounded-lg border border-amber-700/60 bg-amber-950/30 px-3 py-2.5 text-xs leading-relaxed text-amber-200">
                   Production uploads are saved in the shared database and appear for every visitor. For local clones, commit and push <code className="font-mono text-amber-100">public/uploads/</code> and <code className="font-mono text-amber-100">public/site-media.json</code> after uploading.
