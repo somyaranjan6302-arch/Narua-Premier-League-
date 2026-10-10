@@ -1383,6 +1383,9 @@ export const AdminDashboardModal = ({ onClose }) => {
                   <h5 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     All gallery entries ({gallery.length})
                   </h5>
+                  <p className="mb-3 text-xs text-slate-500">
+                    Gallery photos and captions are also shown in the public Memories and Legacy section.
+                  </p>
                   <div className="space-y-2">
                     {gallery.map((item) => (
                       <div key={item.id} className="flex flex-col justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950 px-3 py-3 sm:flex-row sm:items-center">

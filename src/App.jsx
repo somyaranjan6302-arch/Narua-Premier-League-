@@ -16,6 +16,7 @@ import { VideoHighlights } from './components/VideoHighlights';
 import { NewsSection } from './components/NewsSection';
 import { AuctionSection } from './components/AuctionSection';
 import { TrophySection } from './components/TrophySection';
+import { MemoriesLegacy } from './components/MemoriesLegacy';
 import { Footer } from './components/Footer';
 
 // Modals
@@ -80,6 +81,7 @@ export const App = () => {
         {activeSection === 'news' && <NewsSection />}
         {activeSection === 'auction' && <AuctionSection />}
         {activeSection === 'trophy' && <TrophySection />}
+        {activeSection === 'memories' && <MemoriesLegacy />}
       </main>
 
       {/* 18. LARGE PROFESSIONAL FOOTER */}

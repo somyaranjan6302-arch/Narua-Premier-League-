@@ -37,6 +37,7 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
     { label: "About NPL Story", target: "story" },
     { label: "Season History", target: "history" },
     { label: "Players", target: "players" },
+    { label: "Memories and Legacy", target: "memories" },
     { label: "Trophy Showcase", target: "trophy" },
     { label: "Top Performers (Caps)", target: "performers" },
   ];
