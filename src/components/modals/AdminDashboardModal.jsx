@@ -37,6 +37,68 @@ const getTeamSessions = (team, seasonEditions) => {
   return seasonEditions;
 };
 
+const mediaInfoFields = {
+  team: [
+    { key: 'name', label: 'Team name' },
+    { key: 'shortName', label: 'Short name' },
+    { key: 'primaryColor', label: 'Primary color' },
+    { key: 'secondaryColor', label: 'Secondary color' },
+    { key: 'captain', label: 'Captain' },
+    { key: 'owner', label: 'Owner' },
+    { key: 'home', label: 'Home ground' },
+    { key: 'slogan', label: 'Team slogan' }
+  ],
+  player: [
+    { key: 'name', label: 'Player name' },
+    { key: 'role', label: 'Role' },
+    { key: 'style', label: 'Playing style' },
+    { key: 'age', label: 'Age', numeric: true },
+    { key: 'runs', label: 'Runs', numeric: true },
+    { key: 'wickets', label: 'Wickets', numeric: true },
+    { key: 'dismissals', label: 'Dismissals', numeric: true },
+    { key: 'strikeRate', label: 'Strike rate' },
+    { key: 'economy', label: 'Economy' },
+    { key: 'bestScore', label: 'Best batting' },
+    { key: 'bestBowling', label: 'Best bowling' },
+    { key: 'details', label: 'Profile details', multiline: true }
+  ],
+  champion: [
+    { key: 'championTeam', label: 'Champion team' },
+    { key: 'season', label: 'Season year' },
+    { key: 'edition', label: 'Season / edition' },
+    { key: 'championShort', label: 'Champion short name' },
+    { key: 'captain', label: 'Captain' },
+    { key: 'runnerUp', label: 'Runner-up' },
+    { key: 'runnerUpShort', label: 'Runner-up short name' },
+    { key: 'winningMargin', label: 'Winning margin' },
+    { key: 'finalScores', label: 'Final scores', multiline: true },
+    { key: 'venue', label: 'Venue' },
+    { key: 'playerOfFinal', label: 'Player of the final' },
+    { key: 'description', label: 'Description', multiline: true }
+  ],
+  news: [
+    { key: 'headline', label: 'Headline' },
+    { key: 'category', label: 'Category' },
+    { key: 'date', label: 'Date' },
+    { key: 'snippet', label: 'Caption / summary', multiline: true },
+    { key: 'fullContent', label: 'Article content', multiline: true }
+  ],
+  highlight: [
+    { key: 'title', label: 'Title' },
+    { key: 'season', label: 'Season' },
+    { key: 'duration', label: 'Duration' },
+    { key: 'views', label: 'Views label' },
+    { key: 'description', label: 'Description', multiline: true }
+  ],
+  performer: [
+    { key: 'player', label: 'Player name' },
+    { key: 'team', label: 'Team' },
+    { key: 'category', label: 'Category' },
+    { key: 'stat', label: 'Stat' },
+    { key: 'details', label: 'Description', multiline: true }
+  ]
+};
+
 export const AdminDashboardModal = ({ onClose }) => {
   const {
     tournamentInfo,
@@ -55,9 +117,11 @@ export const AdminDashboardModal = ({ onClose }) => {
     seasonStandings,
     setSeasonStandings,
     topPerformers,
+    setTopPerformers,
     gallery,
     setGallery,
     highlights,
+    setHighlights,
     auctionRegistrations,
     updateRegistrationStatus,
     champions,
@@ -147,6 +211,8 @@ export const AdminDashboardModal = ({ onClose }) => {
     season: selectedSeason
   });
   const [editingGalleryItemId, setEditingGalleryItemId] = useState(null);
+  const [editingMediaInfo, setEditingMediaInfo] = useState(null);
+  const [mediaInfoDraft, setMediaInfoDraft] = useState({});
   const nextTeamSession = `Season ${(Number(teamSessionFocus.match(/\d+/)?.[0]) || 0) + 1}`;
 
   const ensureTeamSessionExists = (edition) => {
@@ -541,6 +607,102 @@ export const AdminDashboardModal = ({ onClose }) => {
     }
   };
 
+  const deleteMediaImage = async (mediaKey, refresh = true) => {
+    const response = await fetch(`/api/admin/media/${encodeURIComponent(mediaKey)}`, { method: 'DELETE' });
+    const result = response.status === 204 ? null : await response.json();
+    if (!response.ok) throw new Error(result?.error || 'Image could not be removed.');
+    if (refresh) await refreshSiteMedia();
+  };
+
+  const handleEditMediaInfo = (item) => {
+    if (item.galleryItem) {
+      handleEditSessionGalleryItem(item.galleryItem);
+      document.getElementById('gallery-admin-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    const target = item.editTarget;
+    const fields = target && mediaInfoFields[target.type];
+    if (!fields) return;
+    setEditingMediaInfo({ item, target, fields });
+    setMediaInfoDraft(Object.fromEntries(fields.map((field) => [field.key, item.record?.[field.key] ?? ''])));
+  };
+
+  const handleSaveMediaInfo = (event) => {
+    event.preventDefault();
+    if (!editingMediaInfo) return;
+    const { target, fields } = editingMediaInfo;
+    const updates = Object.fromEntries(fields.map((field) => [
+      field.key,
+      field.numeric ? (mediaInfoDraft[field.key] === '' ? 0 : Number(mediaInfoDraft[field.key])) : mediaInfoDraft[field.key]
+    ]));
+
+    if (target.type === 'team') {
+      setTeams((previous) => previous.map((team) => team.id === target.teamId ? { ...team, ...updates } : team));
+    } else if (target.type === 'player') {
+      setTeams((previous) => previous.map((team) => team.id === target.teamId
+        ? { ...team, squad: (team.squad || []).map((player) => player.id === target.playerId ? { ...player, ...updates } : player) }
+        : team));
+    } else if (target.type === 'champion') {
+      setChampions((previous) => previous.map((record, index) => index === target.index ? { ...record, ...updates } : record));
+    } else if (target.type === 'news') {
+      setNews((previous) => previous.map((record) => record.id === target.id ? { ...record, ...updates } : record));
+    } else if (target.type === 'highlight') {
+      setHighlights((previous) => previous.map((record) => record.id === target.id ? { ...record, ...updates } : record));
+    } else if (target.type === 'performer') {
+      setTopPerformers((previous) => Array.isArray(previous)
+        ? previous.map((record) => record.key === target.key ? { ...record, ...updates } : record)
+        : { ...previous, [target.key]: { ...previous[target.key], ...updates } });
+    }
+
+    showToast(`${editingMediaInfo.item.title} information updated.`);
+    setEditingMediaInfo(null);
+    setMediaInfoDraft({});
+  };
+
+  const handleDeleteMediaItem = async (item) => {
+    if (!item.editTarget) return;
+    if (!window.confirm(`Delete “${item.title}” and its associated information? This cannot be undone.`)) return;
+
+    try {
+      const target = item.editTarget;
+      const mediaKeys = new Set([
+        item.sessionSpecific
+          ? getSessionMediaKey(item.key, item.defaultSession || selectedSeason)
+          : item.key
+      ]);
+      const recordSession = item.defaultSession || selectedSeason;
+      if (target.type === 'team') {
+        mediaKeys.add(getSessionMediaKey(`team:${target.teamId}`, recordSession));
+        mediaKeys.add(getSessionMediaKey(`team-logo:${target.teamId}`, recordSession));
+        (item.record?.squad || []).forEach((player) => mediaKeys.add(getSessionMediaKey(`player-photo:${target.teamId}-${player.id}`, recordSession)));
+      }
+      for (const key of mediaKeys) await deleteMediaImage(key, false);
+      if (mediaKeys.size > 0) await refreshSiteMedia();
+
+      if (target.type === 'team') setTeams((previous) => previous.filter((team) => team.id !== target.teamId));
+      else if (target.type === 'player') {
+        setTeams((previous) => previous.map((team) => team.id === target.teamId
+          ? { ...team, squad: (team.squad || []).filter((player) => player.id !== target.playerId) }
+          : team));
+      } else if (target.type === 'champion') setChampions((previous) => previous.filter((_, index) => index !== target.index));
+      else if (target.type === 'news') setNews((previous) => previous.filter((record) => record.id !== target.id));
+      else if (target.type === 'highlight') setHighlights((previous) => previous.filter((record) => record.id !== target.id));
+      else if (target.type === 'gallery') handleRemoveSessionGalleryItem(target.id);
+      else if (target.type === 'performer') {
+        setTopPerformers((previous) => {
+          if (Array.isArray(previous)) return previous.filter((record) => record.key !== target.key);
+          const next = { ...previous };
+          delete next[target.key];
+          return next;
+        });
+      }
+      if (editingMediaInfo?.item.key === item.key) setEditingMediaInfo(null);
+      showToast(`${item.title} and its information were deleted.`);
+    } catch (error) {
+      setMediaError(error.message || 'The item could not be deleted.');
+    }
+  };
+
   const mediaUploadControl = (item) => {
     const { key: baseMediaKey, title, description, fallback: fallbackImage = '', aspectRatio = 1, fit = false, galleryItem, sessionSpecific = false } = item;
     const mediaSession = mediaSessionSelections[baseMediaKey] || item.defaultSession || selectedSeason;
@@ -618,6 +780,28 @@ export const AdminDashboardModal = ({ onClose }) => {
           <Save className="h-4 w-4" />
           {uploadingMediaKey === mediaKey ? 'Saving...' : 'Save'}
         </button>
+        {item.editTarget && (
+          <>
+            <button
+              type="button"
+              onClick={() => handleEditMediaInfo(item)}
+              disabled={Boolean(uploadingMediaKey)}
+              className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-blue-700 bg-blue-950/70 px-3 py-2 text-xs font-bold text-blue-200 hover:bg-blue-900 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Edit className="h-4 w-4" />
+              Edit info
+            </button>
+            <button
+              type="button"
+              onClick={() => handleDeleteMediaItem(item)}
+              disabled={Boolean(uploadingMediaKey)}
+              className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-rose-800 bg-rose-950/70 px-3 py-2 text-xs font-bold text-rose-300 hover:bg-rose-900 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete item
+            </button>
+          </>
+        )}
         {activeMediaKey && (
           <button
             type="button"
@@ -660,6 +844,8 @@ export const AdminDashboardModal = ({ onClose }) => {
     ...champions.map((champion, index) => ({
       key: `champion:${index}`,
       category: 'champions',
+      record: champion,
+      editTarget: { type: 'champion', index },
       title: `${champion.season} ${champion.edition} • ${champion.championTeam}`,
       description: 'Champion feature photo.',
       fallback: champion.teamPhoto,
@@ -671,6 +857,8 @@ export const AdminDashboardModal = ({ onClose }) => {
       {
         key: `team:${team.id}`,
         category: 'teams',
+        record: team,
+        editTarget: { type: 'team', teamId: team.id },
         title: `${team.name} banner`,
         description: 'Shown in team details.',
         fallback: team.banner,
@@ -681,6 +869,8 @@ export const AdminDashboardModal = ({ onClose }) => {
       {
         key: `team-logo:${team.id}`,
         category: 'player-assets',
+        record: team,
+        editTarget: { type: 'team', teamId: team.id },
         title: `${team.name} logo`,
         description: 'Square franchise crest shown on team badges and player cards.',
         fallback: team.logo,
@@ -692,6 +882,8 @@ export const AdminDashboardModal = ({ onClose }) => {
       ...(team.squad || []).map((player) => ({
         key: `player-photo:${team.id}-${player.id}`,
         category: 'player-assets',
+        record: player,
+        editTarget: { type: 'player', teamId: team.id, playerId: player.id },
         title: `${player.name} portrait`,
         description: `${team.name} • vertical 4:5 player photo`,
         fallback: player.photo,
@@ -703,6 +895,8 @@ export const AdminDashboardModal = ({ onClose }) => {
     ...news.map((article) => ({
       key: `news:${article.id}`,
       category: 'news',
+      record: article,
+      editTarget: { type: 'news', id: article.id },
       title: article.headline,
       description: `News image • ${article.category}`,
       fallback: article.image,
@@ -713,6 +907,7 @@ export const AdminDashboardModal = ({ onClose }) => {
     ...gallery.map((item) => ({
       key: `gallery:${item.id}`,
       category: 'gallery',
+      editTarget: { type: 'gallery', id: item.id },
       title: item.title,
       description: `Gallery photo • ${item.category}`,
       fallback: item.image,
@@ -722,6 +917,8 @@ export const AdminDashboardModal = ({ onClose }) => {
     ...highlights.map((item) => ({
       key: `highlight:${item.id}`,
       category: 'highlights',
+      record: item,
+      editTarget: { type: 'highlight', id: item.id },
       title: item.title,
       description: 'Video highlight thumbnail.',
       fallback: item.thumbnail,
@@ -732,6 +929,8 @@ export const AdminDashboardModal = ({ onClose }) => {
     ...Object.entries(topPerformers).map(([key, performer]) => ({
       key: `performer:${key}`,
       category: 'performers',
+      record: performer,
+      editTarget: { type: 'performer', key },
       title: `${performer.player} • ${key.replace(/([A-Z])/g, ' $1')}`,
       description: 'Top performer profile photo.',
       fallback: performer.photo,
@@ -1122,7 +1321,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                 <p className="mb-5 rounded-lg border border-amber-700/60 bg-amber-950/30 px-3 py-2.5 text-xs leading-relaxed text-amber-200">
                   Production uploads are saved in the shared database and appear for every visitor. For local clones, commit and push <code className="font-mono text-amber-100">public/uploads/</code> and <code className="font-mono text-amber-100">public/site-media.json</code> after uploading.
                 </p>
-                <form onSubmit={handleAddSessionGalleryItem} className="mb-5 grid grid-cols-1 gap-3 rounded-xl border border-amber-800/60 bg-amber-950/20 p-4 sm:grid-cols-2">
+                <form id="gallery-admin-form" onSubmit={handleAddSessionGalleryItem} className="mb-5 grid grid-cols-1 gap-3 rounded-xl border border-amber-800/60 bg-amber-950/20 p-4 sm:grid-cols-2">
                   <div className="sm:col-span-2 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                     <div>
                       <h5 className="font-sports text-base text-amber-300">
@@ -1255,6 +1454,44 @@ export const AdminDashboardModal = ({ onClose }) => {
                     </span>
                   </label>
                 </div>
+                {editingMediaInfo && (
+                  <form onSubmit={handleSaveMediaInfo} className="mb-5 rounded-xl border border-blue-700/50 bg-blue-950/25 p-4">
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                      <div>
+                        <h5 className="font-sports text-base text-white">EDIT {editingMediaInfo.item.title.toUpperCase()}</h5>
+                        <p className="mt-1 text-xs text-slate-400">Update the information shown with this photo. The image stays unchanged.</p>
+                      </div>
+                      <button type="button" onClick={() => setEditingMediaInfo(null)} className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-bold text-slate-300 hover:bg-slate-800">Cancel</button>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {editingMediaInfo.fields.map((field) => (
+                        <label key={field.key} className={`text-xs font-bold text-slate-300 ${field.multiline ? 'sm:col-span-2' : ''}`}>
+                          {field.label}
+                          {field.multiline ? (
+                            <textarea
+                              value={mediaInfoDraft[field.key]}
+                              onChange={(event) => setMediaInfoDraft((current) => ({ ...current, [field.key]: event.target.value }))}
+                              rows={3}
+                              className="mt-1 w-full resize-y rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white"
+                            />
+                          ) : (
+                            <input
+                              type={field.numeric ? 'number' : 'text'}
+                              value={mediaInfoDraft[field.key]}
+                              onChange={(event) => setMediaInfoDraft((current) => ({ ...current, [field.key]: event.target.value }))}
+                              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white"
+                            />
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                    <div className="mt-4 flex justify-end">
+                      <button type="submit" className="inline-flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-bold text-white hover:bg-blue-400">
+                        <Save className="h-4 w-4" /> Save information
+                      </button>
+                    </div>
+                  </form>
+                )}
                 {mediaError && <p role="alert" className="mb-3 rounded-lg border border-rose-800 bg-rose-950/70 px-3 py-2 text-sm text-rose-300">{mediaError}</p>}
                 <div className="divide-y divide-slate-800 rounded-xl border border-slate-800 bg-slate-950/50 px-4">
                   {filteredMediaItems.length > 0 ? filteredMediaItems.map((item) => mediaUploadControl(item)) : (

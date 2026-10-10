@@ -43,20 +43,9 @@ export const NplProvider = ({ children }) => {
 
   const [tournamentInfo, setTournamentInfo] = useState(() => loadState('tournamentInfo', initialTournamentInfo));
   const [champions, setChampions] = useState(() => {
-    const savedChampions = loadState('champions', []);
+    const savedChampions = loadState('champions', null);
     if (!Array.isArray(savedChampions)) return initialChampions;
-
-    const savedByEdition = new Map(
-      savedChampions
-        .filter((champion) => champion?.edition)
-        .map((champion) => [champion.edition, champion])
-    );
-    const seededEditions = new Set(initialChampions.map((champion) => champion.edition));
-
-    return [
-      ...initialChampions.map((champion) => savedByEdition.get(champion.edition) || champion),
-      ...savedChampions.filter((champion) => !seededEditions.has(champion?.edition))
-    ];
+    return savedChampions;
   });
   const [seasons, setSeasons] = useState(() => {
     const savedSeasons = loadState('seasons', initialSeasons);
@@ -105,39 +94,15 @@ export const NplProvider = ({ children }) => {
   const [topPerformers, setTopPerformers] = useState(() => loadState('topPerformers', initialTopPerformers));
   const [records, setRecords] = useState(() => loadState('records', initialRecords));
   const [gallery, setGallery] = useState(() => {
-    const savedGallery = loadState('gallery', []);
+    const savedGallery = loadState('gallery', null);
     if (!Array.isArray(savedGallery)) return attachDefaultSeason(initialGallery, initialSelectedSeason);
-
-    const savedById = new Map(
-      savedGallery
-        .filter((item) => item?.id)
-        .map((item) => [item.id, item])
-    );
-    const seededIds = new Set(initialGallery.map((item) => item.id));
-
-    return attachDefaultSeason([
-      ...initialGallery.map((item) => ({ ...(savedById.get(item.id) || {}), ...item })),
-      ...savedGallery.filter((item) => !seededIds.has(item?.id))
-    ], initialSelectedSeason);
+    return attachDefaultSeason(savedGallery, initialSelectedSeason);
   });
   const [highlights, setHighlights] = useState(() => attachDefaultSeason(loadState('highlights', initialHighlights), initialSelectedSeason));
   const [news, setNews] = useState(() => {
     const savedNews = loadState('news', null);
     if (!Array.isArray(savedNews)) return attachDefaultSeason(initialNews, initialSelectedSeason);
-
-    const savedById = new Map(savedNews.filter((item) => item?.id).map((item) => [item.id, item]));
-    const seededIds = new Set(initialNews.map((item) => item.id));
-    return attachDefaultSeason([
-      ...initialNews.map((item) => {
-        const savedItem = savedById.get(item.id);
-        return {
-          ...item,
-          ...(savedItem || {}),
-          season: savedItem?.season || savedItem?.session || item.season || initialSelectedSeason
-        };
-      }),
-      ...savedNews.filter((item) => !seededIds.has(item?.id))
-    ], initialSelectedSeason);
+    return attachDefaultSeason(savedNews, initialSelectedSeason);
   });
   const [auctionRegistrations, setAuctionRegistrations] = useState(() => attachDefaultSeason(loadState('auctionRegistrations', initialAuctionRegistrations), initialSelectedSeason));
   const [auctionLiveStates, setAuctionLiveStates] = useState(() => {
@@ -195,7 +160,9 @@ export const NplProvider = ({ children }) => {
         if (Array.isArray(data.pointsTable)) setPointsTable(data.pointsTable);
         if (data.seasonStandings) setSeasonStandings(data.seasonStandings);
         if (data.selectedSeason) setSelectedSeason(data.selectedSeason);
-        if (Array.isArray(data.topPerformers)) setTopPerformers(data.topPerformers);
+        if (Array.isArray(data.topPerformers) || (data.topPerformers && typeof data.topPerformers === 'object')) {
+          setTopPerformers(data.topPerformers);
+        }
         if (Array.isArray(data.records)) setRecords(data.records);
         if (Array.isArray(data.gallery)) setGallery(data.gallery);
         if (Array.isArray(data.highlights)) setHighlights(data.highlights);
@@ -268,6 +235,14 @@ export const NplProvider = ({ children }) => {
   useEffect(() => {
     localStorage.setItem('npl_selectedSeason', JSON.stringify(selectedSeason));
   }, [selectedSeason]);
+
+  useEffect(() => {
+    localStorage.setItem('npl_topPerformers', JSON.stringify(topPerformers));
+  }, [topPerformers]);
+
+  useEffect(() => {
+    localStorage.setItem('npl_highlights', JSON.stringify(highlights));
+  }, [highlights]);
 
   useEffect(() => {
     localStorage.setItem('npl_auctionRegistrations', JSON.stringify(auctionRegistrations));
