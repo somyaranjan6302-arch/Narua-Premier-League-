@@ -20,6 +20,11 @@ export const ImageCropEditor = ({ file, previewUrl, title, aspectRatio = 1, roun
       ? Math.min(100, (aspectRatio / imageAspect) * 100)
       : Math.max(100, (aspectRatio / imageAspect) * 100)) * zoom
     : 100;
+  // For cover crops, stop zooming out when the entire source image fits inside
+  // the fixed frame. This keeps the frame ratio while preserving every edge.
+  const minimumZoom = imageSize && !fit
+    ? Math.min(1, imageAspect / aspectRatio, aspectRatio / imageAspect)
+    : 0.2;
   const canMoveHorizontally = Math.abs(previewWidth - 100) > 0.01;
   const canMoveVertically = Math.abs(previewHeight - 100) > 0.01;
 
@@ -71,39 +76,16 @@ export const ImageCropEditor = ({ file, previewUrl, title, aspectRatio = 1, roun
       const context = canvas.getContext('2d');
       if (!context) throw new Error('Could not prepare this crop.');
 
-      if (fit) {
-        const scale = Math.min(canvas.width / image.naturalWidth, canvas.height / image.naturalHeight) * zoom;
-        const drawWidth = image.naturalWidth * scale;
-        const drawHeight = image.naturalHeight * scale;
-        context.drawImage(
-          image,
-          (canvas.width - drawWidth) * position.x,
-          (canvas.height - drawHeight) * position.y,
-          drawWidth,
-          drawHeight
-        );
-      } else {
-        const imageAspectRatio = image.naturalWidth / image.naturalHeight;
-        const cropWidth = (imageAspectRatio > aspectRatio
-          ? image.naturalHeight * aspectRatio
-          : image.naturalWidth) / zoom;
-        const cropHeight = (imageAspectRatio > aspectRatio
-          ? image.naturalHeight
-          : image.naturalWidth / aspectRatio) / zoom;
-        const sourceX = (image.naturalWidth - cropWidth) * position.x;
-        const sourceY = (image.naturalHeight - cropHeight) * position.y;
-        context.drawImage(
-          image,
-          sourceX,
-          sourceY,
-          cropWidth,
-          cropHeight,
-          0,
-          0,
-          canvas.width,
-          canvas.height
-        );
-      }
+      // Draw using the exact same frame-relative geometry as the preview.
+      // When zoomed out, the unused area stays transparent, so the full photo
+      // is visible without changing the section's fixed aspect ratio.
+      context.drawImage(
+        image,
+        ((100 - previewWidth) * position.x / 100) * canvas.width,
+        ((100 - previewHeight) * position.y / 100) * canvas.height,
+        (previewWidth / 100) * canvas.width,
+        (previewHeight / 100) * canvas.height
+      );
 
       const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
       if (!blob) throw new Error('Could not prepare this crop.');
@@ -175,7 +157,7 @@ export const ImageCropEditor = ({ file, previewUrl, title, aspectRatio = 1, roun
           Zoom <span className="float-right font-mono">{Math.round(zoom * 100)}%</span>
           <input
             type="range"
-            min="1"
+            min={minimumZoom}
             max="3"
             step="0.05"
             value={zoom}
@@ -209,7 +191,7 @@ export const ImageCropEditor = ({ file, previewUrl, title, aspectRatio = 1, roun
           />
         </label>
       </div>
-      <p className="text-[11px] text-slate-500">Drag the photo to reposition it. Zoom in when the image already matches this section’s shape.</p>
+      <p className="text-[11px] text-slate-500">Zoom out to fit the whole photo inside the frame, or use the horizontal and vertical controls to position it precisely.</p>
 
       {error && <p role="alert" className="text-xs text-rose-400">{error}</p>}
       <div className="flex justify-end gap-2">
