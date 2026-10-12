@@ -12,6 +12,7 @@ import { TopPerformers } from './components/TopPerformers';
 import { PlayerSection } from './components/PlayerSection';
 import { NplRecords } from './components/NplRecords';
 import { GallerySection } from './components/GallerySection';
+import { SectionPhotoGallery } from './components/SectionPhotoGallery';
 import { VideoHighlights } from './components/VideoHighlights';
 import { NewsSection } from './components/NewsSection';
 import { AuctionSection } from './components/AuctionSection';
@@ -82,6 +83,7 @@ export const App = () => {
         {activeSection === 'auction' && <AuctionSection />}
         {activeSection === 'trophy' && <TrophySection />}
         {activeSection === 'memories' && <MemoriesLegacy />}
+        <SectionPhotoGallery sectionId={activeSection} />
       </main>
 
       {/* 18. LARGE PROFESSIONAL FOOTER */}

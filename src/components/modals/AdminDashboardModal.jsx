@@ -37,6 +37,25 @@ const getTeamSessions = (team, seasonEditions) => {
   return seasonEditions;
 };
 
+const publicPhotoSections = [
+  { id: 'home', label: 'Home' },
+  { id: 'story', label: 'About NPL Story' },
+  { id: 'champions', label: 'Champions' },
+  { id: 'history', label: 'Season History' },
+  { id: 'matches', label: 'Matches' },
+  { id: 'standings', label: 'Points Table' },
+  { id: 'teams', label: 'Teams' },
+  { id: 'players', label: 'Players' },
+  { id: 'performers', label: 'Top Performers' },
+  { id: 'records', label: 'Tournament Records' },
+  { id: 'gallery', label: 'Gallery' },
+  { id: 'highlights', label: 'Highlights' },
+  { id: 'news', label: 'News' },
+  { id: 'auction', label: 'Auction' },
+  { id: 'trophy', label: 'Trophy Showcase' },
+  { id: 'memories', label: 'Memories and Legacy' }
+];
+
 const mediaInfoFields = {
   team: [
     { key: 'name', label: 'Team name' },
@@ -124,6 +143,8 @@ export const AdminDashboardModal = ({ onClose }) => {
     setTopPerformers,
     gallery,
     setGallery,
+    sectionPhotos,
+    setSectionPhotos,
     legacyPhotos,
     setLegacyPhotos,
     highlights,
@@ -231,6 +252,12 @@ export const AdminDashboardModal = ({ onClose }) => {
     season: selectedSeason
   });
   const [editingGalleryItemId, setEditingGalleryItemId] = useState(null);
+  const [sectionPhotoDraft, setSectionPhotoDraft] = useState({
+    sectionId: 'home',
+    title: '',
+    caption: '',
+    season: selectedSeason || seasons[0]?.edition || 'Season 5'
+  });
   const [editingMediaInfo, setEditingMediaInfo] = useState(null);
   const [mediaInfoDraft, setMediaInfoDraft] = useState({});
   const nextTeamSession = `Season ${(Number(teamSessionFocus.match(/\d+/)?.[0]) || 0) + 1}`;
@@ -547,6 +574,58 @@ export const AdminDashboardModal = ({ onClose }) => {
     setGallery((previousGallery) => previousGallery.filter((item) => item.id !== itemId));
     if (editingGalleryItemId === itemId) handleCancelGalleryEdit();
     showToast(`"${targetItem.title}" was deleted from the gallery.`);
+  };
+
+  const handleAddSectionPhoto = (event) => {
+    event.preventDefault();
+    if (adminUser?.role !== 'owner') return;
+
+    const title = sectionPhotoDraft.title.trim();
+    if (!title) {
+      showToast('Enter a title for the section photo.', 'error');
+      return;
+    }
+
+    const section = publicPhotoSections.find((item) => item.id === sectionPhotoDraft.sectionId);
+    if (!section) {
+      showToast('Choose a valid website section for this photo.', 'error');
+      return;
+    }
+
+    setSectionPhotos((previousPhotos) => [{
+      id: `section-photo-${Date.now()}`,
+      sectionId: section.id,
+      sectionLabel: section.label,
+      season: sectionPhotoDraft.season || selectedSeason,
+      title,
+      caption: sectionPhotoDraft.caption.trim(),
+      image: '/assets/stadium.jpg'
+    }, ...previousPhotos]);
+    setSectionPhotoDraft((current) => ({ ...current, title: '', caption: '' }));
+    showToast(`Photo slot added to ${section.label}. Choose and save its image below.`);
+  };
+
+  const handleRemoveSectionPhoto = async (photo) => {
+    if (adminUser?.role !== 'owner') return;
+    if (!window.confirm(`Delete “${photo.title}” and its uploaded image? This cannot be undone.`)) return;
+
+    const mediaKey = `section-photo:${photo.id}`;
+    setMediaError('');
+    try {
+      await deleteMediaImage(mediaKey, false);
+      await refreshSiteMedia();
+      const pendingPhoto = pendingMediaFiles[mediaKey];
+      revokeMediaPreviewUrl(pendingPhoto?.previewUrl);
+      setPendingMediaFiles((current) => {
+        const next = { ...current };
+        delete next[mediaKey];
+        return next;
+      });
+      setSectionPhotos((previousPhotos) => previousPhotos.filter((item) => item.id !== photo.id));
+      showToast(`"${photo.title}" was removed from ${photo.sectionLabel}.`);
+    } catch (error) {
+      setMediaError(error.message || 'The section photo could not be deleted.');
+    }
   };
 
   const handleGallerySeasonChange = (itemId, season) => {
@@ -1653,6 +1732,73 @@ export const AdminDashboardModal = ({ onClose }) => {
                 <p className="mb-5 rounded-lg border border-amber-700/60 bg-amber-950/30 px-3 py-2.5 text-xs leading-relaxed text-amber-200">
                   Production uploads are saved in the shared database and appear for every visitor. For local clones, commit and push <code className="font-mono text-amber-100">public/uploads/</code> and <code className="font-mono text-amber-100">public/site-media.json</code> after uploading.
                 </p>
+                <form onSubmit={handleAddSectionPhoto} className="mb-5 grid grid-cols-1 gap-3 rounded-xl border border-emerald-800/60 bg-emerald-950/20 p-4 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <h5 className="font-sports text-base text-emerald-200">ADD A PHOTO TO ANY WEBSITE SECTION</h5>
+                    <p className="mt-1 text-xs text-slate-400">Choose a page section below. Its photo slots will appear on that section’s public page.</p>
+                  </div>
+                  <label className="text-xs font-bold text-slate-400">
+                    Website section
+                    <select value={sectionPhotoDraft.sectionId} onChange={(event) => setSectionPhotoDraft((current) => ({ ...current, sectionId: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white">
+                      {publicPhotoSections.map((section) => <option key={section.id} value={section.id}>{section.label}</option>)}
+                    </select>
+                  </label>
+                  <label className="text-xs font-bold text-slate-400">
+                    Session
+                    <select value={sectionPhotoDraft.season} onChange={(event) => setSectionPhotoDraft((current) => ({ ...current, season: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white">
+                      {seasons.map((season) => <option key={season.edition} value={season.edition}>{season.edition} ({season.year || season.season})</option>)}
+                    </select>
+                  </label>
+                  <label className="text-xs font-bold text-slate-400 sm:col-span-2">
+                    Photo title
+                    <input required maxLength={160} value={sectionPhotoDraft.title} onChange={(event) => setSectionPhotoDraft((current) => ({ ...current, title: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white" />
+                  </label>
+                  <label className="text-xs font-bold text-slate-400 sm:col-span-2">
+                    Caption (optional)
+                    <textarea value={sectionPhotoDraft.caption} onChange={(event) => setSectionPhotoDraft((current) => ({ ...current, caption: event.target.value }))} rows={2} className="mt-1 w-full resize-y rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white" />
+                  </label>
+                  <div className="sm:col-span-2 flex justify-end">
+                    <button type="submit" className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-emerald-400">
+                      <Plus className="h-4 w-4" /> Add section photo slot
+                    </button>
+                  </div>
+                </form>
+                <div className="mb-5 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                  <h5 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">Section photo slots ({sectionPhotos.length})</h5>
+                  {mediaError && <p role="alert" className="mb-3 rounded-lg border border-rose-800 bg-rose-950/70 px-3 py-2 text-sm text-rose-300">{mediaError}</p>}
+                  <div className="space-y-2">
+                    {sectionPhotos.map((photo) => {
+                      const mediaKey = `section-photo:${photo.id}`;
+                      const pendingPhoto = pendingMediaFiles[mediaKey];
+                      const sectionLabel = publicPhotoSections.find((section) => section.id === photo.sectionId)?.label || photo.sectionLabel;
+                      return (
+                        <div key={photo.id} className="flex flex-col justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950 px-3 py-3 sm:flex-row sm:items-center">
+                          <div className="flex min-w-0 items-center gap-3">
+                            <img src={pendingPhoto?.previewUrl || siteMedia[mediaKey] || photo.image} alt="" className="h-14 w-20 flex-shrink-0 rounded-md border border-slate-800 object-cover" />
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-white">{photo.title}</p>
+                              <p className="mt-1 text-xs text-slate-400">{sectionLabel} • {photo.season}</p>
+                              {photo.caption && <p className="mt-1 line-clamp-2 text-xs text-slate-500">{photo.caption}</p>}
+                            </div>
+                          </div>
+                          <div className="flex flex-shrink-0 flex-wrap items-center gap-2">
+                            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800">
+                              <Upload className="h-4 w-4" /> Choose image
+                              <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" aria-label={`Choose image for ${photo.title}`} className="sr-only" disabled={Boolean(uploadingMediaKey)} onChange={(event) => handleMediaSelection(mediaKey, event)} />
+                            </label>
+                            <button type="button" onClick={() => handleMediaUpload(mediaKey)} disabled={!pendingPhoto || Boolean(uploadingMediaKey)} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-700 bg-emerald-950 px-3 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50">
+                              <Save className="h-4 w-4" /> {uploadingMediaKey === mediaKey ? 'Saving...' : 'Save image'}
+                            </button>
+                            <button type="button" onClick={() => handleRemoveSectionPhoto(photo)} disabled={Boolean(uploadingMediaKey)} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-800 bg-rose-950/60 px-3 py-2 text-xs font-bold text-rose-300 hover:bg-rose-900 disabled:opacity-50">
+                              <Trash2 className="h-4 w-4" /> Delete
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {sectionPhotos.length === 0 && <p className="py-3 text-sm text-slate-500">No section photo slots have been added yet.</p>}
+                  </div>
+                </div>
                 <form id="gallery-admin-form" onSubmit={handleAddSessionGalleryItem} className="mb-5 grid grid-cols-1 gap-3 rounded-xl border border-amber-800/60 bg-amber-950/20 p-4 sm:grid-cols-2">
                   <div className="sm:col-span-2 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                     <div>
