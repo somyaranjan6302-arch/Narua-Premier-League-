@@ -3,7 +3,7 @@ import { useNpl } from '../../context/NplContext';
 import { TeamBadge } from '../TeamBadge';
 import { SessionSelector } from '../SessionSelector';
 import { ImageCropEditor } from '../ImageCropEditor';
-import { getSessionMediaKey } from '../../utils/siteMedia';
+import { getChampionMediaKey, getSessionMediaKey } from '../../utils/siteMedia';
 import {
   X,
   Shield,
@@ -172,6 +172,18 @@ export const AdminDashboardModal = ({ onClose }) => {
   const [teamSessionFocus, setTeamSessionFocus] = useState(selectedSeason || seasons[0]?.edition || 'Season 5');
   const [isSessionWorkspaceOpen, setIsSessionWorkspaceOpen] = useState(false);
   const [alsoAddNextSeason, setAlsoAddNextSeason] = useState(false);
+  const [sessionDraft, setSessionDraft] = useState({ edition: '', year: String(new Date().getFullYear()) });
+  const [sessionError, setSessionError] = useState('');
+  const [newsDraft, setNewsDraft] = useState({
+    contentType: 'article',
+    headline: '',
+    category: 'LEAGUE NEWS',
+    date: new Date().toISOString().slice(0, 10),
+    snippet: '',
+    fullContent: '',
+    season: selectedSeason || seasons[0]?.edition || 'Season 5'
+  });
+  const [editingNewsItemId, setEditingNewsItemId] = useState(null);
   const [teamDraft, setTeamDraft] = useState({
     name: '',
     shortName: '',
@@ -334,6 +346,123 @@ export const AdminDashboardModal = ({ onClose }) => {
     setMatchDraft((current) => ({ ...current, team1Id: '', team2Id: '', matchNumber: '' }));
     setMatchError('');
     showToast(`${match.matchNumber} was added to ${selectedSeason}.`);
+  };
+
+  const handleAddSession = (event) => {
+    event.preventDefault();
+    if (adminUser?.role !== 'owner') return;
+
+    const edition = sessionDraft.edition.trim();
+    const year = sessionDraft.year.trim();
+    if (!edition || !year) {
+      setSessionError('Enter a session name and year.');
+      return;
+    }
+    if (seasons.some((season) => season.edition.toLowerCase() === edition.toLowerCase())) {
+      setSessionError('A session with that name already exists.');
+      return;
+    }
+
+    const newSeason = {
+      edition,
+      season: year,
+      year,
+      sampleData: false,
+      status: 'UPCOMING',
+      teamsCount: 0,
+      matchesCount: 0,
+      champion: 'To be announced',
+      runnerUp: 'To be announced',
+      topScorer: 'To be announced',
+      topWicketTaker: 'To be announced',
+      playerOfTournament: 'To be announced',
+      description: `${edition} tournament details will be announced soon.`
+    };
+
+    setSeasons((previousSeasons) => [newSeason, ...previousSeasons]);
+    setSeasonStandings((previousStandings) => ({ ...previousStandings, [edition]: [] }));
+    setSelectedSeason(edition);
+    setTournamentInfo((previousInfo) => ({ ...previousInfo, totalSeasons: seasons.length + 1 }));
+    setTeamSessionFocus(edition);
+    setTeamDraft((current) => ({ ...current, sessions: [edition] }));
+    setNewsDraft((current) => ({ ...current, season: edition }));
+    setSessionDraft({ edition: '', year: String(new Date().getFullYear()) });
+    setSessionError('');
+    showToast(`${edition} was added and is now available in session selectors.`);
+  };
+
+  const handleSaveNewsItem = (event) => {
+    event.preventDefault();
+    if (adminUser?.role !== 'owner') return;
+
+    const headline = newsDraft.headline.trim();
+    const fullContent = newsDraft.fullContent.trim();
+    if (!headline || !fullContent) {
+      showToast('Enter a headline and written content before publishing.', 'error');
+      return;
+    }
+
+    const contentType = newsDraft.contentType === 'announcement' ? 'announcement' : 'article';
+    const updatedFields = {
+      contentType,
+      category: contentType === 'announcement' ? 'ANNOUNCEMENT' : (newsDraft.category.trim() || 'LEAGUE NEWS'),
+      headline,
+      date: newsDraft.date || new Date().toISOString().slice(0, 10),
+      season: newsDraft.season || selectedSeason,
+      snippet: newsDraft.snippet.trim() || fullContent.slice(0, 180),
+      fullContent
+    };
+
+    if (editingNewsItemId) {
+      setNews((previousNews) => previousNews.map((item) => (
+        item.id === editingNewsItemId ? { ...item, ...updatedFields } : item
+      )));
+      showToast(`"${headline}" was updated.`);
+    } else {
+      setNews((previousNews) => [{
+        id: `news-${Date.now()}`,
+        ...updatedFields,
+        readTime: `${Math.max(1, Math.ceil(fullContent.split(/\s+/).length / 200))} min read`,
+        image: '/assets/stadium.jpg',
+        featured: false
+      }, ...previousNews]);
+      showToast(`${contentType === 'announcement' ? 'Announcement' : 'Article'} published for ${updatedFields.season}.`);
+    }
+
+    setNewsDraft((current) => ({
+      ...current,
+      headline: '',
+      category: 'LEAGUE NEWS',
+      snippet: '',
+      fullContent: ''
+    }));
+    setEditingNewsItemId(null);
+  };
+
+  const handleEditNewsItem = (item) => {
+    setEditingNewsItemId(item.id);
+    setNewsDraft({
+      contentType: item.contentType === 'announcement' || item.category === 'ANNOUNCEMENT' ? 'announcement' : 'article',
+      headline: item.headline || '',
+      category: item.category === 'ANNOUNCEMENT' ? 'LEAGUE NEWS' : (item.category || 'LEAGUE NEWS'),
+      date: item.date || new Date().toISOString().slice(0, 10),
+      snippet: item.snippet || '',
+      fullContent: item.fullContent || '',
+      season: item.season || item.session || selectedSeason
+    });
+    document.getElementById('news-admin-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const handleCancelNewsEdit = () => {
+    setEditingNewsItemId(null);
+    setNewsDraft((current) => ({
+      ...current,
+      headline: '',
+      category: 'LEAGUE NEWS',
+      snippet: '',
+      fullContent: '',
+      season: selectedSeason
+    }));
   };
 
   const handleRemoveSessionMatch = () => {
@@ -569,6 +698,39 @@ export const AdminDashboardModal = ({ onClose }) => {
     const previewUrl = createMediaPreviewUrl(file);
     setMediaCropFiles((current) => ({ ...current, [mediaKey]: { file, previewUrl } }));
     setPendingMediaFiles((current) => {
+      const next = { ...current };
+      delete next[mediaKey];
+      return next;
+    });
+    input.value = '';
+  };
+
+  const handleGalleryPhotoSelection = (itemId, event) => {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
+      setMediaError('Choose a JPG, PNG, WebP, or GIF image.');
+      input.value = '';
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setMediaError('Images must be 8 MB or smaller.');
+      input.value = '';
+      return;
+    }
+
+    const mediaKey = `gallery:${itemId}`;
+    setMediaError('');
+    revokeMediaPreviewUrl(mediaCropFiles[mediaKey]?.previewUrl);
+    revokeMediaPreviewUrl(pendingMediaFiles[mediaKey]?.previewUrl);
+    const previewUrl = createMediaPreviewUrl(file);
+    setPendingMediaFiles((current) => ({
+      ...current,
+      [mediaKey]: { file, previewUrl }
+    }));
+    setMediaCropFiles((current) => {
       const next = { ...current };
       delete next[mediaKey];
       return next;
@@ -885,7 +1047,7 @@ export const AdminDashboardModal = ({ onClose }) => {
     { key: 'stadium', category: 'branding', title: 'Stadium image', description: 'Shown on the home and league story pages.', fallback: '/assets/stadium.jpg', aspectRatio: 16 / 9 },
     { key: 'trophy', category: 'branding', title: 'Championship trophy', description: 'Shown in the trophy showcase.', fallback: '/assets/trophy.jpg', aspectRatio: 4 / 5 },
     ...champions.map((champion, index) => ({
-      key: `champion:${index}`,
+      key: getChampionMediaKey(champions, champion),
       category: 'champions',
       record: champion,
       editTarget: { type: 'champion', index },
@@ -1350,7 +1512,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                   onClick={() => setActiveTab('media')}
                   className={`min-h-12 whitespace-nowrap border-b-2 px-3 py-2 font-sports text-sm tracking-wider transition-colors sm:px-4 sm:py-3 sm:text-base ${activeTab === 'media' ? 'border-amber-500 text-amber-400' : 'border-transparent text-slate-400 hover:text-white'}`}
                 >
-                  OWNER MEDIA
+                  CONTENT & MEDIA
                 </button>
               )}
             </div>
@@ -1358,6 +1520,100 @@ export const AdminDashboardModal = ({ onClose }) => {
             {activeTab === 'media' && adminUser?.role === 'owner' && (
               <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-6">
                 <div className="mb-4">
+                  <h4 className="font-sports text-xl text-white">SESSIONS &amp; PUBLISHED CONTENT</h4>
+                  <p className="mt-1 text-xs text-slate-400">Create sessions for the whole site, add gallery photos, publish written articles, and post announcements separately.</p>
+                </div>
+                <form onSubmit={handleAddSession} className="mb-5 grid grid-cols-1 gap-3 rounded-xl border border-cyan-800/60 bg-cyan-950/20 p-4 sm:grid-cols-[1fr_10rem_auto] sm:items-end">
+                  <div className="sm:col-span-3">
+                    <h5 className="font-sports text-base text-cyan-200">ADD A SESSION</h5>
+                    <p className="mt-1 text-xs text-slate-400">New sessions are immediately added to session drop-downs across the website.</p>
+                  </div>
+                  <label className="text-xs font-bold text-slate-400">
+                    Session name
+                    <input required maxLength={60} value={sessionDraft.edition} onChange={(event) => setSessionDraft((current) => ({ ...current, edition: event.target.value }))} placeholder="Season 6" className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white" />
+                  </label>
+                  <label className="text-xs font-bold text-slate-400">
+                    Year
+                    <input required type="number" min="1900" max="9999" value={sessionDraft.year} onChange={(event) => setSessionDraft((current) => ({ ...current, year: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white" />
+                  </label>
+                  <button type="submit" className="inline-flex items-center justify-center gap-2 rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-cyan-400">
+                    <Plus className="h-4 w-4" /> Add session
+                  </button>
+                  {sessionError && <p role="alert" className="sm:col-span-3 text-sm text-rose-300">{sessionError}</p>}
+                </form>
+                <form id="news-admin-form" onSubmit={handleSaveNewsItem} className="mb-5 grid grid-cols-1 gap-3 rounded-xl border border-blue-800/60 bg-blue-950/20 p-4 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <h5 className="font-sports text-base text-blue-200">{editingNewsItemId ? 'EDIT PUBLISHED CONTENT' : 'PUBLISH AN ARTICLE OR ANNOUNCEMENT'}</h5>
+                    <p className="mt-1 text-xs text-slate-400">Articles and announcements are managed separately and shown as distinct content on the News page. Add or change their photos in the News image slots below.</p>
+                  </div>
+                  <label className="text-xs font-bold text-slate-400">
+                    Content type
+                    <select value={newsDraft.contentType} onChange={(event) => setNewsDraft((current) => ({ ...current, contentType: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white">
+                      <option value="article">Article / written report</option>
+                      <option value="announcement">Announcement / upcoming news</option>
+                    </select>
+                  </label>
+                  <label className="text-xs font-bold text-slate-400">
+                    Session
+                    <select value={newsDraft.season} onChange={(event) => setNewsDraft((current) => ({ ...current, season: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white">
+                      {seasons.map((season) => <option key={season.edition} value={season.edition}>{season.edition} ({season.year || season.season})</option>)}
+                    </select>
+                  </label>
+                  <label className="text-xs font-bold text-slate-400 sm:col-span-2">
+                    Headline
+                    <input required maxLength={180} value={newsDraft.headline} onChange={(event) => setNewsDraft((current) => ({ ...current, headline: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white" />
+                  </label>
+                  {newsDraft.contentType === 'article' && (
+                    <label className="text-xs font-bold text-slate-400">
+                      Article category
+                      <input value={newsDraft.category} onChange={(event) => setNewsDraft((current) => ({ ...current, category: event.target.value }))} placeholder="MATCH REPORT" className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white" />
+                    </label>
+                  )}
+                  <label className="text-xs font-bold text-slate-400">
+                    Date
+                    <input type="text" value={newsDraft.date} onChange={(event) => setNewsDraft((current) => ({ ...current, date: event.target.value }))} placeholder="e.g. Oct 12, 2026" className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white" />
+                  </label>
+                  <label className="text-xs font-bold text-slate-400 sm:col-span-2">
+                    Short summary
+                    <textarea value={newsDraft.snippet} onChange={(event) => setNewsDraft((current) => ({ ...current, snippet: event.target.value }))} rows={2} className="mt-1 w-full resize-y rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white" />
+                  </label>
+                  <label className="text-xs font-bold text-slate-400 sm:col-span-2">
+                    Full written content
+                    <textarea required value={newsDraft.fullContent} onChange={(event) => setNewsDraft((current) => ({ ...current, fullContent: event.target.value }))} rows={6} className="mt-1 w-full resize-y rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white" />
+                  </label>
+                  <div className="sm:col-span-2 flex justify-end">
+                    {editingNewsItemId && <button type="button" onClick={handleCancelNewsEdit} className="mr-2 rounded-lg border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-800">Cancel</button>}
+                    <button type="submit" className="inline-flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-bold text-white hover:bg-blue-400">
+                      {editingNewsItemId ? <Save className="h-4 w-4" /> : <Newspaper className="h-4 w-4" />}
+                      {editingNewsItemId ? 'Save changes' : 'Publish content'}
+                    </button>
+                  </div>
+                </form>
+                <div className="mb-5 rounded-xl border border-blue-800/50 bg-slate-950/60 p-4">
+                  <h5 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">Published articles and announcements ({news.length})</h5>
+                  <div className="space-y-2">
+                    {news.map((item) => {
+                      const isAnnouncement = item.contentType === 'announcement' || item.category === 'ANNOUNCEMENT';
+                      return (
+                        <div key={item.id} className="flex flex-col justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950 px-3 py-3 sm:flex-row sm:items-center">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-white">{item.headline}</p>
+                            <p className="mt-1 text-xs text-slate-400">{isAnnouncement ? 'Announcement' : 'Article'} • {item.season || item.session || 'Unassigned'} • {item.date}</p>
+                          </div>
+                          <div className="flex flex-shrink-0 items-center gap-2">
+                            <button type="button" onClick={() => handleEditNewsItem(item)} className="inline-flex items-center gap-1.5 rounded-lg border border-blue-700 bg-blue-950/70 px-3 py-2 text-xs font-bold text-blue-200 hover:bg-blue-900"><Edit className="h-4 w-4" />Edit</button>
+                            <button type="button" onClick={() => {
+                              const mediaItem = mediaItems.find((candidate) => candidate.key === `news:${item.id}`);
+                              if (mediaItem) handleDeleteMediaItem(mediaItem);
+                            }} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-800 bg-rose-950/60 px-3 py-2 text-xs font-bold text-rose-300 hover:bg-rose-900"><Trash2 className="h-4 w-4" />Delete</button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {news.length === 0 && <p className="py-3 text-sm text-slate-500">No articles or announcements have been published yet.</p>}
+                  </div>
+                </div>
+                <div className="mb-5 border-t border-slate-800 pt-5">
                   <h4 className="font-sports text-xl text-white">WEBSITE IMAGE LIBRARY</h4>
                   <p className="mt-1 text-xs text-slate-400">Changes appear for every visitor. Player portraits use a vertical 4:5 crop; franchise logos use a square crop. Content photos can have separate images for each session. JPG, PNG, WebP, or GIF up to 8 MB.</p>
                 </div>
@@ -1373,6 +1629,25 @@ export const AdminDashboardModal = ({ onClose }) => {
                   >
                     <Users className="h-4 w-4" />
                     Manage player & team photos
+                  </button>
+                </div>
+                <div className="mb-5 flex flex-col gap-3 rounded-xl border border-amber-700/50 bg-amber-950/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h5 className="font-sports text-base text-amber-200">CHAMPION SECTION PHOTOS</h5>
+                    <p className="mt-1 text-xs text-slate-300">
+                      Upload the feature photo displayed on each champion card. Champion photo slots are listed under the Champions category.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMediaCategory('champions');
+                      setMediaSearch('');
+                    }}
+                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-slate-950 transition hover:bg-amber-400"
+                  >
+                    <Trophy className="h-4 w-4" />
+                    Manage champion photos
                   </button>
                 </div>
                 <p className="mb-5 rounded-lg border border-amber-700/60 bg-amber-950/30 px-3 py-2.5 text-xs leading-relaxed text-amber-200">
@@ -1448,7 +1723,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                       <div key={item.id} className="flex flex-col justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950 px-3 py-3 sm:flex-row sm:items-center">
                         <div className="flex min-w-0 items-center gap-3">
                           <img
-                            src={siteMedia[getSessionMediaKey(`gallery:${item.id}`, item.season || item.session)] || siteMedia[`gallery:${item.id}`] || item.image}
+                            src={pendingMediaFiles[`gallery:${item.id}`]?.previewUrl || siteMedia[getSessionMediaKey(`gallery:${item.id}`, item.season || item.session)] || siteMedia[`gallery:${item.id}`] || item.image}
                             alt=""
                             className="h-14 w-20 flex-shrink-0 rounded-md border border-slate-800 object-cover"
                           />
@@ -1460,7 +1735,28 @@ export const AdminDashboardModal = ({ onClose }) => {
                             {item.caption && <p className="mt-1 line-clamp-2 text-xs text-slate-500">{item.caption}</p>}
                           </div>
                         </div>
-                        <div className="flex flex-shrink-0 items-center gap-2">
+                        <div className="flex flex-shrink-0 flex-wrap items-center gap-2">
+                          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800">
+                            <Upload className="h-4 w-4" />
+                            Choose image
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp,image/gif"
+                              aria-label={`Choose image for ${item.title}`}
+                              className="sr-only"
+                              disabled={Boolean(uploadingMediaKey)}
+                              onChange={(event) => handleGalleryPhotoSelection(item.id, event)}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => handleMediaUpload(`gallery:${item.id}`)}
+                            disabled={!pendingMediaFiles[`gallery:${item.id}`] || Boolean(uploadingMediaKey)}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-700 bg-emerald-950 px-3 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <Save className="h-4 w-4" />
+                            {uploadingMediaKey === `gallery:${item.id}` ? 'Saving...' : 'Save image'}
+                          </button>
                           <button
                             type="button"
                             onClick={() => handleEditSessionGalleryItem(item)}

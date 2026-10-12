@@ -1,15 +1,17 @@
 import React from 'react';
 import { useNpl } from '../context/NplContext';
 import { SessionSelector } from './SessionSelector';
-import { Newspaper, Calendar, Clock, ChevronRight, ArrowUpRight } from 'lucide-react';
+import { Newspaper, Calendar, Clock, ChevronRight, ArrowUpRight, Megaphone } from 'lucide-react';
 import { getSiteMedia } from '../utils/siteMedia';
 
 export const NewsSection = () => {
   const { news, openModal, siteMedia, seasons, selectedSeason, setSelectedSeason } = useNpl();
 
   const sessionNews = news.filter((item) => (item.season || item.session) === selectedSeason);
-  const featuredNews = sessionNews.find(n => n.featured) || sessionNews[0];
-  const otherNews = sessionNews.filter(n => n.id !== featuredNews?.id);
+  const announcements = sessionNews.filter((item) => item.contentType === 'announcement' || item.category === 'ANNOUNCEMENT');
+  const articles = sessionNews.filter((item) => item.contentType !== 'announcement' && item.category !== 'ANNOUNCEMENT');
+  const featuredNews = articles.find(n => n.featured) || articles[0];
+  const otherNews = articles.filter(n => n.id !== featuredNews?.id);
   const getNewsImage = (item) => getSiteMedia(siteMedia, `news:${item.id}`, item.season || item.session, item.image);
 
   return (
@@ -38,10 +40,34 @@ export const NewsSection = () => {
           </div>
         </div>
 
-        {/* News Grid (Lead article + 3 sub articles) */}
+        {announcements.length > 0 && (
+          <div className="mb-8 space-y-3">
+            <h3 className="flex items-center gap-2 font-sports text-xl tracking-wide text-amber-300">
+              <Megaphone className="h-5 w-5" />
+              ANNOUNCEMENTS &amp; UPCOMING NEWS
+            </h3>
+            {announcements.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => openModal('article-details', { ...item, image: getNewsImage(item) })}
+                className="flex w-full flex-col gap-2 rounded-2xl border border-amber-700/50 bg-amber-950/20 p-4 text-left transition-colors hover:border-amber-400/70 sm:flex-row sm:items-center sm:justify-between sm:p-5"
+              >
+                <span className="min-w-0">
+                  <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-amber-300">{item.date} • {item.season || item.session}</span>
+                  <span className="block font-heading text-base font-bold text-white">{item.headline}</span>
+                  {item.snippet && <span className="mt-1 block text-sm text-slate-300">{item.snippet}</span>}
+                </span>
+                <span className="shrink-0 text-xs font-bold uppercase text-amber-300">Read announcement →</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Article grid (Lead article + supporting articles) */}
         {sessionNews.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/60 p-10 text-center text-slate-400">No news is published for {selectedSeason} yet.</p>
-        ) : <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+        ) : articles.length === 0 ? null : <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
           {/* Main Featured Article (Left - 7 cols) */}
           {featuredNews && (
             <div
