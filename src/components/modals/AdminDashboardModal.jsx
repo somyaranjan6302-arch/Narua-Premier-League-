@@ -767,7 +767,7 @@ export const AdminDashboardModal = ({ onClose }) => {
     input.value = '';
   };
 
-  const handleGalleryPhotoSelection = (itemId, event) => {
+  const handleDirectMediaSelection = (mediaKey, event) => {
     const input = event.currentTarget;
     const file = input.files?.[0];
     if (!file) return;
@@ -783,7 +783,6 @@ export const AdminDashboardModal = ({ onClose }) => {
       return;
     }
 
-    const mediaKey = `gallery:${itemId}`;
     setMediaError('');
     revokeMediaPreviewUrl(mediaCropFiles[mediaKey]?.previewUrl);
     revokeMediaPreviewUrl(pendingMediaFiles[mediaKey]?.previewUrl);
@@ -988,7 +987,7 @@ export const AdminDashboardModal = ({ onClose }) => {
   };
 
   const mediaUploadControl = (item) => {
-    const { key: baseMediaKey, title, description, fallback: fallbackImage = '', aspectRatio = 1, fit = false, galleryItem, sessionSpecific = false } = item;
+    const { key: baseMediaKey, title, description, fallback: fallbackImage = '', aspectRatio = 1, fit = false, galleryItem, directUpload = false, sessionSpecific = false } = item;
     const mediaSession = mediaSessionSelections[baseMediaKey] || item.defaultSession || selectedSeason;
     const mediaKey = sessionSpecific ? getSessionMediaKey(baseMediaKey, mediaSession) : baseMediaKey;
     const activeMediaKey = siteMedia[mediaKey] ? mediaKey : siteMedia[baseMediaKey] ? baseMediaKey : null;
@@ -1012,7 +1011,9 @@ export const AdminDashboardModal = ({ onClose }) => {
           aria-label={`Choose replacement photo for ${title}`}
           className="sr-only"
           disabled={Boolean(uploadingMediaKey)}
-          onChange={(event) => handleMediaSelection(mediaKey, event)}
+          onChange={(event) => directUpload
+            ? handleDirectMediaSelection(mediaKey, event)
+            : handleMediaSelection(mediaKey, event)}
         />
       </label>
       <div className="min-w-0">
@@ -1099,7 +1100,7 @@ export const AdminDashboardModal = ({ onClose }) => {
           </button>
         )}
       </div>
-      {cropFile && (
+      {cropFile && !directUpload && (
         <ImageCropEditor
           file={cropFile.file}
           previewUrl={cropFile.previewUrl}
@@ -1207,7 +1208,8 @@ export const AdminDashboardModal = ({ onClose }) => {
       title: photo.title,
       description: `${publicPhotoSections.find((section) => section.id === photo.sectionId)?.label || photo.sectionLabel} section photo • ${photo.season}`,
       fallback: photo.image,
-      aspectRatio: 16 / 9
+      aspectRatio: 16 / 9,
+      directUpload: true
     })),
     ...legacyPhotos.map((photo, index) => ({
       key: `memory-photo:${photo.id}`,
@@ -1876,7 +1878,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                               aria-label={`Choose image for ${item.title}`}
                               className="sr-only"
                               disabled={Boolean(uploadingMediaKey)}
-                              onChange={(event) => handleGalleryPhotoSelection(item.id, event)}
+                              onChange={(event) => handleDirectMediaSelection(`gallery:${item.id}`, event)}
                             />
                           </label>
                           <button
