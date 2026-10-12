@@ -3,7 +3,7 @@
 import { session3Champion, session3Matches, session3Records, session3Season, session3Standings, session3Teams } from './session3Data';
 import { session4Champion, session4Matches, session4Records, session4Standings, session4Teams } from './session4Data';
 import { session5Champion, session5Matches, session5Records, session5Season, session5Standings, session5Teams } from './session5Data';
-import { session2Matches, session2Records, session2Season, session2Standings, session2Teams } from './session2Data';
+import { session2Champion, session2Matches, session2Records, session2Season, session2Standings, session2Teams } from './session2Data';
 
 export const initialTournamentInfo = {
   name: "Narua Premier League",
@@ -49,7 +49,8 @@ export const initialChampions = [
     trophyPhoto: "/assets/trophy.jpg",
     description: "The historic inaugural championship saw Narua Super Kings dominate the tournament.",
     featured: false
-  }
+  },
+  session2Champion
 ];
 
 export const initialSeasons = [

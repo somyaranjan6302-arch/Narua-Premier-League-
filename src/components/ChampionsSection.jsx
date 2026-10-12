@@ -3,7 +3,7 @@ import { useNpl } from '../context/NplContext';
 import { SessionSelector } from './SessionSelector';
 import { TeamBadge } from './TeamBadge';
 import { Trophy, ChevronLeft, ChevronRight, Eye, Medal } from 'lucide-react';
-import { getSiteMedia } from '../utils/siteMedia';
+import { getChampionMediaKey, getSiteMedia } from '../utils/siteMedia';
 
 const getEditionKey = (edition) => String(edition || '').match(/Season\s*\d+/i)?.[0].replace(/\s+/g, ' ') || edition;
 
@@ -23,7 +23,6 @@ export const ChampionsSection = () => {
 
   const activeChampion = sessionChampions[sessionChampionIndex];
   const championTeamObj = activeChampion && teams.find(t => t.shortName === activeChampion.championShort);
-  const activeChampionIndex = champions.indexOf(activeChampion);
 
   return (
     <section id="champions" className="py-20 relative bg-gradient-to-b from-[#050B17] via-[#091329] to-[#050B17] overflow-hidden">
@@ -83,7 +82,7 @@ export const ChampionsSection = () => {
               <div className="lg:col-span-6 relative">
                 <div className="relative rounded-2xl overflow-hidden shadow-2xl border-2 border-amber-500/30">
                   <img
-                    src={getSiteMedia(siteMedia, `champion:${activeChampionIndex}`, activeChampion.edition, activeChampion.teamPhoto)}
+                    src={getSiteMedia(siteMedia, getChampionMediaKey(champions, activeChampion), activeChampion.edition, activeChampion.teamPhoto)}
                     alt={`${activeChampion.championTeam} Champions`}
                     className="w-full h-[320px] sm:h-[400px] object-cover group-hover:scale-105 transition-transform duration-700"
                     onError={(e) => {

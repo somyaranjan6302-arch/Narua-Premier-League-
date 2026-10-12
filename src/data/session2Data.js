@@ -110,11 +110,21 @@ export const session2Records = [
 
 export const session2Season = {
   season: '2024', year: '2024', edition: 'Season 2', status: 'PARTIAL', teamsCount: 6, matchesCount: 4,
-  champion: 'Not included in the supplied PDF', runnerUp: 'Not included in the supplied PDF',
+  champion: 'No Compromise Kaina', runnerUp: 'Not included in the supplied PDF',
   topScorer: `${toName(topBatter[0])} (${topBatter[1].runs} runs in the supplied scorecards)`,
   topWicketTaker: `${toName(mostWickets[0])} (${mostWickets[1].wickets} wickets in the supplied scorecards)`,
   playerOfTournament: 'Not listed in the supplied PDF',
-  description: 'The PDF contains one league match and three quarter-finals. Semifinal and final results are not included; standings and player totals show only the four supplied scorecards.'
+  description: 'No Compromise Kaina won Season 2. The supplied PDF contains one league match and three quarter-finals; standings and player totals show only those four scorecards.'
+};
+
+export const session2Champion = {
+  season: '2024',
+  edition: 'Season 2',
+  championTeam: 'No Compromise Kaina',
+  championShort: 'No Compromise Kaina',
+  teamPhoto: '/assets/stadium.jpg',
+  trophyPhoto: '/assets/trophy.jpg',
+  description: 'Season 2 champions: No Compromise Kaina.'
 };
 
 export const mergeOfficialSession2Content = (data) => {
@@ -127,7 +137,7 @@ export const mergeOfficialSession2Content = (data) => {
   return {
     ...data,
     seasons: replaceSeason(data.seasons, [session2Season]),
-    champions: replaceSeason(data.champions, []),
+    champions: replaceSeason(data.champions, [session2Champion]),
     teams: [
       ...(Array.isArray(data.teams) ? data.teams.filter((team) => {
         const editions = team.sessions || team.seasons || (team.session ? [team.session] : []);
