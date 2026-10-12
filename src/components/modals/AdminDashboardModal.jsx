@@ -119,6 +119,10 @@ const mediaInfoFields = {
   legacyPhoto: [
     { key: 'title', label: 'Title' },
     { key: 'caption', label: 'Caption', multiline: true }
+  ],
+  sectionPhoto: [
+    { key: 'title', label: 'Photo title' },
+    { key: 'caption', label: 'Caption', multiline: true }
   ]
 };
 
@@ -601,31 +605,10 @@ export const AdminDashboardModal = ({ onClose }) => {
       caption: sectionPhotoDraft.caption.trim(),
       image: '/assets/stadium.jpg'
     }, ...previousPhotos]);
+    setMediaCategory(`section:${section.id}`);
+    setMediaSearch('');
     setSectionPhotoDraft((current) => ({ ...current, title: '', caption: '' }));
-    showToast(`Photo slot added to ${section.label}. Choose and save its image below.`);
-  };
-
-  const handleRemoveSectionPhoto = async (photo) => {
-    if (adminUser?.role !== 'owner') return;
-    if (!window.confirm(`Delete “${photo.title}” and its uploaded image? This cannot be undone.`)) return;
-
-    const mediaKey = `section-photo:${photo.id}`;
-    setMediaError('');
-    try {
-      await deleteMediaImage(mediaKey, false);
-      await refreshSiteMedia();
-      const pendingPhoto = pendingMediaFiles[mediaKey];
-      revokeMediaPreviewUrl(pendingPhoto?.previewUrl);
-      setPendingMediaFiles((current) => {
-        const next = { ...current };
-        delete next[mediaKey];
-        return next;
-      });
-      setSectionPhotos((previousPhotos) => previousPhotos.filter((item) => item.id !== photo.id));
-      showToast(`"${photo.title}" was removed from ${photo.sectionLabel}.`);
-    } catch (error) {
-      setMediaError(error.message || 'The section photo could not be deleted.');
-    }
+    showToast(`Photo slot added to ${section.label}. Its image slot is selected below.`);
   };
 
   const handleGallerySeasonChange = (itemId, season) => {
@@ -923,6 +906,8 @@ export const AdminDashboardModal = ({ onClose }) => {
         const updatedPhotos = legacyPhotos.map((photo) => photo.id === target.id ? { ...photo, ...updates } : photo);
         await persistPublicSiteData({ legacyPhotos: updatedPhotos });
         setLegacyPhotos(updatedPhotos);
+      } else if (target.type === 'sectionPhoto') {
+        setSectionPhotos((previousPhotos) => previousPhotos.map((photo) => photo.id === target.id ? { ...photo, ...updates } : photo));
       } else if (target.type === 'performer') {
         setTopPerformers((previous) => Array.isArray(previous)
           ? previous.map((record) => record.key === target.key ? { ...record, ...updates } : record)
@@ -972,6 +957,21 @@ export const AdminDashboardModal = ({ onClose }) => {
         if (editingGalleryItemId === target.id) handleCancelGalleryEdit();
       }
       else if (target.type === 'legacyPhoto') setLegacyPhotos((previous) => previous.filter((photo) => photo.id !== target.id));
+      else if (target.type === 'sectionPhoto') {
+        setSectionPhotos((previous) => previous.filter((photo) => photo.id !== target.id));
+        revokeMediaPreviewUrl(pendingMediaFiles[item.key]?.previewUrl);
+        revokeMediaPreviewUrl(mediaCropFiles[item.key]?.previewUrl);
+        setPendingMediaFiles((previous) => {
+          const next = { ...previous };
+          delete next[item.key];
+          return next;
+        });
+        setMediaCropFiles((previous) => {
+          const next = { ...previous };
+          delete next[item.key];
+          return next;
+        });
+      }
       else if (target.type === 'performer') {
         setTopPerformers((previous) => {
           if (Array.isArray(previous)) return previous.filter((record) => record.key !== target.key);
@@ -1198,6 +1198,17 @@ export const AdminDashboardModal = ({ onClose }) => {
       aspectRatio: 4 / 3,
       galleryItem: item
     })),
+    ...sectionPhotos.map((photo) => ({
+      key: `section-photo:${photo.id}`,
+      category: `section:${photo.sectionId}`,
+      sectionId: photo.sectionId,
+      record: photo,
+      editTarget: { type: 'sectionPhoto', id: photo.id },
+      title: photo.title,
+      description: `${publicPhotoSections.find((section) => section.id === photo.sectionId)?.label || photo.sectionLabel} section photo • ${photo.season}`,
+      fallback: photo.image,
+      aspectRatio: 16 / 9
+    })),
     ...legacyPhotos.map((photo, index) => ({
       key: `memory-photo:${photo.id}`,
       category: 'memories',
@@ -1241,7 +1252,11 @@ export const AdminDashboardModal = ({ onClose }) => {
     { value: 'gallery', label: 'Gallery' },
     { value: 'memories', label: 'Memories and Legacy' },
     { value: 'highlights', label: 'Video highlights' },
-    { value: 'performers', label: 'Player profiles' }
+    { value: 'performers', label: 'Player profiles' },
+    ...publicPhotoSections.map((section) => ({
+      value: `section:${section.id}`,
+      label: `${section.label} — section photos`
+    }))
   ];
   const filteredMediaItems = mediaItems.filter((item) => {
     const matchesCategory = mediaCategory === 'all' || item.category === mediaCategory;
@@ -1764,40 +1779,10 @@ export const AdminDashboardModal = ({ onClose }) => {
                   </div>
                 </form>
                 <div className="mb-5 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-                  <h5 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">Section photo slots ({sectionPhotos.length})</h5>
-                  {mediaError && <p role="alert" className="mb-3 rounded-lg border border-rose-800 bg-rose-950/70 px-3 py-2 text-sm text-rose-300">{mediaError}</p>}
-                  <div className="space-y-2">
-                    {sectionPhotos.map((photo) => {
-                      const mediaKey = `section-photo:${photo.id}`;
-                      const pendingPhoto = pendingMediaFiles[mediaKey];
-                      const sectionLabel = publicPhotoSections.find((section) => section.id === photo.sectionId)?.label || photo.sectionLabel;
-                      return (
-                        <div key={photo.id} className="flex flex-col justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950 px-3 py-3 sm:flex-row sm:items-center">
-                          <div className="flex min-w-0 items-center gap-3">
-                            <img src={pendingPhoto?.previewUrl || siteMedia[mediaKey] || photo.image} alt="" className="h-14 w-20 flex-shrink-0 rounded-md border border-slate-800 object-cover" />
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold text-white">{photo.title}</p>
-                              <p className="mt-1 text-xs text-slate-400">{sectionLabel} • {photo.season}</p>
-                              {photo.caption && <p className="mt-1 line-clamp-2 text-xs text-slate-500">{photo.caption}</p>}
-                            </div>
-                          </div>
-                          <div className="flex flex-shrink-0 flex-wrap items-center gap-2">
-                            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800">
-                              <Upload className="h-4 w-4" /> Choose image
-                              <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" aria-label={`Choose image for ${photo.title}`} className="sr-only" disabled={Boolean(uploadingMediaKey)} onChange={(event) => handleMediaSelection(mediaKey, event)} />
-                            </label>
-                            <button type="button" onClick={() => handleMediaUpload(mediaKey)} disabled={!pendingPhoto || Boolean(uploadingMediaKey)} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-700 bg-emerald-950 px-3 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50">
-                              <Save className="h-4 w-4" /> {uploadingMediaKey === mediaKey ? 'Saving...' : 'Save image'}
-                            </button>
-                            <button type="button" onClick={() => handleRemoveSectionPhoto(photo)} disabled={Boolean(uploadingMediaKey)} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-800 bg-rose-950/60 px-3 py-2 text-xs font-bold text-rose-300 hover:bg-rose-900 disabled:opacity-50">
-                              <Trash2 className="h-4 w-4" /> Delete
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {sectionPhotos.length === 0 && <p className="py-3 text-sm text-slate-500">No section photo slots have been added yet.</p>}
-                  </div>
+                  <h5 className="text-[11px] font-bold uppercase tracking-wider text-slate-300">Section photo slots ({sectionPhotos.length})</h5>
+                  <p className="mt-2 text-xs leading-relaxed text-slate-400">
+                    Use the image category dropdown below to open photo slots for a specific section. Section photos now use the same preview, crop, save, edit, and delete tools as the rest of the image library.
+                  </p>
                 </div>
                 <form id="gallery-admin-form" onSubmit={handleAddSessionGalleryItem} className="mb-5 grid grid-cols-1 gap-3 rounded-xl border border-amber-800/60 bg-amber-950/20 p-4 sm:grid-cols-2">
                   <div className="sm:col-span-2 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -1947,7 +1932,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                 </div>
                 <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-[minmax(12rem,0.7fr)_minmax(14rem,1fr)]">
                   <label className="text-xs font-bold text-slate-400">
-                    Image category
+                    Image category or website section
                     <select
                       value={mediaCategory}
                       onChange={(event) => setMediaCategory(event.target.value)}
