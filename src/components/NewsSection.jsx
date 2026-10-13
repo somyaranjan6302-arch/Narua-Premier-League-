@@ -1,171 +1,153 @@
 import React from 'react';
 import { useNpl } from '../context/NplContext';
 import { SessionSelector } from './SessionSelector';
-import { Newspaper, Calendar, Clock, ChevronRight, ArrowUpRight, Megaphone } from 'lucide-react';
+import { Newspaper, Calendar, Clock, ArrowRight, Megaphone } from 'lucide-react';
 import { getSiteMedia } from '../utils/siteMedia';
 
 export const NewsSection = () => {
   const { news, openModal, siteMedia, seasons, selectedSeason, setSelectedSeason } = useNpl();
-
   const sessionNews = news.filter((item) => (item.season || item.session) === selectedSeason);
-  const announcements = sessionNews.filter((item) => item.contentType === 'announcement' || item.category === 'ANNOUNCEMENT');
-  const articles = sessionNews.filter((item) => item.contentType !== 'announcement' && item.category !== 'ANNOUNCEMENT');
-  const featuredNews = articles.find(n => n.featured) || articles[0];
-  const otherNews = articles.filter(n => n.id !== featuredNews?.id);
-  const getNewsImage = (item) => getSiteMedia(siteMedia, `news:${item.id}`, item.season || item.session, item.image);
+  const announcements = sessionNews.filter((item) => (
+    item.contentType === 'announcement' ||
+    item.contentType === 'textOnly' ||
+    item.category === 'ANNOUNCEMENT'
+  ));
+  const articles = sessionNews.filter((item) => (
+    item.contentType !== 'announcement' &&
+    item.contentType !== 'textOnly' &&
+    item.category !== 'ANNOUNCEMENT'
+  ));
+  const featuredNews = articles.find((item) => item.featured) || articles[0];
+  const otherNews = articles.filter((item) => item.id !== featuredNews?.id);
+  const getNewsImage = (item) => item.imageEnabled === false
+    ? ''
+    : getSiteMedia(siteMedia, `news:${item.id}`, item.season || item.session, item.image);
+  const openArticle = (item) => openModal('article-details', {
+    ...item,
+    image: getNewsImage(item)
+  });
 
   return (
-    <section id="news" className="py-20 bg-[var(--color-npl-navy)] border-t border-slate-800">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Title */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-4">
+    <section id="news" className="min-h-[calc(100vh-8rem)] border-t border-slate-800 bg-[#050936] py-10 sm:py-14">
+      <div className="mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-8">
+        <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-950/80 border border-blue-600/40 text-blue-400 text-xs font-bold tracking-widest uppercase mb-3">
-              <Newspaper className="w-3.5 h-3.5" />
-              <span>OFFICIAL TOURNAMENT BULLETIN</span>
+            <div className="mb-2 inline-flex items-center gap-2 text-xs font-bold text-sky-400">
+              <Newspaper className="h-4 w-4" />
+              OFFICIAL TOURNAMENT BULLETIN
             </div>
-            <h2 className="font-sports text-4xl sm:text-5xl lg:text-6xl text-white tracking-wide uppercase leading-none">
-              LATEST <span className="text-gold-gradient">NPL NEWS</span>
+            <h2 className="font-sports text-4xl uppercase leading-none tracking-wide text-white sm:text-5xl">
+              NPL <span className="text-sky-400">NEWS</span>
             </h2>
-            <p className="text-slate-400 text-sm sm:text-base mt-2">
-              Breaking developments, auction updates, match post-mortems, and league communiqués.
-            </p>
+            <p className="mt-2 text-sm text-slate-400">Match reports, league announcements, and stories from every session.</p>
           </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <SessionSelector seasons={seasons} selectedSeason={selectedSeason} setSelectedSeason={setSelectedSeason} />
-            <div className="text-xs text-slate-400 font-semibold bg-slate-900 px-4 py-2 rounded-xl border border-slate-800 self-start md:self-auto">
-              Click any article to read official report
-            </div>
-          </div>
+          <SessionSelector seasons={seasons} selectedSeason={selectedSeason} setSelectedSeason={setSelectedSeason} />
         </div>
 
         {announcements.length > 0 && (
-          <div className="mb-8 space-y-3">
-            <h3 className="flex items-center gap-2 font-sports text-xl tracking-wide text-amber-300">
-              <Megaphone className="h-5 w-5" />
-              ANNOUNCEMENTS &amp; UPCOMING NEWS
+          <div className="mb-7 space-y-3">
+            <h3 className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-sky-300">
+              <Megaphone className="h-4 w-4" />
+              Important news &amp; announcements
             </h3>
             {announcements.map((item) => (
               <button
                 key={item.id}
                 type="button"
-                onClick={() => openModal('article-details', { ...item, image: getNewsImage(item) })}
-                className="flex w-full flex-col gap-2 rounded-2xl border border-amber-700/50 bg-amber-950/20 p-4 text-left transition-colors hover:border-amber-400/70 sm:flex-row sm:items-center sm:justify-between sm:p-5"
+                onClick={() => openArticle(item)}
+                className="flex w-full items-start justify-between gap-4 rounded-xl border border-sky-900/70 bg-[#0a1745] p-4 text-left transition hover:border-sky-500/70 sm:items-center sm:p-5"
               >
                 <span className="min-w-0">
-                  <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-amber-300">{item.date} • {item.season || item.session}</span>
-                  <span className="block font-heading text-base font-bold text-white">{item.headline}</span>
+                  <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-sky-400">
+                    {item.category === 'ANNOUNCEMENT' || item.contentType === 'announcement' ? 'Announcement' : 'Important news'}
+                    {item.date ? ` • ${item.date}` : ''}
+                  </span>
+                  <span className="block font-heading text-base font-bold text-white sm:text-lg">{item.headline}</span>
                   {item.snippet && <span className="mt-1 block text-sm text-slate-300">{item.snippet}</span>}
                 </span>
-                <span className="shrink-0 text-xs font-bold uppercase text-amber-300">Read announcement →</span>
+                <ArrowRight className="mt-1 h-5 w-5 shrink-0 text-sky-400 sm:mt-0" />
               </button>
             ))}
           </div>
         )}
 
-        {/* Article grid (Lead article + supporting articles) */}
-        {sessionNews.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/60 p-10 text-center text-slate-400">No news is published for {selectedSeason} yet.</p>
-        ) : articles.length === 0 ? null : <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
-          {/* Main Featured Article (Left - 7 cols) */}
-          {featuredNews && (
-            <div
-              onClick={() => openModal('article-details', {
-                ...featuredNews,
-                image: getNewsImage(featuredNews)
-              })}
-              className="lg:col-span-7 glass-panel-card rounded-3xl overflow-hidden border border-slate-800 hover:border-amber-500/50 transition-all duration-300 cursor-pointer group flex flex-col justify-between shadow-2xl"
+        {featuredNews ? (
+          <>
+            <button
+              type="button"
+              onClick={() => openArticle(featuredNews)}
+              className="group grid min-h-[360px] w-full overflow-hidden rounded-xl text-left shadow-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 md:min-h-[450px] md:grid-cols-12"
             >
-              <div className="relative h-[280px] sm:h-[340px] overflow-hidden">
-                <img
-                  src={getNewsImage(featuredNews)}
-                  alt={featuredNews.headline}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 filter brightness-90"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
-
-                <div className="absolute top-4 left-4">
-                  <span className="px-3.5 py-1 rounded-full bg-amber-500 text-slate-950 text-xs font-black uppercase tracking-wider shadow-lg">
-                    {featuredNews.category}
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-6 sm:p-8 flex flex-col justify-between flex-grow">
-                <div>
-                  <div className="flex items-center gap-3 text-xs text-slate-400 mb-3">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="w-3.5 h-3.5 text-amber-400" />
-                      {featuredNews.date}
-                    </span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5 text-slate-400" />
-                      {featuredNews.readTime}
-                    </span>
-                  </div>
-
-                  <h3 className="font-sports text-2xl sm:text-3xl lg:text-4xl text-white tracking-wide leading-tight group-hover:text-amber-400 transition-colors">
+              <span className="relative z-10 flex flex-col items-start justify-between bg-[#091a4d] p-5 sm:p-8 md:col-span-4 md:p-8">
+                <span>
+                  <span className="block text-sm font-bold text-sky-400">{featuredNews.category || 'Press Releases'}</span>
+                  <span className="mt-2 block font-heading text-3xl font-extrabold leading-tight text-white transition-colors group-hover:text-sky-200 sm:text-4xl md:text-[clamp(2rem,3.5vw,4.5rem)]">
                     {featuredNews.headline}
-                  </h3>
-
-                  <p className="text-sm text-slate-300 leading-relaxed mt-3">
-                    {featuredNews.snippet}
-                  </p>
-                </div>
-
-                <div className="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs font-bold text-amber-400 group-hover:text-amber-300">
-                  <span>READ FULL COMMUNIQUÉ</span>
-                  <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Sub News Stack (Right - 5 cols) */}
-          <div className="lg:col-span-5 flex flex-col justify-between gap-4">
-            {otherNews.slice(0, 3).map((item) => (
-              <div
-                key={item.id}
-                onClick={() => openModal('article-details', {
-                  ...item,
-                  image: getNewsImage(item)
-                })}
-                className="glass-panel-card p-5 rounded-2xl border border-slate-800 hover:border-amber-500/50 transition-all duration-300 cursor-pointer group flex items-start gap-4 shadow-xl"
-              >
-                <div className="relative w-28 h-24 rounded-xl overflow-hidden flex-shrink-0 bg-slate-950 border border-slate-800">
-                  <img
-                    src={getNewsImage(item)}
-                    alt={item.headline}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                </div>
-
-                <div className="flex-grow flex flex-col justify-between h-full">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-amber-400">
-                        {item.category}
-                      </span>
-                      <span className="text-[10px] text-slate-400">
-                        {item.date}
-                      </span>
-                    </div>
-
-                    <h4 className="font-heading font-bold text-sm text-white group-hover:text-amber-400 transition-colors line-clamp-2 leading-tight">
-                      {item.headline}
-                    </h4>
-                  </div>
-
-                  <span className="text-[11px] font-bold text-slate-400 group-hover:text-amber-300 mt-2 flex items-center gap-1">
-                    Read Report <ChevronRight className="w-3 h-3" />
                   </span>
-                </div>
+                  <span className="mt-5 flex items-center gap-2 text-xs font-semibold text-slate-300 sm:text-sm">
+                    <Calendar className="h-4 w-4 shrink-0 text-sky-400" />
+                    {featuredNews.date}
+                  </span>
+                </span>
+                <span className="mt-8 inline-flex items-center gap-2 rounded-full bg-sky-400 px-5 py-2.5 text-sm font-extrabold text-[#06133b] transition group-hover:bg-sky-300">
+                  Read <ArrowRight className="h-4 w-4" />
+                </span>
+              </span>
+              <span className="relative block min-h-[250px] overflow-hidden bg-slate-950 md:col-span-8 md:min-h-full">
+                {getNewsImage(featuredNews) ? (
+                  <img
+                    src={getNewsImage(featuredNews)}
+                    alt={featuredNews.headline}
+                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+                  />
+                ) : (
+                  <span className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#10285e] to-[#07112e]">
+                    <Newspaper className="h-20 w-20 text-sky-300/40" />
+                  </span>
+                )}
+              </span>
+            </button>
+
+            {otherNews.length > 0 && (
+              <div className="mt-7 grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
+                {otherNews.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => openArticle(item)}
+                    className="group min-w-0 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+                  >
+                    <span className="relative mb-3 block aspect-[4/2.55] overflow-hidden rounded-lg bg-[#0b1745]">
+                      {getNewsImage(item) ? (
+                        <img
+                          src={getNewsImage(item)}
+                          alt={item.headline}
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                      ) : (
+                        <span className="flex h-full items-center justify-center">
+                          <Newspaper className="h-10 w-10 text-sky-300/50" />
+                        </span>
+                      )}
+                    </span>
+                    <span className="block text-xs font-bold text-sky-400">{item.category || 'League News'}</span>
+                    <span className="mt-1 block font-heading text-base font-bold leading-snug text-white transition-colors group-hover:text-sky-300">
+                      {item.headline}
+                    </span>
+                    <span className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-slate-400">
+                      <Clock className="h-3.5 w-3.5" />
+                      {item.date}
+                    </span>
+                  </button>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>}
+            )}
+          </>
+        ) : sessionNews.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/60 p-10 text-center text-slate-400">
+            No news is published for {selectedSeason} yet.
+          </p>
+        ) : null}
       </div>
     </section>
   );

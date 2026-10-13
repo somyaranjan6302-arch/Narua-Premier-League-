@@ -201,6 +201,7 @@ export const AdminDashboardModal = ({ onClose }) => {
   const [sessionError, setSessionError] = useState('');
   const [newsDraft, setNewsDraft] = useState({
     contentType: 'article',
+    includeImage: true,
     headline: '',
     category: 'LEAGUE NEWS',
     date: new Date().toISOString().slice(0, 10),
@@ -433,10 +434,17 @@ export const AdminDashboardModal = ({ onClose }) => {
       return;
     }
 
-    const contentType = newsDraft.contentType === 'announcement' ? 'announcement' : 'article';
+    const contentType = newsDraft.contentType;
+    const includeImage = contentType === 'textOnly' ? false : newsDraft.includeImage;
     const updatedFields = {
       contentType,
-      category: contentType === 'announcement' ? 'ANNOUNCEMENT' : (newsDraft.category.trim() || 'LEAGUE NEWS'),
+      category: contentType === 'announcement'
+        ? 'ANNOUNCEMENT'
+        : contentType === 'textOnly'
+          ? 'IMPORTANT NEWS'
+          : (newsDraft.category.trim() || 'LEAGUE NEWS'),
+      imageEnabled: includeImage,
+      ...(!includeImage ? { image: '' } : {}),
       headline,
       date: newsDraft.date || new Date().toISOString().slice(0, 10),
       season: newsDraft.season || selectedSeason,
@@ -446,7 +454,9 @@ export const AdminDashboardModal = ({ onClose }) => {
 
     if (editingNewsItemId) {
       setNews((previousNews) => previousNews.map((item) => (
-        item.id === editingNewsItemId ? { ...item, ...updatedFields } : item
+        item.id === editingNewsItemId
+          ? { ...item, ...updatedFields, ...(includeImage && !item.image ? { image: '/assets/stadium.jpg' } : {}) }
+          : item
       )));
       showToast(`"${headline}" was updated.`);
     } else {
@@ -454,10 +464,10 @@ export const AdminDashboardModal = ({ onClose }) => {
         id: `news-${Date.now()}`,
         ...updatedFields,
         readTime: `${Math.max(1, Math.ceil(fullContent.split(/\s+/).length / 200))} min read`,
-        image: '/assets/stadium.jpg',
+        ...(includeImage ? { image: '/assets/stadium.jpg' } : {}),
         featured: false
       }, ...previousNews]);
-      showToast(`${contentType === 'announcement' ? 'Announcement' : 'Article'} published for ${updatedFields.season}.`);
+      showToast(`${contentType === 'announcement' ? 'Announcement' : contentType === 'textOnly' ? 'Important news' : 'Article'} published for ${updatedFields.season}.`);
     }
 
     setNewsDraft((current) => ({
@@ -465,7 +475,9 @@ export const AdminDashboardModal = ({ onClose }) => {
       headline: '',
       category: 'LEAGUE NEWS',
       snippet: '',
-      fullContent: ''
+      fullContent: '',
+      contentType: 'article',
+      includeImage: true
     }));
     setEditingNewsItemId(null);
   };
@@ -473,7 +485,12 @@ export const AdminDashboardModal = ({ onClose }) => {
   const handleEditNewsItem = (item) => {
     setEditingNewsItemId(item.id);
     setNewsDraft({
-      contentType: item.contentType === 'announcement' || item.category === 'ANNOUNCEMENT' ? 'announcement' : 'article',
+      contentType: item.contentType === 'textOnly'
+        ? 'textOnly'
+        : item.contentType === 'announcement' || item.category === 'ANNOUNCEMENT'
+          ? 'announcement'
+          : 'article',
+      includeImage: item.imageEnabled !== false,
       headline: item.headline || '',
       category: item.category === 'ANNOUNCEMENT' ? 'LEAGUE NEWS' : (item.category || 'LEAGUE NEWS'),
       date: item.date || new Date().toISOString().slice(0, 10),
@@ -492,8 +509,29 @@ export const AdminDashboardModal = ({ onClose }) => {
       category: 'LEAGUE NEWS',
       snippet: '',
       fullContent: '',
+      contentType: 'article',
+      includeImage: true,
       season: selectedSeason
     }));
+  };
+
+  const handleDeleteNewsItem = async (item) => {
+    if (!window.confirm(`Delete "${item.headline}"? This cannot be undone.`)) return;
+    try {
+      if (item.imageEnabled !== false) {
+        const season = item.season || item.session || selectedSeason;
+        const mediaKeys = new Set([
+          getSessionMediaKey(`news:${item.id}`, season),
+          `news:${item.id}`
+        ]);
+        for (const key of mediaKeys) await deleteMediaImage(key, false);
+        await refreshSiteMedia();
+      }
+      setNews((previousNews) => previousNews.filter((record) => record.id !== item.id));
+      showToast(`"${item.headline}" was deleted.`);
+    } catch (error) {
+      showToast(error.message || 'The news item could not be deleted.', 'error');
+    }
   };
 
   const handleRemoveSessionMatch = () => {
@@ -1177,7 +1215,7 @@ export const AdminDashboardModal = ({ onClose }) => {
         defaultSession: getTeamSessions(team, seasons.map((season) => season.edition))[0]
       }))
     ]),
-    ...news.map((article) => ({
+    ...news.filter((article) => article.imageEnabled !== false).map((article) => ({
       key: `news:${article.id}`,
       category: 'news',
       record: article,
@@ -1617,7 +1655,7 @@ export const AdminDashboardModal = ({ onClose }) => {
               <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-6">
                 <div className="mb-4">
                   <h4 className="font-sports text-xl text-white">SESSIONS &amp; PUBLISHED CONTENT</h4>
-                  <p className="mt-1 text-xs text-slate-400">Create sessions for the whole site, add gallery photos, publish written articles, and post announcements separately.</p>
+                  <p className="mt-1 text-xs text-slate-400">Create sessions for the whole site, add gallery photos, and publish articles, announcements, or important text-only news.</p>
                 </div>
                 <form onSubmit={handleAddSession} className="mb-5 grid grid-cols-1 gap-3 rounded-xl border border-cyan-800/60 bg-cyan-950/20 p-4 sm:grid-cols-[1fr_10rem_auto] sm:items-end">
                   <div className="sm:col-span-3">
@@ -1639,16 +1677,32 @@ export const AdminDashboardModal = ({ onClose }) => {
                 </form>
                 <form id="news-admin-form" onSubmit={handleSaveNewsItem} className="mb-5 grid grid-cols-1 gap-3 rounded-xl border border-blue-800/60 bg-blue-950/20 p-4 sm:grid-cols-2">
                   <div className="sm:col-span-2">
-                    <h5 className="font-sports text-base text-blue-200">{editingNewsItemId ? 'EDIT PUBLISHED CONTENT' : 'PUBLISH AN ARTICLE OR ANNOUNCEMENT'}</h5>
-                    <p className="mt-1 text-xs text-slate-400">Articles and announcements are managed separately and shown as distinct content on the News page. Add or change their photos in the News image slots below.</p>
+                    <h5 className="font-sports text-base text-blue-200">{editingNewsItemId ? 'EDIT PUBLISHED CONTENT' : 'PUBLISH NEWS'}</h5>
+                    <p className="mt-1 text-xs text-slate-400">Publish articles, announcements, or important written-only news. Photo slots are created only when photo support is enabled.</p>
                   </div>
                   <label className="text-xs font-bold text-slate-400">
                     Content type
-                    <select value={newsDraft.contentType} onChange={(event) => setNewsDraft((current) => ({ ...current, contentType: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white">
+                    <select value={newsDraft.contentType} onChange={(event) => setNewsDraft((current) => ({
+                      ...current,
+                      contentType: event.target.value,
+                      includeImage: event.target.value === 'textOnly' ? false : current.includeImage
+                    }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white">
                       <option value="article">Article / written report</option>
                       <option value="announcement">Announcement / upcoming news</option>
+                      <option value="textOnly">Important news (written only)</option>
                     </select>
                   </label>
+                  {newsDraft.contentType !== 'textOnly' && (
+                    <label className="flex items-center gap-2 self-end rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-xs font-semibold text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={newsDraft.includeImage}
+                        onChange={(event) => setNewsDraft((current) => ({ ...current, includeImage: event.target.checked }))}
+                        className="h-4 w-4 accent-blue-500"
+                      />
+                      Create a photo upload slot
+                    </label>
+                  )}
                   <label className="text-xs font-bold text-slate-400">
                     Session
                     <select value={newsDraft.season} onChange={(event) => setNewsDraft((current) => ({ ...current, season: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white">
@@ -1690,18 +1744,16 @@ export const AdminDashboardModal = ({ onClose }) => {
                   <div className="space-y-2">
                     {news.map((item) => {
                       const isAnnouncement = item.contentType === 'announcement' || item.category === 'ANNOUNCEMENT';
+                      const isTextOnly = item.contentType === 'textOnly';
                       return (
                         <div key={item.id} className="flex flex-col justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950 px-3 py-3 sm:flex-row sm:items-center">
                           <div className="min-w-0">
                             <p className="truncate text-sm font-semibold text-white">{item.headline}</p>
-                            <p className="mt-1 text-xs text-slate-400">{isAnnouncement ? 'Announcement' : 'Article'} • {item.season || item.session || 'Unassigned'} • {item.date}</p>
+                            <p className="mt-1 text-xs text-slate-400">{isTextOnly ? 'Important news • written only' : isAnnouncement ? 'Announcement' : 'Article'} • {item.season || item.session || 'Unassigned'} • {item.date}</p>
                           </div>
                           <div className="flex flex-shrink-0 items-center gap-2">
                             <button type="button" onClick={() => handleEditNewsItem(item)} className="inline-flex items-center gap-1.5 rounded-lg border border-blue-700 bg-blue-950/70 px-3 py-2 text-xs font-bold text-blue-200 hover:bg-blue-900"><Edit className="h-4 w-4" />Edit</button>
-                            <button type="button" onClick={() => {
-                              const mediaItem = mediaItems.find((candidate) => candidate.key === `news:${item.id}`);
-                              if (mediaItem) handleDeleteMediaItem(mediaItem);
-                            }} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-800 bg-rose-950/60 px-3 py-2 text-xs font-bold text-rose-300 hover:bg-rose-900"><Trash2 className="h-4 w-4" />Delete</button>
+                            <button type="button" onClick={() => handleDeleteNewsItem(item)} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-800 bg-rose-950/60 px-3 py-2 text-xs font-bold text-rose-300 hover:bg-rose-900"><Trash2 className="h-4 w-4" />Delete</button>
                           </div>
                         </div>
                       );
