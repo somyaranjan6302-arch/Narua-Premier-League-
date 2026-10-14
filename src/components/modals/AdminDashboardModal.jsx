@@ -1461,7 +1461,7 @@ export const AdminDashboardModal = ({ onClose }) => {
     || (selectedSeason === seasons[0]?.edition ? pointsTable : []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/90 p-0 backdrop-blur-md sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/90 p-0 backdrop-blur-md sm:p-4">
       <div className="relative my-0 flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden rounded-none border-0 border-slate-700 bg-[#070D1E] shadow-2xl sm:my-6 sm:h-auto sm:max-h-[94vh] sm:max-w-6xl sm:rounded-3xl sm:border-2">
         {/* Header */}
         <div className="relative z-20 flex flex-shrink-0 items-center justify-between gap-2 border-b border-slate-800 bg-gradient-to-r from-slate-950 via-[#0A142D] to-slate-950 p-3 sm:gap-3 sm:p-5">
@@ -1575,7 +1575,7 @@ export const AdminDashboardModal = ({ onClose }) => {
           /* Main Admin Panel Dashboard */
           <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
             {/* Top Metrics Row */}
-            <div className="grid flex-shrink-0 grid-cols-2 gap-2 border-b border-slate-800 bg-slate-950 p-2 text-center text-xs sm:grid-cols-4 sm:gap-3 sm:p-4 lg:grid-cols-6">
+            <div className="hidden flex-shrink-0 grid-cols-2 gap-2 border-b border-slate-800 bg-slate-950 p-2 text-center text-xs sm:grid sm:grid-cols-4 sm:gap-3 sm:p-4 lg:grid-cols-6">
               <div className="p-2 bg-slate-900/60 rounded-xl">
                 <span className="text-[10px] text-slate-400 uppercase font-bold block">Registrations</span>
                 <span className="font-sports text-2xl text-amber-400">{registrationsForSelectedSession.length}</span>
@@ -1653,10 +1653,20 @@ export const AdminDashboardModal = ({ onClose }) => {
             </div>
 
             {activeTab === 'media' && adminUser?.role === 'owner' && (
-              <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-6">
-                <div className="mb-4">
-                  <h4 className="font-sports text-xl text-white">SESSIONS &amp; PUBLISHED CONTENT</h4>
-                  <p className="mt-1 text-xs text-slate-400">Create sessions for the whole site, add gallery photos, and publish articles, announcements, or important text-only news.</p>
+              <div className="min-h-0 flex-1 touch-pan-y overscroll-y-contain overflow-x-hidden overflow-y-auto p-3 [-webkit-overflow-scrolling:touch] sm:p-6">
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h4 className="font-sports text-xl text-white">SESSIONS &amp; PUBLISHED CONTENT</h4>
+                    <p className="mt-1 text-xs text-slate-400">Create sessions for the whole site, add gallery photos, and publish articles, announcements, or important text-only news.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('media-image-library')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                    className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-sky-700 bg-sky-950/70 px-4 py-2 text-xs font-black uppercase tracking-wide text-sky-200 transition hover:bg-sky-900"
+                  >
+                    <Image className="h-4 w-4" />
+                    Go to photo uploads
+                  </button>
                 </div>
                 <form onSubmit={handleAddSession} className="mb-5 grid grid-cols-1 gap-3 rounded-xl border border-cyan-800/60 bg-cyan-950/20 p-4 sm:grid-cols-[1fr_10rem_auto] sm:items-end">
                   <div className="sm:col-span-3">
