@@ -41,6 +41,8 @@ const getTeamSessions = (team, seasonEditions) => {
   return seasonEditions;
 };
 
+const getMediaSessionId = (session) => getSessionMediaKey('session', session);
+
 const publicPhotoSections = [
   { id: 'home', label: 'Home' },
   { id: 'story', label: 'About NPL Story' },
@@ -190,12 +192,11 @@ export const AdminDashboardModal = ({ onClose }) => {
   const [mediaError, setMediaError] = useState('');
   const [isSavingMediaInfo, setIsSavingMediaInfo] = useState(false);
   const [mediaCategory, setMediaCategory] = useState('all');
+  const [mediaSessionFilter, setMediaSessionFilter] = useState(selectedSeason);
   const [mediaSearch, setMediaSearch] = useState('');
   const [uploadingMediaKey, setUploadingMediaKey] = useState('');
   const [pendingMediaFiles, setPendingMediaFiles] = useState({});
   const [mediaCropFiles, setMediaCropFiles] = useState({});
-  const [mediaSessionSelections, setMediaSessionSelections] = useState({});
-  const [performerPhotoSeason, setPerformerPhotoSeason] = useState(selectedSeason);
   const mediaPreviewUrls = useRef(new Set());
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [tournamentDraft, setTournamentDraft] = useState(() => ({ ...tournamentInfo }));
@@ -654,12 +655,6 @@ export const AdminDashboardModal = ({ onClose }) => {
     showToast(`Photo slot added to ${section.label}. Its image slot is selected below.`);
   };
 
-  const handleGallerySeasonChange = (itemId, season) => {
-    setGallery((previousGallery) => previousGallery.map((item) => (
-      item.id === itemId ? { ...item, season } : item
-    )));
-  };
-
   const handleAddLegacyPhoto = () => {
     if (adminUser?.role !== 'owner') return;
     const id = `memory-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -974,10 +969,10 @@ export const AdminDashboardModal = ({ onClose }) => {
       const target = item.editTarget;
       const mediaKeys = new Set([
         item.sessionSpecific
-          ? getSessionMediaKey(item.key, item.defaultSession || selectedSeason)
+          ? getSessionMediaKey(item.key, mediaSessionFilter)
           : item.key
       ]);
-      const recordSession = item.defaultSession || selectedSeason;
+      const recordSession = item.session || mediaSessionFilter;
       if (target.type === 'team') {
         mediaKeys.add(getSessionMediaKey(`team:${target.teamId}`, recordSession));
         mediaKeys.add(getSessionMediaKey(`team-logo:${target.teamId}`, recordSession));
@@ -1030,14 +1025,14 @@ export const AdminDashboardModal = ({ onClose }) => {
   };
 
   const mediaUploadControl = (item) => {
-    const { key: baseMediaKey, title, description, fallback: fallbackImage = '', aspectRatio = 1, fit = false, galleryItem, directUpload = false, sessionSpecific = false, fixedSession } = item;
-    const mediaSession = fixedSession || mediaSessionSelections[baseMediaKey] || item.defaultSession || selectedSeason;
+    const { key: baseMediaKey, title, description, fallback: fallbackImage = '', aspectRatio = 1, fit = false, directUpload = false, sessionSpecific = false } = item;
+    const mediaSession = mediaSessionFilter;
     const mediaKey = sessionSpecific ? getSessionMediaKey(baseMediaKey, mediaSession) : baseMediaKey;
     const activeMediaKey = siteMedia[mediaKey] ? mediaKey : siteMedia[baseMediaKey] ? baseMediaKey : null;
     const pendingMedia = pendingMediaFiles[mediaKey];
     const cropFile = mediaCropFiles[mediaKey];
     return (
-    <div key={baseMediaKey} className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3 border-b border-slate-800 py-4 last:border-0 xl:grid-cols-[5rem_minmax(0,1fr)_auto] xl:gap-4">
+    <div key={item.rowKey || baseMediaKey} className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3 border-b border-slate-800 py-4 last:border-0 xl:grid-cols-[5rem_minmax(0,1fr)_auto] xl:gap-4">
       <label title={`Click to change ${title}`} className="group relative w-20 flex-shrink-0 cursor-pointer overflow-hidden rounded-lg border border-slate-700 bg-slate-950 focus-within:border-amber-400" style={{ aspectRatio }}>
         {(pendingMedia?.previewUrl || cropFile?.previewUrl || siteMedia[mediaKey] || siteMedia[baseMediaKey] || fallbackImage) ? (
           <img src={pendingMedia?.previewUrl || cropFile?.previewUrl || siteMedia[mediaKey] || siteMedia[baseMediaKey] || fallbackImage} alt={`${title} preview`} className={`h-full w-full ${fit ? 'object-contain' : 'object-cover'}`} />
@@ -1062,40 +1057,6 @@ export const AdminDashboardModal = ({ onClose }) => {
       <div className="min-w-0">
         <p className="text-sm font-bold text-white">{title}</p>
         <p className="text-xs text-slate-400">{description}</p>
-        {sessionSpecific && !fixedSession && (
-          <label className="mt-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            Session
-            <select
-              value={mediaSession}
-              onChange={(event) => setMediaSessionSelections((current) => ({ ...current, [baseMediaKey]: event.target.value }))}
-              aria-label={`Session for ${title}`}
-              className="min-w-0 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs font-semibold normal-case tracking-normal text-white focus:border-amber-500 focus:outline-none"
-            >
-              {seasons.map((season) => (
-                <option key={season.edition} value={season.edition}>
-                  {season.edition} ({season.year || season.season})
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        {galleryItem && (
-          <label className="mt-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            Session
-            <select
-              value={galleryItem.season || galleryItem.session || selectedSeason}
-              onChange={(event) => handleGallerySeasonChange(galleryItem.id, event.target.value)}
-              aria-label={`Session for ${galleryItem.title}`}
-              className="min-w-0 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs font-semibold normal-case tracking-normal text-white focus:border-amber-500 focus:outline-none"
-            >
-              {seasons.map((season) => (
-                <option key={season.edition} value={season.edition}>
-                  {season.edition} ({season.year || season.season})
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
       </div>
       <div className="col-span-2 flex items-center justify-start gap-2 xl:col-span-1 xl:justify-end">
         <button
@@ -1171,7 +1132,12 @@ export const AdminDashboardModal = ({ onClose }) => {
     'Season 4': session4Performers,
     'Season 5': session5Performers
   };
-  const performersForPhotoSession = performerPhotosBySeason[performerPhotoSeason] || topPerformers;
+  const performerSeasonKey = Object.keys(performerPhotosBySeason).find(
+    (season) => getMediaSessionId(season) === getMediaSessionId(mediaSessionFilter)
+  );
+  const performersForMediaSession = performerSeasonKey
+    ? performerPhotosBySeason[performerSeasonKey]
+    : topPerformers;
   const mediaItems = [
     { key: 'logo', category: 'branding', title: 'NPL logo', description: 'Shown in the header and footer.', aspectRatio: 1, fit: true },
     { key: 'stadium', category: 'branding', title: 'Stadium image', description: 'Shown on the home and league story pages.', fallback: '/assets/stadium.jpg', aspectRatio: 16 / 9 },
@@ -1182,49 +1148,49 @@ export const AdminDashboardModal = ({ onClose }) => {
       record: champion,
       editTarget: { type: 'champion', index },
       title: `${champion.season} ${champion.edition} • ${champion.championTeam}`,
-      description: 'Champion feature photo.',
+      description: `Champion feature photo • ${seasons.find((season) => getMediaSessionId(season.edition) === getMediaSessionId(champion.edition))?.edition || mediaSessionFilter}.`,
       fallback: champion.teamPhoto,
       aspectRatio: 4 / 3,
       sessionSpecific: true,
-      defaultSession: seasons.find((season) => champion.edition.startsWith(season.edition))?.edition
+      session: seasons.find((season) => getMediaSessionId(season.edition) === getMediaSessionId(champion.edition))?.edition
     })),
     ...teams.flatMap((team) => [
       {
         key: `team:${team.id}`,
         category: 'teams',
+        sessions: getTeamSessions(team, seasons.map((season) => season.edition)),
         record: team,
         editTarget: { type: 'team', teamId: team.id },
         title: `${team.name} banner`,
-        description: 'Shown in team details.',
+        description: `Shown in team details • ${mediaSessionFilter}.`,
         fallback: team.banner,
         aspectRatio: 16 / 9,
-        sessionSpecific: true,
-        defaultSession: getTeamSessions(team, seasons.map((season) => season.edition))[0]
+        sessionSpecific: true
       },
       {
         key: `team-logo:${team.id}`,
         category: 'player-assets',
+        sessions: getTeamSessions(team, seasons.map((season) => season.edition)),
         record: team,
         editTarget: { type: 'team', teamId: team.id },
         title: `${team.name} logo`,
-        description: 'Square franchise crest shown on team badges and player cards.',
+        description: `Square franchise crest shown on team badges and player cards • ${mediaSessionFilter}.`,
         fallback: team.logo,
         aspectRatio: 1,
         fit: true,
-        sessionSpecific: true,
-        defaultSession: getTeamSessions(team, seasons.map((season) => season.edition))[0]
+        sessionSpecific: true
       },
       ...(team.squad || []).map((player) => ({
         key: `player-photo:${team.id}-${player.id}`,
         category: 'player-assets',
+        sessions: getTeamSessions(team, seasons.map((season) => season.edition)),
         record: player,
         editTarget: { type: 'player', teamId: team.id, playerId: player.id },
         title: `${player.name} portrait`,
-        description: `${team.name} • vertical 4:5 player photo`,
+        description: `${team.name} • ${mediaSessionFilter} • vertical 4:5 player photo`,
         fallback: player.photo,
         aspectRatio: 4 / 5,
-        sessionSpecific: true,
-        defaultSession: getTeamSessions(team, seasons.map((season) => season.edition))[0]
+        sessionSpecific: true
       }))
     ]),
     ...news.filter((article) => article.imageEnabled !== false).map((article) => ({
@@ -1233,18 +1199,19 @@ export const AdminDashboardModal = ({ onClose }) => {
       record: article,
       editTarget: { type: 'news', id: article.id },
       title: article.headline,
-      description: `News image • ${article.category}`,
+      description: `News image • ${article.category} • ${article.season || article.session || mediaSessionFilter}`,
       fallback: article.image,
       aspectRatio: 16 / 9,
       sessionSpecific: true,
-      defaultSession: article.season || article.session
+      session: article.season || article.session
     })),
     ...gallery.map((item) => ({
       key: `gallery:${item.id}`,
       category: 'gallery',
+      session: item.season || item.session,
       editTarget: { type: 'gallery', id: item.id },
       title: item.title,
-      description: `Gallery photo • ${item.category}`,
+      description: `Gallery photo • ${item.category} • ${item.season || item.session || mediaSessionFilter}`,
       fallback: item.image,
       aspectRatio: 4 / 3,
       galleryItem: item
@@ -1259,6 +1226,7 @@ export const AdminDashboardModal = ({ onClose }) => {
       description: `${publicPhotoSections.find((section) => section.id === photo.sectionId)?.label || photo.sectionLabel} section photo • ${photo.season}`,
       fallback: photo.image,
       aspectRatio: 16 / 9,
+      session: photo.season,
       directUpload: true
     })),
     ...legacyPhotos.map((photo, index) => ({
@@ -1276,24 +1244,24 @@ export const AdminDashboardModal = ({ onClose }) => {
       record: item,
       editTarget: { type: 'highlight', id: item.id },
       title: item.title,
-      description: 'Video highlight thumbnail.',
+      description: `Video highlight thumbnail • ${item.season || item.session || mediaSessionFilter}.`,
       fallback: item.thumbnail,
       aspectRatio: 16 / 9,
       sessionSpecific: true,
-      defaultSession: item.season || item.session
+      session: item.season || item.session
     })),
-    ...Object.entries(performersForPhotoSession).map(([key, performer]) => ({
+    ...Object.entries(performersForMediaSession).map(([key, performer]) => ({
       key: `performer:${key}`,
+      rowKey: `performer:${mediaSessionFilter}:${key}`,
       category: 'performers',
       record: performer,
       editTarget: { type: 'performer', key },
       title: `${performer.player || performer.team || 'Top performer'} • ${key.replace(/([A-Z])/g, ' $1')}`,
-      description: `${performerPhotoSeason} • ${key.replace(/([A-Z])/g, ' $1')} • 9:17 portrait crop.`,
+      description: `${mediaSessionFilter} • ${key.replace(/([A-Z])/g, ' $1')} • 9:17 portrait crop.`,
       fallback: performer.photo,
       aspectRatio: 9 / 17,
       sessionSpecific: true,
-      defaultSession: performerPhotoSeason,
-      fixedSession: performerPhotoSeason
+      session: mediaSessionFilter
     }))
   ];
   const mediaCategories = [
@@ -1316,8 +1284,13 @@ export const AdminDashboardModal = ({ onClose }) => {
     const matchesCategory = mediaCategory === 'all' ||
       item.category === mediaCategory ||
       (mediaCategory === 'section:performers' && item.category === 'performers');
+    const matchesSession = !item.session && !item.sessions
+      ? true
+      : item.sessions
+        ? item.sessions.some((session) => getMediaSessionId(session) === getMediaSessionId(mediaSessionFilter))
+        : getMediaSessionId(item.session) === getMediaSessionId(mediaSessionFilter);
     const searchText = `${item.title} ${item.description}`.toLowerCase();
-    return matchesCategory && searchText.includes(mediaSearch.trim().toLowerCase());
+    return matchesCategory && matchesSession && searchText.includes(mediaSearch.trim().toLowerCase());
   });
 
   const handleTournamentSave = () => {
@@ -2011,39 +1984,22 @@ export const AdminDashboardModal = ({ onClose }) => {
                   <div>
                     <h5 className="font-sports text-base text-sky-300">TOP PERFORMER PROFILE PHOTOS</h5>
                     <p className="mt-1 text-xs text-slate-300">
-                      Choose a session to load that session&apos;s actual performers, then upload each portrait. Photos use the same vertical 9:17 crop as the cards.
+                      Choose Top Performers below to display the real performers for the selected session. Photos use the same vertical 9:17 crop as the cards.
                     </p>
                   </div>
-                  <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-end">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-sky-200">
-                      Performer session
-                      <select
-                        value={performerPhotoSeason}
-                        onChange={(event) => setPerformerPhotoSeason(event.target.value)}
-                        aria-label="Session for top performer photos"
-                        className="mt-1 block min-h-10 w-full rounded-lg border border-sky-700 bg-slate-950 px-3 py-2 text-xs font-semibold normal-case tracking-normal text-white focus:border-sky-400 focus:outline-none"
-                      >
-                        {seasons.map((season) => (
-                          <option key={season.edition} value={season.edition}>
-                            {season.edition} ({season.year || season.season})
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMediaCategory('section:performers');
-                        setMediaSearch('');
-                      }}
-                      className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-sky-500 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-slate-950 transition hover:bg-sky-400"
-                    >
-                      <UserRound className="h-4 w-4" />
-                      Show session performers
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMediaCategory('section:performers');
+                      setMediaSearch('');
+                    }}
+                    className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-sky-500 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-slate-950 transition hover:bg-sky-400"
+                  >
+                    <UserRound className="h-4 w-4" />
+                    Show session performers
+                  </button>
                 </div>
-                <div id="media-image-library" className="mb-4 grid scroll-mt-4 grid-cols-1 gap-3 sm:grid-cols-[minmax(12rem,0.7fr)_minmax(14rem,1fr)]">
+                <div id="media-image-library" className="mb-4 grid scroll-mt-4 grid-cols-1 gap-3 sm:grid-cols-[minmax(12rem,0.8fr)_minmax(10rem,0.6fr)_minmax(14rem,1fr)]">
                   <label className="text-xs font-bold text-slate-400">
                     Image category or website section
                     <select
@@ -2053,6 +2009,21 @@ export const AdminDashboardModal = ({ onClose }) => {
                     >
                       {mediaCategories.map((category) => (
                         <option key={category.value} value={category.value}>{category.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-xs font-bold text-slate-400">
+                    Filter by session
+                    <select
+                      value={mediaSessionFilter}
+                      onChange={(event) => setMediaSessionFilter(event.target.value)}
+                      aria-label="Filter image slots by session"
+                      className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-semibold text-white focus:border-amber-500 focus:outline-none"
+                    >
+                      {seasons.map((season) => (
+                        <option key={season.edition} value={season.edition}>
+                          {season.edition} ({season.year || season.season})
+                        </option>
                       ))}
                     </select>
                   </label>
