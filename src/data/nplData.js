@@ -767,34 +767,15 @@ export const initialAuctionRegistrations = [
 ];
 
 export const initialAuctionLiveState = {
-  activePlayerIndex: 0,
-  currentBid: 50000,
-  currentBiddingTeam: "nsk",
-  bidHistory: [
-    { team: "Narua Super Kings", amount: 50000, time: "Just now" }
-  ],
-  soldPlayers: [
-    {
-      playerId: "reg-4",
-      playerName: "Debjit Mukherjee",
-      role: "Batsman",
-      basePrice: "₹60,000",
-      soldPrice: "₹1,40,000",
-      team: "Narua Super Kings",
-      teamShort: "NSK",
-      teamColor: "#F59E0B"
-    }
-  ],
-  teamPurses: {
-    nsk: 4860000,
-    rcn: 5000000,
-    nw: 5000000,
-    bct: 5000000,
-    nt: 5000000,
-    nkr: 5000000,
-    ds: 5000000,
-    np: 5000000
-  }
+  status: 'waiting',
+  currentPlayer: null,
+  currentBid: 0,
+  currentBiddingTeam: null,
+  bidHistory: [],
+  soldPlayers: [],
+  unsoldPlayers: [],
+  teamPurses: {},
+  updatedAt: null
 };
 
 export const localizeOfflineMedia = (value, key = '') => {

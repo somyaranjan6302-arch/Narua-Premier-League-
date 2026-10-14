@@ -18,6 +18,7 @@ const usersFile = path.join(dataDirectory, 'admin-users.json');
 const repositoryDirectory = path.resolve(serverDirectory, '..');
 const publicDirectory = path.join(repositoryDirectory, 'public');
 const mediaFile = path.join(publicDirectory, 'site-media.json');
+const liveAuctionFile = path.join(dataDirectory, 'live-auction.json');
 const uploadsDirectory = path.join(publicDirectory, 'uploads');
 const legacyMediaFile = path.join(dataDirectory, 'site-media.json');
 const legacyUploadsDirectory = path.join(dataDirectory, 'uploads');
@@ -26,6 +27,7 @@ const port = Number(process.env.PORT || 5173);
 const sessionDurationSeconds = 8 * 60 * 60;
 const loginAttempts = new Map();
 const registrationAttempts = new Map();
+let liveAuctionSaveQueue = Promise.resolve();
 const { Pool } = pg;
 const database = process.env.DATABASE_URL
   ? new Pool({ connectionString: process.env.DATABASE_URL })
@@ -342,6 +344,124 @@ const start = async () => {
     const result = await database.query("SELECT value FROM npl_site_data WHERE data_key = 'public-content'");
     const storedContent = result.rows[0]?.value || null;
     return res.json(storedContent ? mergeOfficialSession5Content(mergeOfficialSession4Content(mergeOfficialSession3Content(mergeOfficialSession2Content(storedContent)))) : null);
+  });
+
+  app.get('/api/auction/live', async (req, res) => {
+    const season = typeof req.query.season === 'string' ? req.query.season.trim() : '';
+    if (!season || season.length > 60) return res.status(400).json({ error: 'Choose a valid auction season.' });
+
+    let state = null;
+    if (database) {
+      const result = await database.query(
+        'SELECT value FROM npl_site_data WHERE data_key = $1',
+        [`auction-live:${season}`]
+      );
+      state = result.rows[0]?.value || null;
+    } else {
+      const states = await readJson(liveAuctionFile, {});
+      state = states[season] || null;
+    }
+
+    return res.json({ state });
+  });
+
+  app.put('/api/admin/auction/live', requireAdmin, async (req, res) => {
+    const { season, state, expectedUpdatedAt } = req.body || {};
+    if (typeof season !== 'string' || !season.trim() || season.length > 60) {
+      return res.status(400).json({ error: 'Choose a valid auction season.' });
+    }
+    if (!state || typeof state !== 'object' || Array.isArray(state) ||
+      !['waiting', 'live', 'paused', 'completed'].includes(state.status) ||
+      !Number.isSafeInteger(state.currentBid) || state.currentBid < 0 ||
+      !(state.currentBiddingTeam === null || typeof state.currentBiddingTeam === 'string') ||
+      !(state.currentPlayer === null || (typeof state.currentPlayer === 'object' && !Array.isArray(state.currentPlayer))) ||
+      (state.currentPlayer && (
+        typeof state.currentPlayer.id !== 'string' ||
+        !(typeof state.currentPlayer.fullName === 'string' || typeof state.currentPlayer.name === 'string')
+      )) ||
+      !Array.isArray(state.bidHistory) || state.bidHistory.length > 100 ||
+      !Array.isArray(state.soldPlayers) || state.soldPlayers.length > 500 ||
+      !Array.isArray(state.unsoldPlayers) || state.unsoldPlayers.length > 500 ||
+      !state.teamPurses || typeof state.teamPurses !== 'object' || Array.isArray(state.teamPurses) ||
+      Object.values(state.teamPurses).some((purse) => !Number.isSafeInteger(purse) || purse < 0)) {
+      return res.status(400).json({ error: 'Auction state is invalid.' });
+    }
+
+    const safeCurrentPlayer = state.currentPlayer ? Object.fromEntries(
+      ['id', 'registrationId', 'fullName', 'name', 'role', 'basePrice']
+        .filter((key) => typeof state.currentPlayer[key] === 'string')
+        .map((key) => [key, state.currentPlayer[key].slice(0, 2000)])
+    ) : null;
+    const playerPhoto = state.currentPlayer?.photo;
+    if (typeof playerPhoto === 'string' && playerPhoto.length <= 8 * 1024 * 1024 &&
+      (playerPhoto.startsWith('/uploads/') ||
+        playerPhoto.startsWith('/assets/') ||
+        /^data:image\/(?:jpeg|png|webp|gif);base64,/.test(playerPhoto))) {
+      safeCurrentPlayer.photo = playerPhoto;
+    }
+
+    const safeState = {
+      status: state.status,
+      currentPlayer: safeCurrentPlayer,
+      currentBid: state.currentBid,
+      currentBiddingTeam: state.currentBiddingTeam,
+      bidHistory: state.bidHistory.slice(0, 100).map((bid) => ({
+        team: typeof bid.team === 'string' ? bid.team.slice(0, 120) : '',
+        amount: Number.isSafeInteger(bid.amount) && bid.amount >= 0 ? bid.amount : 0,
+        time: typeof bid.time === 'string' ? bid.time.slice(0, 40) : ''
+      })),
+      soldPlayers: state.soldPlayers.slice(0, 500),
+      unsoldPlayers: state.unsoldPlayers.slice(0, 500),
+      teamPurses: state.teamPurses
+    };
+
+    const save = async () => {
+      if (database) {
+        const client = await database.connect();
+        const key = `auction-live:${season}`;
+        try {
+          await client.query('BEGIN');
+          await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [key]);
+          const currentResult = await client.query('SELECT value FROM npl_site_data WHERE data_key = $1 FOR UPDATE', [key]);
+          const currentState = currentResult.rows[0]?.value || null;
+          if ((currentState?.updatedAt || null) !== (expectedUpdatedAt || null)) {
+            await client.query('ROLLBACK');
+            return { conflict: true, state: currentState };
+          }
+          safeState.updatedAt = new Date().toISOString();
+          await client.query(
+            `INSERT INTO npl_site_data (data_key, value) VALUES ($1, $2::jsonb)
+             ON CONFLICT (data_key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+            [key, JSON.stringify(safeState)]
+          );
+          await client.query('COMMIT');
+          return { state: safeState };
+        } catch (error) {
+          await client.query('ROLLBACK');
+          throw error;
+        } finally {
+          client.release();
+        }
+      }
+
+      const pendingSave = liveAuctionSaveQueue.catch(() => {}).then(async () => {
+        const states = await readJson(liveAuctionFile, {});
+        const currentState = states[season] || null;
+        if ((currentState?.updatedAt || null) !== (expectedUpdatedAt || null)) {
+          return { conflict: true, state: currentState };
+        }
+        safeState.updatedAt = new Date().toISOString();
+        states[season] = safeState;
+        await writeJson(liveAuctionFile, states);
+        return { state: safeState };
+      });
+      liveAuctionSaveQueue = pendingSave;
+      return pendingSave;
+    };
+
+    const result = await save();
+    if (result.conflict) return res.status(409).json({ error: 'The live auction changed in another session. Refreshing its latest state.', state: result.state });
+    return res.json({ state: result.state });
   });
 
   app.put('/api/admin/site-data', requireAdmin, async (req, res) => {

@@ -136,11 +136,18 @@ export const NplProvider = ({ children }) => {
     const savedBySeason = loadState('auctionLiveStates', {});
     const legacyState = loadState('auctionLiveState', initialAuctionLiveState);
     return {
-      ...savedBySeason,
-      [initialSelectedSeason]: savedBySeason[initialSelectedSeason] || legacyState
+      ...Object.fromEntries(Object.entries(savedBySeason).map(([season, state]) => [
+        season,
+        state?.status ? state : initialAuctionLiveState
+      ])),
+      [initialSelectedSeason]: savedBySeason[initialSelectedSeason] || (
+        legacyState.status ? legacyState : initialAuctionLiveState
+      )
     };
   });
   const auctionLiveState = auctionLiveStates[selectedSeason] || initialAuctionLiveState;
+  const [auctionSyncStatus, setAuctionSyncStatus] = useState('connecting');
+  const auctionStateEtags = useRef({});
   const [siteMedia, setSiteMedia] = useState({});
   const [siteDataLoaded, setSiteDataLoaded] = useState(false);
   const [registrationDataLoaded, setRegistrationDataLoaded] = useState(false);
@@ -196,11 +203,59 @@ export const NplProvider = ({ children }) => {
         if (Array.isArray(data.legacyPhotos)) setLegacyPhotos(data.legacyPhotos);
         if (Array.isArray(data.highlights)) setHighlights(data.highlights);
         if (Array.isArray(data.news)) setNews(data.news);
-        if (data.auctionLiveStates) setAuctionLiveStates(data.auctionLiveStates);
       })
       .catch((error) => console.error('Could not load shared NPL content:', error))
       .finally(() => setSiteDataLoaded(true));
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    const refreshAuction = async () => {
+      try {
+        const headers = auctionStateEtags.current[selectedSeason]
+          ? { 'If-None-Match': auctionStateEtags.current[selectedSeason] }
+          : {};
+        const response = await fetch(`/api/auction/live?season=${encodeURIComponent(selectedSeason)}`, {
+          cache: 'no-store',
+          headers
+        });
+        if (response.status === 304) {
+          if (active) setAuctionSyncStatus('online');
+          return;
+        }
+        if (!response.ok) throw new Error('Could not connect to live auction updates.');
+        const result = await response.json();
+        if (!active) return;
+        const etag = response.headers.get('ETag');
+        if (etag) auctionStateEtags.current[selectedSeason] = etag;
+        if (result.state) {
+          setAuctionLiveStates((previous) => {
+            const current = previous[selectedSeason];
+            if (current?.updatedAt === result.state.updatedAt) return previous;
+            return { ...previous, [selectedSeason]: result.state };
+          });
+        } else {
+          setAuctionLiveStates((previous) => {
+            const current = previous[selectedSeason];
+            if (current === initialAuctionLiveState) return previous;
+            return { ...previous, [selectedSeason]: initialAuctionLiveState };
+          });
+        }
+        setAuctionSyncStatus('online');
+      } catch (error) {
+        if (!active) return;
+        setAuctionSyncStatus('offline');
+        console.error('Could not refresh live auction state:', error);
+      }
+    };
+
+    refreshAuction();
+    const intervalId = window.setInterval(refreshAuction, 2000);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, [selectedSeason]);
 
   useEffect(() => {
     if (!adminUser) {
@@ -313,7 +368,6 @@ export const NplProvider = ({ children }) => {
     legacyPhotos,
     highlights,
     news,
-    auctionLiveStates
   };
 
   const persistPublicSiteData = (overrides = {}) => {
@@ -325,7 +379,7 @@ export const NplProvider = ({ children }) => {
     savePublicSiteData(siteDataSaveQueue, publicSiteData)
       .catch((error) => console.error(error));
   }, [adminUser, siteDataLoaded, tournamentInfo, champions, seasons, teams, matches, pointsTable,
-    seasonStandings, selectedSeason, topPerformers, records, gallery, sectionPhotos, legacyPhotos, highlights, news, auctionLiveStates]);
+    seasonStandings, selectedSeason, topPerformers, records, gallery, sectionPhotos, legacyPhotos, highlights, news]);
 
   useEffect(() => {
     if (!import.meta.env.PROD || !adminUser || !registrationDataLoaded) return;
@@ -406,77 +460,147 @@ export const NplProvider = ({ children }) => {
     showToast(`Player status updated to ${newStatus}`);
   };
 
-  // Auction Arena: Place Bid
-  const updateAuctionLiveState = (season, updater) => {
-    setAuctionLiveStates((previousStates) => {
-      const previousState = previousStates[season] || initialAuctionLiveState;
-      const nextState = typeof updater === 'function' ? updater(previousState) : updater;
-      return { ...previousStates, [season]: nextState };
+  const updateAuctionLiveState = async (season, updater) => {
+    if (!adminUser) throw new Error('Sign in as an administrator to control the live auction.');
+    const previousState = auctionLiveStates[season] || initialAuctionLiveState;
+    const nextState = typeof updater === 'function' ? updater(previousState) : updater;
+    const response = await fetch('/api/admin/auction/live', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        season,
+        state: nextState,
+        expectedUpdatedAt: previousState.updatedAt || null
+      })
     });
+    const result = await response.json().catch(() => ({}));
+    if (response.status === 409 && result.state) {
+      setAuctionLiveStates((previous) => ({ ...previous, [season]: result.state }));
+    }
+    if (!response.ok) throw new Error(result.error || 'Could not update the live auction.');
+    setAuctionLiveStates((previous) => ({ ...previous, [season]: result.state }));
+    return result.state;
   };
 
-  const placeLiveBid = (teamId, amount, season = selectedSeason) => {
-    sound.playBidBeep();
-    const team = teams.find(t => t.id === teamId);
-    updateAuctionLiveState(season, prev => ({
-      ...prev,
-      currentBid: amount,
-      currentBiddingTeam: teamId,
-      bidHistory: [
-        { team: team?.name || teamId, amount, time: new Date().toLocaleTimeString() },
-        ...prev.bidHistory.slice(0, 7)
-      ]
+  const callLiveAuctionPlayer = async (player, season = selectedSeason) => {
+    if (!player || player.season !== season || ['AUCTIONED', 'REJECTED'].includes(player.status)) {
+      throw new Error('Choose an eligible player from this auction session.');
+    }
+    const basePrice = Number(String(player.basePrice || '').replace(/[^\d]/g, '')) || 30000;
+    const publicPlayer = Object.fromEntries(
+      ['id', 'registrationId', 'fullName', 'name', 'role', 'photo', 'basePrice']
+        .filter((key) => typeof player[key] === 'string')
+        .map((key) => [key, player[key]])
+    );
+    return updateAuctionLiveState(season, (previous) => ({
+      ...previous,
+      currentPlayer: publicPlayer,
+      currentBid: basePrice,
+      currentBiddingTeam: null,
+      bidHistory: [],
+      teamPurses: {
+        ...Object.fromEntries(teams.map((team) => [team.id, 5000000])),
+        ...previous.teamPurses
+      }
     }));
   };
 
-  // Auction Arena: Sell Player
-  const sellLivePlayer = (player, winningTeamId, finalAmount, season = selectedSeason) => {
-    sound.playGavel();
-    sound.playCheer();
-    confetti({
-      particleCount: 120,
-      spread: 80,
-      origin: { y: 0.5 }
+  const setLiveAuctionStatus = async (status, season = selectedSeason) => {
+    if (!['live', 'paused', 'completed', 'waiting'].includes(status)) {
+      throw new Error('Choose a valid auction status.');
+    }
+    return updateAuctionLiveState(season, (previous) => {
+      if (status === 'live' && !previous.currentPlayer) {
+        throw new Error('Call a player to the auction stage before going live.');
+      }
+      return { ...previous, status };
     });
+  };
 
-    const winningTeam = teams.find(t => t.id === winningTeamId);
-
-    // Update player status in registration list
-    updateRegistrationStatus(player.id, 'AUCTIONED', {
-      soldTo: winningTeam?.name || winningTeamId,
-      soldPrice: `₹${finalAmount.toLocaleString('en-IN')}`
-    });
-
-    // Update auction live state and team purse
-    updateAuctionLiveState(season, prev => {
-      const currentPurse = prev.teamPurses[winningTeamId] || 5000000;
-      const updatedPurse = Math.max(0, currentPurse - finalAmount);
+  const placeLiveBid = async (teamId, amount, season = selectedSeason) => {
+    const team = teams.find((candidate) => candidate.id === teamId);
+    if (!team) throw new Error('Choose a valid franchise.');
+    await updateAuctionLiveState(season, (previous) => {
+      if (previous.status !== 'live' || !previous.currentPlayer) throw new Error('The auction is not accepting bids right now.');
+      const purse = previous.teamPurses?.[teamId] ?? 5000000;
+      if (!Number.isSafeInteger(amount) || amount <= previous.currentBid) throw new Error('Each bid must be higher than the current bid.');
+      if (amount > purse) throw new Error(`${team.name} does not have enough purse remaining.`);
       return {
-        ...prev,
-        soldPlayers: [
-          {
-            playerId: player.id,
-            playerName: player.fullName || player.name,
-            role: player.role,
-            basePrice: player.basePrice || `₹30,000`,
-            soldPrice: `₹${finalAmount.toLocaleString('en-IN')}`,
-            team: winningTeam?.name,
-            teamShort: winningTeam?.shortName,
-            teamColor: winningTeam?.primaryColor
-          },
-          ...prev.soldPlayers
-        ],
-        teamPurses: {
-          ...prev.teamPurses,
-          [winningTeamId]: updatedPurse
-        },
-        currentBid: 50000,
+        ...previous,
+        currentBid: amount,
+        currentBiddingTeam: teamId,
+        bidHistory: [
+          { team: team.name, amount, time: new Date().toLocaleTimeString() },
+          ...(previous.bidHistory || []).slice(0, 19)
+        ]
+      };
+    });
+    sound.playBidBeep();
+  };
+
+  const sellLivePlayer = async (player, winningTeamId, finalAmount, season = selectedSeason) => {
+    const winningTeam = teams.find((candidate) => candidate.id === winningTeamId);
+    if (!winningTeam) throw new Error('The winning franchise could not be found.');
+    await updateAuctionLiveState(season, (previous) => {
+      if (previous.status !== 'live' || previous.currentPlayer?.id !== player?.id ||
+        previous.currentBiddingTeam !== winningTeamId || previous.currentBid !== finalAmount) {
+        throw new Error('The live bid has changed. Refresh the auction before selling this player.');
+      }
+      const currentPurse = previous.teamPurses?.[winningTeamId] ?? 5000000;
+      if (finalAmount > currentPurse) throw new Error('The winning franchise does not have enough purse remaining.');
+      const formattedPrice = `₹${finalAmount.toLocaleString('en-IN')}`;
+      return {
+        ...previous,
+        currentPlayer: null,
+        currentBid: 0,
         currentBiddingTeam: null,
-        bidHistory: []
+        bidHistory: [],
+        soldPlayers: [{
+          playerId: player.id,
+          playerName: player.fullName || player.name,
+          role: player.role || 'Player',
+          basePrice: player.basePrice || '₹30,000',
+          soldPrice: formattedPrice,
+          team: winningTeam.name,
+          teamShort: winningTeam.shortName,
+          teamColor: winningTeam.primaryColor
+        }, ...(previous.soldPlayers || [])],
+        teamPurses: {
+          ...previous.teamPurses,
+          [winningTeamId]: currentPurse - finalAmount
+        }
       };
     });
 
-    showToast(`SOLD! ${player.fullName || player.name} to ${winningTeam?.name || winningTeamId} for ₹${finalAmount.toLocaleString('en-IN')}`);
+    updateRegistrationStatus(player.id, 'AUCTIONED', {
+      soldTo: winningTeam.name,
+      soldPrice: `₹${finalAmount.toLocaleString('en-IN')}`
+    });
+    sound.playGavel();
+    sound.playCheer();
+    confetti({ particleCount: 120, spread: 80, origin: { y: 0.5 } });
+    showToast(`SOLD! ${player.fullName || player.name} to ${winningTeam.name} for ₹${finalAmount.toLocaleString('en-IN')}`);
+  };
+
+  const markLivePlayerUnsold = async (player, season = selectedSeason) => {
+    if (!player?.id) throw new Error('Call a player to the auction stage first.');
+    await updateAuctionLiveState(season, (previous) => {
+      if (previous.currentPlayer?.id !== player.id) throw new Error('The current auction player has changed.');
+      return {
+        ...previous,
+        currentPlayer: null,
+        currentBid: 0,
+        currentBiddingTeam: null,
+        bidHistory: [],
+        unsoldPlayers: [{
+          playerId: player.id,
+          playerName: player.fullName || player.name,
+          role: player.role || 'Player'
+        }, ...(previous.unsoldPlayers || [])]
+      };
+    });
+    updateRegistrationStatus(player.id, 'SHORTLISTED', { unsold: true });
+    showToast(`${player.fullName || player.name} marked unsold.`);
   };
 
   // Match live score simulation / update
@@ -572,8 +696,12 @@ export const NplProvider = ({ children }) => {
         registerPlayerForAuction,
         updateRegistrationStatus,
         auctionLiveState,
+        auctionSyncStatus,
+        callLiveAuctionPlayer,
+        setLiveAuctionStatus,
         placeLiveBid,
         sellLivePlayer,
+        markLivePlayerUnsold,
         persistPublicSiteData,
         siteMedia,
         refreshSiteMedia,

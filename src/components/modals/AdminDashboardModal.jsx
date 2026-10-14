@@ -1415,7 +1415,7 @@ export const AdminDashboardModal = ({ onClose }) => {
 
   // Export registrations as CSV
   const handleExportCSV = () => {
-    const headers = ["ID", "Name", "Role", "Phone", "Location", "Status", "Batting", "Bowling", "Runs", "Wickets"];
+    const headers = ["ID", "Name", "Role", "Phone", "Location", "Status", "Batting", "Bowling"];
     const rows = auctionRegistrations.filter((registration) => registration.season === selectedSeason).map(r => [
       r.registrationId,
       r.fullName || r.name,
@@ -1424,9 +1424,7 @@ export const AdminDashboardModal = ({ onClose }) => {
       r.location,
       r.status,
       r.battingStyle,
-      r.bowlingStyle,
-      r.runs,
-      r.wickets
+      r.bowlingStyle
     ]);
 
     const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");

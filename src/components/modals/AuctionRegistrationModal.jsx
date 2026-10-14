@@ -20,10 +20,6 @@ export const AuctionRegistrationModal = ({ onClose }) => {
     previousExperience: 'Yes',
     previousTeam: 'Local League',
     previousSeason: '2025',
-    matches: 12,
-    runs: 340,
-    wickets: 14,
-    bestPerformance: '54* & 3/19',
     bio: '',
     instagram: '',
     photo: '',
@@ -237,8 +233,7 @@ export const AuctionRegistrationModal = ({ onClose }) => {
                         file={photoCropFile.file}
                         previewUrl={photoCropFile.previewUrl}
                         title="player profile"
-                        aspectRatio={1}
-                        rounded
+                        aspectRatio={2 / 3}
                         onApply={handlePhotoCrop}
                         onCancel={cancelPhotoCrop}
                       />
@@ -253,7 +248,7 @@ export const AuctionRegistrationModal = ({ onClose }) => {
                 <div className="flex items-center gap-2 pb-2 border-b border-slate-800">
                   <Award className="w-4 h-4 text-amber-400" />
                   <h4 className="font-sports text-lg text-white tracking-wider">
-                    2. CRICKET PROFILE & STATS
+                    2. CRICKET PROFILE
                   </h4>
                 </div>
 
@@ -307,62 +302,13 @@ export const AuctionRegistrationModal = ({ onClose }) => {
                     </select>
                   </div>
 
-                  <div>
-                    <label className="text-xs font-semibold text-slate-300 block mb-1">
-                      Matches Played
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.matches}
-                      onChange={(e) => setFormData({ ...formData, matches: Number(e.target.value) })}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-semibold text-slate-300 block mb-1">
-                      Total Runs Scored
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.runs}
-                      onChange={(e) => setFormData({ ...formData, runs: Number(e.target.value) })}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-semibold text-slate-300 block mb-1">
-                      Wickets Taken
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.wickets}
-                      onChange={(e) => setFormData({ ...formData, wickets: Number(e.target.value) })}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white"
-                    />
-                  </div>
-
                   <div className="sm:col-span-2 lg:col-span-3">
                     <label className="text-xs font-semibold text-slate-300 block mb-1">
-                      Best Performance Highlights
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. 78* in District Final, 4/18 bowling figures"
-                      value={formData.bestPerformance}
-                      onChange={(e) => setFormData({ ...formData, bestPerformance: e.target.value })}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2 lg:col-span-3">
-                    <label className="text-xs font-semibold text-slate-300 block mb-1">
-                      Player Bio & Playing Strengths
+                      About You & Playing Strengths
                     </label>
                     <textarea
                       rows={2}
-                      placeholder="Share your strengths, preferred batting position, or bowling variations..."
+                      placeholder="Tell us about yourself and your strengths as a player..."
                       value={formData.bio}
                       onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                       className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500"
