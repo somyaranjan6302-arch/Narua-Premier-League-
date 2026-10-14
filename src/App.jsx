@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNpl } from './context/NplContext';
 import { Navbar } from './components/Navbar';
 import { HeroSection } from './components/HeroSection';
@@ -36,10 +36,45 @@ export const App = () => {
   const {
     activeModal,
     closeModal,
+    openModal,
+    teams,
+    seasons,
+    selectedSeason,
+    setSelectedSeason,
     isAdminModalOpen,
     setIsAdminModalOpen,
     toastMessage
   } = useNpl();
+  const openedTeamProfile = useRef(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const teamId = params.get('team');
+    if (!teamId || openedTeamProfile.current || activeModal.type === 'team-details') return;
+
+    const profileTeam = teams.find((team) => team.id === teamId);
+    if (!profileTeam) return;
+
+    const requestedSeasonValue = params.get('season');
+    const teamSeasons = Array.isArray(profileTeam.sessions)
+      ? profileTeam.sessions
+      : Array.isArray(profileTeam.seasons)
+        ? profileTeam.seasons
+        : profileTeam.session
+          ? [profileTeam.session]
+          : seasons.map((season) => season.edition);
+    const requestedSeason = seasons.find((season) => season.edition === requestedSeasonValue)
+      || seasons.find((season) => (
+        String(season.year || season.season) === requestedSeasonValue &&
+        teamSeasons.includes(season.edition)
+      ));
+
+    if (requestedSeason && requestedSeason.edition !== selectedSeason) {
+      setSelectedSeason(requestedSeason.edition);
+    }
+    openedTeamProfile.current = true;
+    openModal('team-details', profileTeam);
+  }, [activeModal.type, openModal, seasons, selectedSeason, setSelectedSeason, teams]);
 
   const scrollToSection = (sectionId) => {
     setActiveSection(sectionId);

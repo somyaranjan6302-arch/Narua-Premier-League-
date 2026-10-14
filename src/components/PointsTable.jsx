@@ -4,7 +4,7 @@ import { TeamBadge } from './TeamBadge';
 import { Trophy, Info } from 'lucide-react';
 
 export const PointsTable = () => {
-  const { pointsTable, seasonStandings, seasons, selectedSeason, setSelectedSeason, teams, openModal } = useNpl();
+  const { pointsTable, seasonStandings, seasons, selectedSeason, setSelectedSeason, teams } = useNpl();
   const seasonInfo = seasons.find((season) => season.edition === selectedSeason) || seasons[0];
   const visiblePointsTable = seasonStandings[selectedSeason]
     || (selectedSeason === seasons[0]?.edition ? pointsTable : []);
@@ -98,9 +98,11 @@ export const PointsTable = () => {
 
                       {/* TEAM NAME & BADGE */}
                       <td className="py-4 px-4 sm:px-6">
-                        <div
-                          onClick={() => teamObj && openModal('team-details', teamObj)}
-                          className="flex items-center gap-3 cursor-pointer group"
+                        <a
+                          href={teamObj ? `/?team=${encodeURIComponent(teamObj.id)}&season=${encodeURIComponent(selectedSeason)}` : undefined}
+                          target={teamObj ? '_blank' : undefined}
+                          rel={teamObj ? 'noopener noreferrer' : undefined}
+                          className={`flex items-center gap-3 group ${teamObj ? 'cursor-pointer' : 'cursor-default'}`}
                         >
                           <TeamBadge team={teamObj || row} size="sm" />
                           <div>
@@ -116,7 +118,7 @@ export const PointsTable = () => {
                               {teamObj?.home || "Bengal"}
                             </span>
                           </div>
-                        </div>
+                        </a>
                       </td>
 
                       {/* PLAYED */}

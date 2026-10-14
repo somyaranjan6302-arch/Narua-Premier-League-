@@ -1,164 +1,339 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNpl } from '../../context/NplContext';
-import { TeamBadge } from '../TeamBadge';
 import { getSiteMedia } from '../../utils/siteMedia';
-import { X, Trophy, UserCheck, Shield, MapPin, Award } from 'lucide-react';
+import { X, Trophy, UserCheck, Shield, MapPin, Users, CalendarDays, Newspaper, Play, Globe2 } from 'lucide-react';
+
+const profileTabs = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'squad', label: 'Squad', icon: Users },
+  { id: 'matches', label: 'Matches', icon: CalendarDays },
+  { id: 'news', label: 'News', icon: Newspaper },
+  { id: 'videos', label: 'Videos', icon: Play }
+];
+
+const teamHasMatch = (match, team) => [match.team1, match.team2].some((side) => (
+  Boolean(team && side && (
+    (team.id && side.id === team.id) ||
+    (team.name && side.name === team.name) ||
+    (team.shortName && side.shortName === team.shortName) ||
+    (team.shortName && side.name === team.shortName)
+  ))
+));
+
+const teamIsMentioned = (item, team) => {
+  if (!team) return false;
+  const content = `${item.headline || item.title || ''} ${item.snippet || ''} ${item.description || ''} ${item.fullContent || ''}`.toLowerCase();
+  return content.includes((team.name || '').toLowerCase()) ||
+    (team.shortName && content.includes(team.shortName.toLowerCase()));
+};
+
+const InfoCard = ({ label, value, icon: Icon }) => (
+  <div className="rounded-xl border border-white/10 bg-[#081943] p-4">
+    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+      {Icon && <Icon className="h-4 w-4 text-sky-300" />}
+      {label}
+    </div>
+    <p className="mt-2 break-words text-sm font-bold text-white sm:text-base">{value || 'Not listed'}</p>
+  </div>
+);
 
 export const TeamDetailsModal = ({ team, onClose }) => {
-  const { openModal, siteMedia, selectedSeason } = useNpl();
+  const { openModal, siteMedia, selectedSeason, teams, matches, news, highlights } = useNpl();
+  const [activeTab, setActiveTab] = useState('overview');
+  const [currentTeamId, setCurrentTeamId] = useState(team?.id);
+
+  const currentTeam = teams.find((candidate) => candidate.id === currentTeamId) || team;
+  const availableTeams = teams.filter((candidate) => {
+    const sessions = Array.isArray(candidate.sessions)
+      ? candidate.sessions
+      : Array.isArray(candidate.seasons)
+        ? candidate.seasons
+        : candidate.session
+          ? [candidate.session]
+          : [selectedSeason];
+    return sessions.includes(selectedSeason);
+  });
+  const primaryColor = currentTeam?.primaryColor || '#1d4ed8';
+  const teamLogo = getSiteMedia(siteMedia, `team-logo:${currentTeam?.id}`, selectedSeason, currentTeam?.logo);
+  const banner = getSiteMedia(siteMedia, `team:${currentTeam?.id}`, selectedSeason, currentTeam?.banner);
+  const teamMatches = useMemo(
+    () => matches.filter((match) => (match.season || match.session) === selectedSeason && teamHasMatch(match, currentTeam)),
+    [matches, selectedSeason, currentTeam]
+  );
+  const teamNews = useMemo(
+    () => news.filter((item) => (item.season || item.session) === selectedSeason && teamIsMentioned(item, currentTeam)),
+    [news, selectedSeason, currentTeam]
+  );
+  const teamHighlights = useMemo(
+    () => highlights.filter((item) => (item.season || item.session) === selectedSeason && teamIsMentioned(item, currentTeam)),
+    [highlights, selectedSeason, currentTeam]
+  );
+
   if (!team) return null;
 
+  const openPlayerProfile = (player) => openModal('player-profile', {
+    ...player,
+    teamId: currentTeam.id,
+    teamName: currentTeam.name,
+    teamShort: currentTeam.shortName,
+    teamColor: currentTeam.primaryColor,
+    teamLogo,
+    photo: getSiteMedia(siteMedia, `player-photo:${currentTeam.id}-${player.id}`, selectedSeason, player.photo),
+    season: selectedSeason
+  });
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md overflow-y-auto">
-      <div className="relative w-full max-w-4xl bg-[#091124] border border-slate-700 rounded-3xl shadow-2xl overflow-hidden my-6 max-h-[92vh] flex flex-col">
-        {/* Header with franchise banner & color bar */}
-        <div className="relative h-44 sm:h-52 bg-slate-950 overflow-hidden flex-shrink-0">
-          <img
-            src={getSiteMedia(siteMedia, `team:${team.id}`, selectedSeason, team.banner)}
-            alt={team.name}
-            className="w-full h-full object-cover filter brightness-50"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#091124] via-[#091124]/40 to-transparent" />
-
-          {/* Close button */}
+    <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: '#04102a' }}>
+      <div className="min-h-full">
+        <div className="sticky top-0 z-30 flex min-h-[68px] items-center justify-center border-b border-sky-400/15 px-14 shadow-lg backdrop-blur" style={{ backgroundColor: 'rgba(6, 37, 91, 0.98)' }}>
+          <div className="flex max-w-full items-center gap-2 overflow-x-auto py-2 sm:gap-3">
+            {availableTeams.map((candidate) => {
+              const candidateLogo = getSiteMedia(siteMedia, `team-logo:${candidate.id}`, selectedSeason, candidate.logo);
+              const isActive = candidate.id === currentTeam.id;
+              return (
+                <button
+                  key={candidate.id}
+                  type="button"
+                  onClick={() => {
+                    setCurrentTeamId(candidate.id);
+                    setActiveTab('overview');
+                  }}
+                  aria-label={`View ${candidate.name}`}
+                  aria-pressed={isActive}
+                  className={`flex h-12 w-14 shrink-0 items-center justify-center rounded-lg p-1.5 transition ${isActive ? 'bg-white/20 ring-1 ring-white/30' : 'hover:bg-white/10'}`}
+                >
+                  {candidateLogo ? (
+                    <img src={candidateLogo} alt="" className="h-full w-full object-contain" />
+                  ) : (
+                    <span className="text-xs font-black text-white">{candidate.shortName || candidate.name?.slice(0, 3)}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
           <button
+            type="button"
             onClick={onClose}
-            className="absolute top-4 right-4 p-2 rounded-xl bg-black/60 border border-slate-700 text-slate-300 hover:text-white"
+            aria-label="Close team profile"
+            className="absolute right-4 top-3 rounded-xl border border-white/15 bg-black/25 p-2 text-slate-200 transition hover:bg-white/10 hover:text-white"
           >
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
+        </div>
 
-          {/* Team Emblem & Info over banner */}
-          <div className="absolute bottom-4 left-6 right-6 flex items-end justify-between">
-            <div className="flex items-center gap-4">
-              <TeamBadge team={team} size="xl" />
-              <div>
-                <span className="text-xs font-bold text-amber-400 uppercase tracking-widest block">
-                  OFFICIAL FRANCHISE
+        <div className="mx-auto max-w-[1600px] px-4 pb-12 pt-4 sm:px-6 lg:px-8">
+          <section className="relative isolate min-h-[300px] overflow-hidden rounded-2xl bg-[#071535] sm:min-h-[360px]">
+            {banner && <img src={banner} alt="" className="absolute inset-0 z-0 h-full w-full object-cover" />}
+            <div
+              className="absolute inset-0 z-0 opacity-60 mix-blend-screen"
+              style={{
+                background: `radial-gradient(circle at 75% 50%, ${primaryColor} 0%, ${primaryColor} 12%, transparent 12.5%), repeating-conic-gradient(from 12deg at 75% 50%, ${primaryColor} 0deg 7deg, transparent 7deg 16deg)`
+              }}
+            />
+            <div className="absolute inset-0 z-[1] bg-gradient-to-r from-black/75 via-black/25 to-black/10" />
+            <div className="absolute inset-0 z-[1] bg-gradient-to-t from-black/40 to-transparent" />
+
+            <div className="relative z-10 flex min-h-[300px] items-center justify-between gap-4 p-6 sm:min-h-[360px] sm:px-10 sm:py-8">
+              <div className="max-w-[70%]">
+                <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/20 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-white/90 backdrop-blur">
+                  {selectedSeason} • Official franchise
                 </span>
-                <h3 className="font-sports text-3xl sm:text-5xl text-white tracking-wide leading-none">
-                  {team.name}
-                </h3>
-                <span className="text-xs text-slate-300 italic">
-                  "{team.slogan}"
-                </span>
+                <h1 className="mt-4 max-w-3xl font-heading text-3xl font-black leading-tight text-white drop-shadow-lg sm:text-5xl lg:text-6xl">
+                  {currentTeam.name}
+                </h1>
+                {currentTeam.slogan && <p className="mt-3 text-sm font-semibold text-white/85 sm:text-base">{currentTeam.slogan}</p>}
+                {currentTeam.titles > 0 && (
+                  <span className="mt-5 inline-flex items-center gap-2 rounded-lg bg-black/30 px-3 py-2 text-sm font-extrabold text-amber-200">
+                    <Trophy className="h-4 w-4" />
+                    {currentTeam.titles} {currentTeam.titles === 1 ? 'Championship' : 'Championships'}
+                  </span>
+                )}
+              </div>
+              <div className="flex h-24 w-24 shrink-0 items-center justify-center sm:h-40 sm:w-40">
+                {teamLogo ? (
+                  <img src={teamLogo} alt={`${currentTeam.name} logo`} className="h-full w-full object-contain drop-shadow-2xl" />
+                ) : (
+                  <span className="text-3xl font-black text-white drop-shadow-lg">{currentTeam.shortName || 'NPL'}</span>
+                )}
               </div>
             </div>
+          </section>
 
-            {team.titles > 0 && (
-              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/20 border border-amber-500 text-amber-300 font-sports text-sm">
-                <Trophy className="w-4 h-4" />
-                <span>{team.titles} {team.titles === 1 ? 'CHAMPIONSHIP' : 'CHAMPIONSHIPS'}</span>
+          <nav aria-label="Team profile sections" className="-mt-1 flex gap-1 overflow-x-auto border-b border-sky-400/15 bg-[#06255b]/80 px-2 sm:px-4">
+            {profileTabs.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setActiveTab(id)}
+                aria-current={activeTab === id ? 'page' : undefined}
+                className={`inline-flex shrink-0 items-center gap-2 border-b-2 px-4 py-4 text-sm font-bold transition sm:px-6 ${activeTab === id ? 'border-orange-500 text-white' : 'border-transparent text-blue-100/70 hover:text-white'}`}
+              >
+                {Icon && <Icon className="h-4 w-4" />}
+                {label}
+                {id === 'squad' && <span className="text-xs opacity-70">{currentTeam.squad?.length || 0}</span>}
+              </button>
+            ))}
+          </nav>
+
+          <main className="pt-7">
+            {activeTab === 'overview' && (
+              <div className="space-y-7">
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+                  {[
+                    ['Matches', currentTeam.matches ?? teamMatches.length, 'text-white'],
+                    ['Wins', currentTeam.wins ?? 0, 'text-emerald-300'],
+                    ['Losses', currentTeam.losses ?? 0, 'text-rose-300'],
+                    ['Win rate', `${currentTeam.winPercentage ?? 0}%`, 'text-sky-200'],
+                    ['Titles', currentTeam.titles ?? 0, 'text-amber-200']
+                  ].map(([label, value, color]) => (
+                    <div key={label} className="rounded-xl border border-white/10 bg-[#081943] p-4 text-center">
+                      <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</span>
+                      <span className={`mt-1 block font-heading text-2xl font-black ${color}`}>{value}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <InfoCard label="Captain" value={currentTeam.captain} icon={UserCheck} />
+                  <InfoCard label="Coach" value={currentTeam.coach} icon={Shield} />
+                  <InfoCard label="Owner" value={currentTeam.owner} icon={Users} />
+                  <InfoCard label="Venue" value={currentTeam.home} icon={MapPin} />
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-[#081943] p-5">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-widest text-sky-300">Official squad</p>
+                      <h2 className="mt-1 text-xl font-extrabold text-white">Meet the players</h2>
+                    </div>
+                    <button type="button" onClick={() => setActiveTab('squad')} className="rounded-full bg-white/10 px-4 py-2 text-xs font-bold text-white transition hover:bg-white/20">
+                      Full squad ({currentTeam.squad?.length || 0})
+                    </button>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {(currentTeam.squad || []).slice(0, 8).map((player) => (
+                      <button
+                        key={player.id}
+                        type="button"
+                        onClick={() => openPlayerProfile(player)}
+                        className="rounded-full border border-white/10 bg-black/20 px-3 py-2 text-xs font-bold text-slate-100 transition hover:border-sky-300/50 hover:bg-sky-950/60"
+                      >
+                        {player.name}{player.isCaptain ? ' • C' : ''}
+                      </button>
+                    ))}
+                    {!currentTeam.squad?.length && <p className="text-sm text-slate-400">The squad roster has not been added for this team.</p>}
+                  </div>
+                </div>
               </div>
             )}
-          </div>
-        </div>
 
-        {/* Performance Statistics Row */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 p-4 bg-slate-950 border-b border-slate-800 text-center text-xs">
-          <div className="p-2 bg-slate-900/60 rounded-xl">
-            <span className="text-[10px] text-slate-400 uppercase block font-bold">Matches</span>
-            <span className="font-sports text-2xl text-white">{team.matches}</span>
-          </div>
-          <div className="p-2 bg-slate-900/60 rounded-xl">
-            <span className="text-[10px] text-emerald-400 uppercase block font-bold">Wins</span>
-            <span className="font-sports text-2xl text-emerald-400">{team.wins}</span>
-          </div>
-          <div className="p-2 bg-slate-900/60 rounded-xl">
-            <span className="text-[10px] text-rose-400 uppercase block font-bold">Losses</span>
-            <span className="font-sports text-2xl text-rose-400">{team.losses}</span>
-          </div>
-          <div className="p-2 bg-slate-900/60 rounded-xl">
-            <span className="text-[10px] text-amber-400 uppercase block font-bold">Win %</span>
-            <span className="font-sports text-2xl text-amber-400">{team.winPercentage}%</span>
-          </div>
-          <div className="col-span-2 sm:col-span-1 p-2 bg-slate-900/60 rounded-xl">
-            <span className="text-[10px] text-slate-400 uppercase block font-bold">Titles</span>
-            <span className="font-sports text-2xl text-amber-300">{team.titles}</span>
-          </div>
-        </div>
-
-        {/* Franchise Details (Captain, Owner, Home Ground) */}
-        <div className="p-6 border-b border-slate-800 bg-[#060D1E] grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-          <div className="flex items-center gap-3">
-            <UserCheck className="w-5 h-5 text-amber-400" />
-            <div>
-              <span className="text-[10px] text-slate-400 uppercase block font-bold">Captain</span>
-              <span className="font-bold text-white text-sm">{team.captain}</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Shield className="w-5 h-5 text-blue-400" />
-            <div>
-              <span className="text-[10px] text-slate-400 uppercase block font-bold">Owner</span>
-              <span className="font-bold text-slate-200 text-sm">{team.owner}</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <MapPin className="w-5 h-5 text-emerald-400" />
-            <div>
-              <span className="text-[10px] text-slate-400 uppercase block font-bold">Home Venue</span>
-              <span className="font-bold text-slate-200 text-sm">{team.home}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Squad List */}
-        <div className="p-6 overflow-y-auto space-y-4 flex-grow">
-          <div className="flex items-center justify-between">
-            <h4 className="font-sports text-xl text-white tracking-wider">
-              OFFICIAL SQUAD ROSTER ({team.squad?.length || 0} PLAYERS)
-            </h4>
-            <span className="text-xs text-slate-400 font-semibold">
-              Click player to view individual stats
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {team.squad?.map((player) => (
-              <div
-                key={player.id}
-                onClick={() => openModal('player-profile', {
-                  ...player,
-                  teamId: team.id,
-                  teamName: team.name,
-                  teamShort: team.shortName,
-                  teamColor: team.primaryColor,
-                  teamLogo: getSiteMedia(siteMedia, `team-logo:${team.id}`, selectedSeason, team.logo),
-                  photo: getSiteMedia(siteMedia, `player-photo:${team.id}-${player.id}`, selectedSeason, player.photo),
-                  season: selectedSeason
-                })}
-                className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800 hover:border-amber-500/50 cursor-pointer transition-all flex items-center justify-between text-xs group"
-              >
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-white group-hover:text-amber-400">
-                      {player.name}
-                    </span>
-                    {player.isCaptain && (
-                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-400 border border-amber-500/40">
-                        C
-                      </span>
-                    )}
+            {activeTab === 'squad' && (
+              <section>
+                <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-widest text-sky-300">Official roster</p>
+                    <h2 className="mt-1 text-2xl font-extrabold text-white">Squad</h2>
                   </div>
-                  <span className="text-[11px] text-slate-400 block mt-0.5">
-                    {player.role} • {player.style}
-                  </span>
+                  <span className="text-sm text-slate-400">{currentTeam.squad?.length || 0} players • Select a player to view profile</span>
                 </div>
+                {currentTeam.squad?.length ? (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {currentTeam.squad.map((player, index) => {
+                      const playerPhoto = getSiteMedia(siteMedia, `player-photo:${currentTeam.id}-${player.id}`, selectedSeason, player.photo);
+                      return (
+                        <button
+                          key={player.id}
+                          type="button"
+                          onClick={() => openPlayerProfile(player)}
+                          className="group flex min-w-0 items-center gap-3 rounded-xl border border-white/10 bg-[#081943] p-3 text-left transition hover:border-sky-300/50 hover:bg-[#0b2253]"
+                        >
+                          <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-900 text-sm font-black text-slate-400">
+                            {playerPhoto ? <img src={playerPhoto} alt="" className="h-full w-full object-cover" /> : String(index + 1).padStart(2, '0')}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-center gap-2">
+                              <span className="truncate text-sm font-extrabold text-white group-hover:text-sky-200">{player.name}</span>
+                              {player.isCaptain && <span className="rounded bg-amber-400/15 px-1.5 py-0.5 text-[9px] font-black text-amber-200">CAPTAIN</span>}
+                            </span>
+                            <span className="mt-1 block truncate text-xs text-slate-400">{player.role || 'Player'}{player.style ? ` • ${player.style}` : ''}</span>
+                          </span>
+                          <span className="shrink-0 text-right">
+                            <span className="block text-sm font-black text-sky-200">{player.runs ? `${player.runs} R` : `${player.wickets || 0} W`}</span>
+                            <span className="block text-[10px] text-slate-500">#{index + 1}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="rounded-xl border border-dashed border-white/15 p-8 text-center text-sm text-slate-400">The squad roster has not been added for this team.</p>
+                )}
+              </section>
+            )}
 
-                <div className="text-right">
-                  <span className="font-sports text-base text-amber-400 block leading-tight">
-                    {player.runs ? `${player.runs} R` : `${player.wickets || 0} W`}
-                  </span>
-                  <span className="text-[10px] text-slate-500">
-                    Age {player.age}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+            {activeTab === 'matches' && (
+              <section>
+                <p className="text-xs font-black uppercase tracking-widest text-sky-300">Season results</p>
+                <h2 className="mb-5 mt-1 text-2xl font-extrabold text-white">{currentTeam.name} matches</h2>
+                {teamMatches.length ? (
+                  <div className="space-y-3">
+                    {teamMatches.map((match) => (
+                      <article key={match.id} className="flex flex-col gap-3 rounded-xl border border-white/10 bg-[#081943] p-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-wider text-sky-300">{match.matchNumber || match.tournamentPhase || 'Match'}{match.date ? ` • ${match.date}` : ''}</p>
+                          <p className="mt-1 font-bold text-white">{match.team1?.name || match.team1?.shortName} <span className="px-2 text-slate-500">vs</span> {match.team2?.name || match.team2?.shortName}</p>
+                        </div>
+                        <div className="text-sm font-extrabold text-slate-200">
+                          {match.team1?.score || '—'} <span className="px-1 text-slate-500">/</span> {match.team2?.score || '—'}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : <p className="rounded-xl border border-dashed border-white/15 p-8 text-center text-sm text-slate-400">No match records are available for this team in {selectedSeason}.</p>}
+              </section>
+            )}
+
+            {activeTab === 'news' && (
+              <section>
+                <p className="text-xs font-black uppercase tracking-widest text-sky-300">Team updates</p>
+                <h2 className="mb-5 mt-1 text-2xl font-extrabold text-white">{currentTeam.name} news</h2>
+                {teamNews.length ? (
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    {teamNews.map((item) => (
+                      <article key={item.id} className="rounded-xl border border-white/10 bg-[#081943] p-5">
+                        <p className="text-xs font-bold text-sky-300">{item.date || selectedSeason} • {item.category || 'Team news'}</p>
+                        <h3 className="mt-2 text-lg font-extrabold text-white">{item.headline}</h3>
+                        {item.snippet && <p className="mt-2 text-sm leading-relaxed text-slate-300">{item.snippet}</p>}
+                      </article>
+                    ))}
+                  </div>
+                ) : <p className="rounded-xl border border-dashed border-white/15 p-8 text-center text-sm text-slate-400">No news has been linked to {currentTeam.name} for {selectedSeason}.</p>}
+              </section>
+            )}
+
+            {activeTab === 'videos' && (
+              <section>
+                <p className="text-xs font-black uppercase tracking-widest text-sky-300">Watch</p>
+                <h2 className="mb-5 mt-1 text-2xl font-extrabold text-white">{currentTeam.name} videos</h2>
+                {teamHighlights.length ? (
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {teamHighlights.map((item) => (
+                      <article key={item.id} className="overflow-hidden rounded-xl border border-white/10 bg-[#081943]">
+                        {item.thumbnail && <img src={getSiteMedia(siteMedia, `highlight:${item.id}`, selectedSeason, item.thumbnail)} alt="" className="aspect-video w-full object-cover" />}
+                        <div className="p-4">
+                          <h3 className="font-extrabold text-white">{item.title}</h3>
+                          {item.description && <p className="mt-1 text-xs text-slate-400">{item.description}</p>}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : <p className="rounded-xl border border-dashed border-white/15 p-8 text-center text-sm text-slate-400">No videos have been linked to {currentTeam.name} for {selectedSeason}.</p>}
+              </section>
+            )}
+          </main>
+
+          <footer className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-5 text-xs text-slate-400">
+            <span className="inline-flex items-center gap-2"><Globe2 className="h-4 w-4 text-sky-300" /> Narua Premier League • {selectedSeason}</span>
+            <span>{currentTeam.name}</span>
+          </footer>
         </div>
       </div>
     </div>

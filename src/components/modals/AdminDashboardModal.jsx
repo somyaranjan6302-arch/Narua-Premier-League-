@@ -1275,11 +1275,12 @@ export const AdminDashboardModal = ({ onClose }) => {
       category: 'performers',
       record: performer,
       editTarget: { type: 'performer', key },
-      title: `${performer.player} • ${key.replace(/([A-Z])/g, ' $1')}`,
-      description: 'Top performer profile photo.',
+      title: `${performer.player || performer.team || 'Top performer'} • ${key.replace(/([A-Z])/g, ' $1')}`,
+      description: 'Top performer portrait photo • 9:17 vertical card crop.',
       fallback: performer.photo,
-      aspectRatio: 1,
-      sessionSpecific: true
+      aspectRatio: 9 / 17,
+      sessionSpecific: true,
+      defaultSession: selectedSeason
     }))
   ];
   const mediaCategories = [
@@ -1984,7 +1985,27 @@ export const AdminDashboardModal = ({ onClose }) => {
                     Add old photo
                   </button>
                 </div>
-                <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-[minmax(12rem,0.7fr)_minmax(14rem,1fr)]">
+                <div className="mb-5 flex flex-col gap-3 rounded-xl border border-sky-800/60 bg-sky-950/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h5 className="font-sports text-base text-sky-300">TOP PERFORMER PROFILE PHOTOS</h5>
+                    <p className="mt-1 text-xs text-slate-300">
+                      Upload portrait photos for the Top Performers cards. Choose the session for each image; photos use the same vertical 9:17 crop as the cards.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMediaCategory('performers');
+                      setMediaSearch('');
+                      document.getElementById('media-image-library')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }}
+                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-sky-500 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-slate-950 transition hover:bg-sky-400"
+                  >
+                    <UserRound className="h-4 w-4" />
+                    Manage performer photos
+                  </button>
+                </div>
+                <div id="media-image-library" className="mb-4 grid scroll-mt-4 grid-cols-1 gap-3 sm:grid-cols-[minmax(12rem,0.7fr)_minmax(14rem,1fr)]">
                   <label className="text-xs font-bold text-slate-400">
                     Image category or website section
                     <select
