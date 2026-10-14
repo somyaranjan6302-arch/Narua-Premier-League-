@@ -4,6 +4,10 @@ import { TeamBadge } from '../TeamBadge';
 import { SessionSelector } from '../SessionSelector';
 import { ImageCropEditor } from '../ImageCropEditor';
 import { getChampionMediaKey, getSessionMediaKey } from '../../utils/siteMedia';
+import { session2Performers } from '../../data/session2Data';
+import { session3Performers } from '../../data/session3Data';
+import { session4Performers } from '../../data/session4Data';
+import { session5Performers } from '../../data/session5Data';
 import {
   X,
   Shield,
@@ -191,6 +195,7 @@ export const AdminDashboardModal = ({ onClose }) => {
   const [pendingMediaFiles, setPendingMediaFiles] = useState({});
   const [mediaCropFiles, setMediaCropFiles] = useState({});
   const [mediaSessionSelections, setMediaSessionSelections] = useState({});
+  const [performerPhotoSeason, setPerformerPhotoSeason] = useState(selectedSeason);
   const mediaPreviewUrls = useRef(new Set());
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [tournamentDraft, setTournamentDraft] = useState(() => ({ ...tournamentInfo }));
@@ -1025,8 +1030,8 @@ export const AdminDashboardModal = ({ onClose }) => {
   };
 
   const mediaUploadControl = (item) => {
-    const { key: baseMediaKey, title, description, fallback: fallbackImage = '', aspectRatio = 1, fit = false, galleryItem, directUpload = false, sessionSpecific = false } = item;
-    const mediaSession = mediaSessionSelections[baseMediaKey] || item.defaultSession || selectedSeason;
+    const { key: baseMediaKey, title, description, fallback: fallbackImage = '', aspectRatio = 1, fit = false, galleryItem, directUpload = false, sessionSpecific = false, fixedSession } = item;
+    const mediaSession = fixedSession || mediaSessionSelections[baseMediaKey] || item.defaultSession || selectedSeason;
     const mediaKey = sessionSpecific ? getSessionMediaKey(baseMediaKey, mediaSession) : baseMediaKey;
     const activeMediaKey = siteMedia[mediaKey] ? mediaKey : siteMedia[baseMediaKey] ? baseMediaKey : null;
     const pendingMedia = pendingMediaFiles[mediaKey];
@@ -1057,7 +1062,7 @@ export const AdminDashboardModal = ({ onClose }) => {
       <div className="min-w-0">
         <p className="text-sm font-bold text-white">{title}</p>
         <p className="text-xs text-slate-400">{description}</p>
-        {sessionSpecific && (
+        {sessionSpecific && !fixedSession && (
           <label className="mt-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
             Session
             <select
@@ -1160,6 +1165,13 @@ export const AdminDashboardModal = ({ onClose }) => {
     );
   };
 
+  const performerPhotosBySeason = {
+    'Season 2': session2Performers,
+    'Season 3': session3Performers,
+    'Season 4': session4Performers,
+    'Season 5': session5Performers
+  };
+  const performersForPhotoSession = performerPhotosBySeason[performerPhotoSeason] || topPerformers;
   const mediaItems = [
     { key: 'logo', category: 'branding', title: 'NPL logo', description: 'Shown in the header and footer.', aspectRatio: 1, fit: true },
     { key: 'stadium', category: 'branding', title: 'Stadium image', description: 'Shown on the home and league story pages.', fallback: '/assets/stadium.jpg', aspectRatio: 16 / 9 },
@@ -1270,17 +1282,18 @@ export const AdminDashboardModal = ({ onClose }) => {
       sessionSpecific: true,
       defaultSession: item.season || item.session
     })),
-    ...Object.entries(topPerformers).map(([key, performer]) => ({
+    ...Object.entries(performersForPhotoSession).map(([key, performer]) => ({
       key: `performer:${key}`,
       category: 'performers',
       record: performer,
       editTarget: { type: 'performer', key },
       title: `${performer.player || performer.team || 'Top performer'} • ${key.replace(/([A-Z])/g, ' $1')}`,
-      description: 'Top performer portrait photo • 9:17 vertical card crop.',
+      description: `${performerPhotoSeason} • ${key.replace(/([A-Z])/g, ' $1')} • 9:17 portrait crop.`,
       fallback: performer.photo,
       aspectRatio: 9 / 17,
       sessionSpecific: true,
-      defaultSession: selectedSeason
+      defaultSession: performerPhotoSeason,
+      fixedSession: performerPhotoSeason
     }))
   ];
   const mediaCategories = [
@@ -1459,7 +1472,6 @@ export const AdminDashboardModal = ({ onClose }) => {
   const registrationsForSelectedSession = auctionRegistrations.filter((registration) => registration.season === selectedSeason);
   const adminPointsTable = seasonStandings[selectedSeason]
     || (selectedSeason === seasons[0]?.edition ? pointsTable : []);
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/90 p-0 backdrop-blur-md sm:p-4">
       <div className="relative my-0 flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden rounded-none border-0 border-slate-700 bg-[#070D1E] shadow-2xl sm:my-6 sm:h-auto sm:max-h-[94vh] sm:max-w-6xl sm:rounded-3xl sm:border-2">
@@ -1999,21 +2011,37 @@ export const AdminDashboardModal = ({ onClose }) => {
                   <div>
                     <h5 className="font-sports text-base text-sky-300">TOP PERFORMER PROFILE PHOTOS</h5>
                     <p className="mt-1 text-xs text-slate-300">
-                      Upload portrait photos for the Top Performers cards. Choose the session for each image; photos use the same vertical 9:17 crop as the cards.
+                      Choose a session to load that session&apos;s actual performers, then upload each portrait. Photos use the same vertical 9:17 crop as the cards.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMediaCategory('performers');
-                      setMediaSearch('');
-                      document.getElementById('media-image-library')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }}
-                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-sky-500 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-slate-950 transition hover:bg-sky-400"
-                  >
-                    <UserRound className="h-4 w-4" />
-                    Manage performer photos
-                  </button>
+                  <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-end">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-sky-200">
+                      Performer session
+                      <select
+                        value={performerPhotoSeason}
+                        onChange={(event) => setPerformerPhotoSeason(event.target.value)}
+                        aria-label="Session for top performer photos"
+                        className="mt-1 block min-h-10 w-full rounded-lg border border-sky-700 bg-slate-950 px-3 py-2 text-xs font-semibold normal-case tracking-normal text-white focus:border-sky-400 focus:outline-none"
+                      >
+                        {seasons.map((season) => (
+                          <option key={season.edition} value={season.edition}>
+                            {season.edition} ({season.year || season.season})
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMediaCategory('section:performers');
+                        setMediaSearch('');
+                      }}
+                      className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-sky-500 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-slate-950 transition hover:bg-sky-400"
+                    >
+                      <UserRound className="h-4 w-4" />
+                      Show session performers
+                    </button>
+                  </div>
                 </div>
                 <div id="media-image-library" className="mb-4 grid scroll-mt-4 grid-cols-1 gap-3 sm:grid-cols-[minmax(12rem,0.7fr)_minmax(14rem,1fr)]">
                   <label className="text-xs font-bold text-slate-400">
