@@ -1300,7 +1300,9 @@ export const AdminDashboardModal = ({ onClose }) => {
     }))
   ];
   const filteredMediaItems = mediaItems.filter((item) => {
-    const matchesCategory = mediaCategory === 'all' || item.category === mediaCategory;
+    const matchesCategory = mediaCategory === 'all' ||
+      item.category === mediaCategory ||
+      (mediaCategory === 'section:performers' && item.category === 'performers');
     const searchText = `${item.title} ${item.description}`.toLowerCase();
     return matchesCategory && searchText.includes(mediaSearch.trim().toLowerCase());
   });
