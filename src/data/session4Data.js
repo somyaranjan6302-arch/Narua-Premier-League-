@@ -128,7 +128,10 @@ const performer = (key, category, playerKey, stat, details, badgeColor) => ({
 
 export const session4Performers = {
   orangeCap: performer('orangeCap', 'Orange Cap (Most Runs)', topBatter[0], `${topBatter[1].runs} Runs`, `${topBatter[1].innings} innings • ${topBatter[1].fours} fours • ${topBatter[1].sixes} sixes`, 'from-amber-500 to-orange-600'),
-  purpleCap: performer('purpleCap', 'Purple Cap (Most Wickets)', mostWickets[0], `${mostWickets[1].wickets} Wickets`, `${mostWickets[1].innings} bowling innings • best ${mostWickets[1].bestBowling.figures}`, 'from-purple-600 to-indigo-800'),
+  purpleCap: {
+    ...performer('purpleCap', 'Purple Cap (Most Wickets)', 'mr soumya', '12 Wickets', `${source.bowling['mr soumya'].innings} bowling innings • best ${source.bowling['mr soumya'].bestBowling.figures}`, 'from-purple-600 to-indigo-800'),
+    player: 'Mr Soumya'
+  },
   mostSixes: performer('mostSixes', 'Maximum Sixes Award', mostSixes[0], `${mostSixes[1].sixes} Sixes`, `${mostSixes[1].runs} runs • ${mostSixes[1].fours} fours`, 'from-red-500 to-rose-700'),
   highestScore: performer('highestScore', 'Highest Individual Score', highestScore[0], `${highestScore[1].highestScore} (${highestScore[1].bestScoreBalls})`, `${highestScore[1].runs} tournament runs • ${highestScore[1].sixes} sixes`, 'from-cyan-600 to-blue-800'),
   bestBowling: performer('bestBowling', 'Best Bowling Figures', bestFigures[0], bestFigures[1].bestBowling.figures, 'Best innings bowling figures in Session 4', 'from-violet-600 to-fuchsia-800')
@@ -144,7 +147,7 @@ export const session4Records = [
 export const session4Season = {
   season: '2026', year: '2026', edition: 'Season 4', status: 'COMPLETED', teamsCount: 6, matchesCount: 15,
   champion: 'Titan Strikers', runnerUp: 'HP Commando 11', topScorer: 'Rohan Das (86 runs)',
-  topWicketTaker: `${toName(mostWickets[0])} (${mostWickets[1].wickets} wickets)`,
+  topWicketTaker: 'Mr Soumya (12 wickets)',
   playerOfTournament: 'Rohan Das (86 runs)',
   description: 'Six teams played a 12-match league, two semifinals, and a final at Narua Playground, Jajpur. Titan Strikers won the championship.'
 };

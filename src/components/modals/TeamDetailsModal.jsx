@@ -100,13 +100,26 @@ export const TeamDetailsModal = ({ team, onClose }) => {
                   }}
                   aria-label={`View ${candidate.name}`}
                   aria-pressed={isActive}
-                  className={`flex h-12 w-14 shrink-0 items-center justify-center rounded-lg p-1.5 transition ${isActive ? 'bg-white/20 ring-1 ring-white/30' : 'hover:bg-white/10'}`}
+                  title={candidate.name}
+                  className={`group/team flex h-12 shrink-0 items-center gap-2 rounded-xl border px-2.5 shadow-sm transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#06255b] ${
+                    isActive
+                      ? 'border-white/70 text-white shadow-lg shadow-black/25 ring-2 ring-amber-300/70'
+                      : 'border-white/10 bg-slate-950/25 text-white/75 hover:border-white/35 hover:bg-white/10 hover:text-white'
+                  }`}
+                  style={isActive ? {
+                    background: `linear-gradient(135deg, ${candidate.primaryColor || '#0ea5e9'}, ${candidate.secondaryColor || '#082f49'})`
+                  } : undefined}
                 >
-                  {candidateLogo ? (
-                    <img src={candidateLogo} alt="" className="h-full w-full object-contain" />
-                  ) : (
-                    <span className="text-xs font-black text-white">{candidate.shortName || candidate.name?.slice(0, 3)}</span>
-                  )}
+                  <span className={`flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border p-1 ${
+                    isActive ? 'border-white/50 bg-black/15' : 'border-white/15 bg-black/20'
+                  }`}>
+                    {candidateLogo ? (
+                      <img src={candidateLogo} alt="" className="h-full w-full object-contain" />
+                    ) : (
+                      <span className="text-[10px] font-black text-white">{candidate.shortName || candidate.name?.slice(0, 3)}</span>
+                    )}
+                  </span>
+                  <span className="max-w-32 truncate text-xs font-extrabold">{candidate.name}</span>
                 </button>
               );
             })}

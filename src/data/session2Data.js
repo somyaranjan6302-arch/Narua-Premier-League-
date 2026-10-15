@@ -93,26 +93,32 @@ const performer = (category, playerKey, stat, details, badgeColor) => ({
 });
 
 export const session2Performers = {
-  orangeCap: performer('Orange Cap (Most Runs)', topBatter[0], `${topBatter[1].runs} Runs`, `${topBatter[1].innings} innings • ${topBatter[1].fours} fours • ${topBatter[1].sixes} sixes in the supplied scorecards`, 'from-amber-500 to-orange-600'),
-  purpleCap: performer('Purple Cap (Most Wickets)', mostWickets[0], `${mostWickets[1].wickets} Wickets`, `Joint or sole leader in the supplied scorecards • best ${mostWickets[1].bestBowling.figures}`, 'from-purple-600 to-indigo-800'),
-  mostSixes: performer('Maximum Sixes Award', mostSixes[0], `${mostSixes[1].sixes} Sixes`, `${mostSixes[1].runs} runs • ${mostSixes[1].fours} fours in the supplied scorecards`, 'from-red-500 to-rose-700'),
-  bestEconomy: performer('Best Bowling Economy', bestEconomy[0], `${(bestEconomy[1].runsConceded / (bestEconomy[1].ballsBowled / 6)).toFixed(2)} Econ`, `${bestEconomy[1].innings} bowling innings • ${bestEconomy[1].wickets} wickets in the supplied scorecards`, 'from-emerald-600 to-teal-800'),
-  highestScore: performer('Highest Individual Score', highestScore[0], `${highestScore[1].highestScore} (${highestScore[1].bestScoreBalls})`, `${highestScore[1].runs} total runs • ${highestScore[1].sixes} sixes in the supplied scorecards`, 'from-cyan-600 to-blue-800'),
-  bestBowling: performer('Best Bowling Figures', bestFigures[0], bestFigures[1].bestBowling.figures, 'Best innings bowling figures in the supplied Session 2 scorecards', 'from-violet-600 to-fuchsia-800')
+  orangeCap: performer('Orange Cap (Most Runs)', 'chikuuuuu', '132 Runs', 'Session 2 final result', 'from-amber-500 to-orange-600'),
+  purpleCap: {
+    ...performer('Purple Cap (Most Wickets)', 'tulu madhapur', '9 Wickets', 'Session 2 final result', 'from-purple-600 to-indigo-800'),
+    player: 'Tulu'
+  },
+  mostSixes: performer('Maximum Sixes Award', 'chikuuuuu', '11 Sixes', 'Session 2 final result', 'from-red-500 to-rose-700'),
+  bestEconomy: performer('Best Bowling Economy', 'sabir', '6.2 Econ', 'Session 2 final result', 'from-emerald-600 to-teal-800'),
+  highestScore: performer('Highest Individual Score', 'chikuuuuu', '53', 'Session 2 final result', 'from-cyan-600 to-blue-800'),
+  bestBowling: {
+    ...performer('Best Bowling Figures', 'tulu madhapur', '3/17', 'Session 2 final result', 'from-violet-600 to-fuchsia-800'),
+    player: 'Tulu'
+  }
 };
 
 export const session2Records = [
   { season: 'Season 2', title: 'Highest Team Total', holder: 'Kaina Tiger', value: '76/9', details: '8.0 overs vs Bajarangi 11 (Quarter Final)' },
   { season: 'Season 2', title: 'Lowest Total', holder: '11 Star Sayedpur', value: '58/8', details: '8.0 overs vs Ramachandrapur Fighter (Quarter Final)' },
-  { season: 'Season 2', title: 'Highest Individual Score', holder: 'Chikuuuuu', value: '48 (14)', details: 'BNM Royals Narua vs 11 Star Sayedpur' },
-  { season: 'Season 2', title: 'Best Bowling Figures', holder: 'Krishna Rout', value: '4/9', details: 'Bajarangi 11 vs Kaina Tiger (Quarter Final)' }
+  { season: 'Season 2', title: 'Highest Individual Score', holder: 'Chikuuuuu', value: '53', details: 'Session 2 final result' },
+  { season: 'Season 2', title: 'Best Bowling Figures', holder: 'Tulu', value: '3/17', details: 'Session 2 final result' }
 ];
 
 export const session2Season = {
   season: '2024', year: '2024', edition: 'Season 2', status: 'PARTIAL', teamsCount: 6, matchesCount: 4,
   champion: 'No Compromise Kaina', runnerUp: 'Not included in the supplied PDF',
-  topScorer: `${toName(topBatter[0])} (${topBatter[1].runs} runs in the supplied scorecards)`,
-  topWicketTaker: `${toName(mostWickets[0])} (${mostWickets[1].wickets} wickets in the supplied scorecards)`,
+  topScorer: 'Chikuuuuu (132 runs)',
+  topWicketTaker: 'Tulu (9 wickets)',
   playerOfTournament: 'Not listed in the supplied PDF',
   description: 'No Compromise Kaina won Season 2. The supplied PDF contains one league match and three quarter-finals; standings and player totals show only those four scorecards.'
 };

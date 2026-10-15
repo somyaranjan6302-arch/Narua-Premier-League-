@@ -23,6 +23,8 @@ export const ChampionsSection = () => {
 
   const activeChampion = sessionChampions[sessionChampionIndex];
   const championTeamObj = activeChampion && teams.find(t => t.shortName === activeChampion.championShort);
+  const finalScoreEntries = activeChampion?.finalScores?.split('|').map((score) => score.trim()) || [];
+  const hasFinalScores = finalScoreEntries.length === 2 && finalScoreEntries.every(Boolean);
 
   return (
     <section id="champions" className="py-20 relative bg-gradient-to-b from-[#050B17] via-[#091329] to-[#050B17] overflow-hidden">
@@ -192,7 +194,7 @@ export const ChampionsSection = () => {
 
                 {/* View Season Button */}
                 <div className="pt-2 flex items-center gap-4">
-                  <button
+                  {hasFinalScores ? <button
                     onClick={() => openModal('match-details', {
                       status: 'COMPLETED',
                       matchNumber: `NPL ${activeChampion.season} Grand Final`,
@@ -208,7 +210,9 @@ export const ChampionsSection = () => {
                   >
                     <Eye className="w-4 h-4 text-slate-950" />
                     <span>VIEW FINAL SCORECARD</span>
-                  </button>
+                  </button> : (
+                    <p className="text-xs font-semibold text-slate-400">Final scorecard unavailable; final scores were not provided.</p>
+                  )}
                 </div>
               </div>
             </div>

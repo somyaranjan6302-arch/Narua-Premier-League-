@@ -56,19 +56,8 @@ export const TeamsSection = () => {
                 <a
                   key={team.id}
                   href={`/?team=${encodeURIComponent(team.id)}&season=${encodeURIComponent(selectedSeason)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    const profileWindow = window.open(event.currentTarget.href, '_blank');
-                    if (profileWindow) {
-                      profileWindow.opener = null;
-                    } else {
-                      window.location.assign(event.currentTarget.href);
-                    }
-                  }}
                   className="group overflow-hidden rounded-xl text-left shadow-lg transition duration-300 hover:-translate-y-1 hover:shadow-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
-                  aria-label={`Open ${team.name} team profile in a new tab`}
+                  aria-label={`Open ${team.name} team profile`}
                 >
                   <span
                     className="relative flex aspect-[1.62/1] items-center justify-center overflow-hidden"

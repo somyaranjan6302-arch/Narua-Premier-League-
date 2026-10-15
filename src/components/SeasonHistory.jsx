@@ -54,11 +54,19 @@ export const SeasonHistory = () => {
                 </h3>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <div className="px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-center">
                   <span className="text-[10px] uppercase font-bold text-slate-400 block">Teams</span>
                   <span className="font-sports text-2xl text-amber-400">{currentSeasonData.teamsCount}</span>
                 </div>
+                {currentSeasonData.playersCount && (
+                  <div className="px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-center">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Players</span>
+                    <span className="font-sports text-2xl text-white">
+                      {currentSeasonData.playersCountApproximate ? '~' : ''}{currentSeasonData.playersCount}
+                    </span>
+                  </div>
+                )}
                 <div className="px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-center">
                   <span className="text-[10px] uppercase font-bold text-slate-400 block">Matches</span>
                   <span className="font-sports text-2xl text-white">{currentSeasonData.matchesCount}</span>

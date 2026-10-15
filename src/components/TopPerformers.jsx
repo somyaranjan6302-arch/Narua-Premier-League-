@@ -7,6 +7,7 @@ import { session3Performers } from '../data/session3Data';
 import { session4Performers } from '../data/session4Data';
 import { session5Performers } from '../data/session5Data';
 import { session2Performers } from '../data/session2Data';
+import { session1Performers } from '../data/session1Performers';
 
 const getMetric = (text) => {
   const trimmed = text.trim();
@@ -34,8 +35,9 @@ export const TopPerformers = () => {
     ? session5Performers
     : selectedSeason === 'Season 2' ? session2Performers
       : selectedSeason === 'Season 3' ? session3Performers
-        : selectedSeason === 'Season 4' ? session4Performers : topPerformers;
-  const sessionPerformers = ['Season 2', 'Season 3', 'Season 4', 'Season 5'].includes(selectedSeason)
+        : selectedSeason === 'Season 4' ? session4Performers
+          : selectedSeason === 'Season 1' ? session1Performers : topPerformers;
+  const sessionPerformers = ['Season 1', 'Season 2', 'Season 3', 'Season 4', 'Season 5'].includes(selectedSeason)
     ? performerList.map((item) => ({ ...item, data: activePerformers[item.key] }))
     : performerList;
 

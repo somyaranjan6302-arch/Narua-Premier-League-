@@ -4,6 +4,7 @@ import { session3Champion, session3Matches, session3Records, session3Season, ses
 import { session4Champion, session4Matches, session4Records, session4Standings, session4Teams } from './session4Data';
 import { session5Champion, session5Matches, session5Records, session5Season, session5Standings, session5Teams } from './session5Data';
 import { session2Champion, session2Matches, session2Records, session2Season, session2Standings, session2Teams } from './session2Data';
+import { session1Champion, session1Season } from './session1Performers';
 
 export const initialTournamentInfo = {
   name: "Narua Premier League",
@@ -33,23 +34,7 @@ export const initialChampions = [
   session5Champion,
   session4Champion,
   session3Champion,
-  {
-    season: "2024",
-    edition: "Season 1 (Inaugural)",
-    championTeam: "Bajrangi 11",
-    championShort: "Bajrangi 11",
-    captain: "Omm Das",
-    runnerUp: "Commando 11",
-    runnerUpShort: "C11",
-    winningMargin: "Won by 2 Wicket",
-    finalScores: "Commando 11 104/5 (10) |Bajrangi 11  106/8 (10))",
-    venue: "Narua Bada Padia ",
-    playerOfFinal: "Rahul Das (78 off 42 & 2/22)",
-    teamPhoto: "/assets/bajrangi11_champions.png",
-    trophyPhoto: "/assets/trophy.jpg",
-    description: "The historic inaugural championship saw Narua Super Kings dominate the tournament.",
-    featured: false
-  },
+  session1Champion,
   session2Champion
 ];
 
@@ -72,21 +57,7 @@ export const initialSeasons = [
   },
   session3Season,
   session2Season,
-  {
-    season: "2024",
-    year: "2024",
-    edition: "Season 1",
-    sampleData: true,
-    status: "COMPLETED",
-    teamsCount: 6,
-    matchesCount: 15,
-    champion: "Bajrangi 11",
-    runnerUp: "Commando 11 Madhapur",
-    topScorer: "Banty (118 runs)",
-    topWicketTaker: "Kamar (14 wickets)",
-    playerOfTournament: "Sabir  (107 runs & 7 wickets)",
-    description: "Placeholder archive summary. Replace these sample values with official 2022 records."
-  }
+  session1Season
 ];
 
 export const initialTeams = [
