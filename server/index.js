@@ -69,7 +69,7 @@ const migrateLegacyMediaToRepository = async (legacyMedia) => {
 
 const savePublicUpload = async (file, mediaKey) => {
   if (database) {
-    const url = `/api/media/${encodeURIComponent(mediaKey)}`;
+    const url = `/api/media/${encodeURIComponent(mediaKey)}?v=${randomBytes(8).toString('hex')}`;
     await database.query(
       `INSERT INTO npl_media (media_key, content_type, content)
        VALUES ($1, $2, $3)
@@ -335,7 +335,7 @@ const start = async () => {
     if (!database) return res.status(404).end();
     const result = await database.query('SELECT content_type, content FROM npl_media WHERE media_key = $1', [req.params.key]);
     if (!result.rows[0]) return res.status(404).end();
-    res.set('Cache-Control', 'public, max-age=300');
+    res.set('Cache-Control', 'no-store');
     res.set('X-Content-Type-Options', 'nosniff');
     return res.type(result.rows[0].content_type).send(result.rows[0].content);
   });

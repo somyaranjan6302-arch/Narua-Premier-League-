@@ -3861,6 +3861,11 @@
         "captain": true,
         "wicketkeeper": false
       },
+      "krishna rout": {
+        "name": "Krishna Rout",
+        "captain": false,
+        "wicketkeeper": false
+      },
       "ananta behera": {
         "name": "Ananta Behera",
         "captain": false,
@@ -4899,7 +4904,7 @@
       }
     },
     "mr soumya": {
-      "wickets": 8,
+      "wickets": 12,
       "runsConceded": 76,
       "ballsBowled": 42,
       "innings": 5,

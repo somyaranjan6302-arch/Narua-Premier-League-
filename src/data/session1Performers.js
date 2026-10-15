@@ -1,8 +1,8 @@
-const performer = (category, player, stat, badgeColor) => ({
+const performer = (category, player, team, teamShort, stat, badgeColor) => ({
   category,
   player,
-  team: 'NPL',
-  teamShort: 'NPL',
+  team,
+  teamShort,
   stat,
   details: 'Session 1 final result',
   photo: '',
@@ -10,12 +10,12 @@ const performer = (category, player, stat, badgeColor) => ({
 });
 
 export const session1Performers = {
-  orangeCap: performer('Orange Cap (Most Runs)', 'Rahul Das', '144 Runs', 'from-amber-500 to-orange-600'),
-  purpleCap: performer('Purple Cap (Most Wickets)', 'Banty', '11 Wickets', 'from-purple-600 to-indigo-800'),
-  mostSixes: performer('Maximum Sixes Award', 'Kamar', '11 Sixes', 'from-red-500 to-rose-700'),
-  bestEconomy: performer('Best Bowling Economy', 'Banty', '5.4 Econ', 'from-emerald-600 to-teal-800'),
-  highestScore: performer('Highest Individual Score', 'Rahul Das', '76 Runs', 'from-cyan-600 to-blue-800'),
-  bestBowling: performer('Best Bowling Figures', 'Mr Soumya', '4/45', 'from-violet-600 to-fuchsia-800')
+  orangeCap: performer('Orange Cap (Most Runs)', 'Rahul Das', 'Bajrangi 11 Narua', 'B11', '144 Runs', 'from-amber-500 to-orange-600'),
+  purpleCap: performer('Purple Cap (Most Wickets)', 'Banty', 'Commando 11 Madhapur', 'C11', '11 Wickets', 'from-purple-600 to-indigo-800'),
+  mostSixes: performer('Maximum Sixes Award', 'Kamar', 'Commando 11 Madhapur', 'C11', '11 Sixes', 'from-red-500 to-rose-700'),
+  bestEconomy: performer('Best Bowling Economy', 'Banty', 'Commando 11 Madhapur', 'C11', '5.4 Econ', 'from-emerald-600 to-teal-800'),
+  highestScore: performer('Highest Individual Score', 'Rahul Das', 'Bajrangi 11 Narua', 'B11', '76 Runs', 'from-cyan-600 to-blue-800'),
+  bestBowling: performer('Best Bowling Figures', 'Mr Soumya', 'BMN Royals', 'BMN', '4/45', 'from-violet-600 to-fuchsia-800')
 };
 
 export const session1Season = {

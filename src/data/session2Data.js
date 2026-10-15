@@ -35,9 +35,11 @@ const rosterFor = (teamName) => Object.entries(source.rosters[teamName] || {}).m
     sixes: batting.sixes || 0,
     innings: batting.innings || 0,
     ballsFaced: batting.balls || 0,
-    strikeRate: batting.balls ? ((batting.runs / batting.balls) * 100).toFixed(2) : '—',
+    strikeRate: batting.finalBallCountUnknown ? '—' : batting.balls ? ((batting.runs / batting.balls) * 100).toFixed(2) : '—',
     bestScore: batting.innings ? `${batting.highestScore}${batting.bestScoreBalls ? ` (${batting.bestScoreBalls})` : ''}` : '—',
-    economy: bowling.ballsBowled ? (bowling.runsConceded / (bowling.ballsBowled / 6)).toFixed(2) : '—',
+    economy: bowling.finalEconomy != null
+      ? String(bowling.finalEconomy)
+      : bowling.ballsBowled ? (bowling.runsConceded / (bowling.ballsBowled / 6)).toFixed(2) : '—',
     overs,
     bestBowling: bowling.bestBowling?.figures || '—'
   };
@@ -100,7 +102,7 @@ export const session2Performers = {
   },
   mostSixes: performer('Maximum Sixes Award', 'chikuuuuu', '11 Sixes', 'Session 2 final result', 'from-red-500 to-rose-700'),
   bestEconomy: performer('Best Bowling Economy', 'sabir', '6.2 Econ', 'Session 2 final result', 'from-emerald-600 to-teal-800'),
-  highestScore: performer('Highest Individual Score', 'chikuuuuu', '53', 'Session 2 final result', 'from-cyan-600 to-blue-800'),
+  highestScore: performer('Highest Individual Score', 'chikuuuuu', '53 Runs', 'Session 2 final result', 'from-cyan-600 to-blue-800'),
   bestBowling: {
     ...performer('Best Bowling Figures', 'tulu madhapur', '3/17', 'Session 2 final result', 'from-violet-600 to-fuchsia-800'),
     player: 'Tulu'
@@ -120,7 +122,7 @@ export const session2Season = {
   topScorer: 'Chikuuuuu (132 runs)',
   topWicketTaker: 'Tulu (9 wickets)',
   playerOfTournament: 'Not listed in the supplied PDF',
-  description: 'No Compromise Kaina won Season 2. The supplied PDF contains one league match and three quarter-finals; standings and player totals show only those four scorecards.'
+  description: 'No Compromise Kaina won Season 2. The supplied PDF contains one league match and three quarter-finals; team standings and unconfirmed player statistics reflect those four scorecards, while listed award totals use the confirmed final results.'
 };
 
 export const session2Champion = {

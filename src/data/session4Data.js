@@ -113,6 +113,8 @@ const mostSixes = [...battingLeaders].sort((a, b) => b[1].sixes - a[1].sixes)[0]
 const highestScore = [...battingLeaders].sort((a, b) => b[1].highestScore - a[1].highestScore)[0];
 const mostWickets = [...bowlingLeaders].sort((a, b) => b[1].wickets - a[1].wickets)[0];
 const bestFigures = [...bowlingLeaders].sort((a, b) => (b[1].bestBowling?.wickets || 0) - (a[1].bestBowling?.wickets || 0) || (a[1].bestBowling?.runs || Infinity) - (b[1].bestBowling?.runs || Infinity))[0];
+const bestEconomy = [...bowlingLeaders].filter(([, player]) => player.ballsBowled >= 6)
+  .sort((a, b) => a[1].runsConceded / a[1].ballsBowled - b[1].runsConceded / b[1].ballsBowled)[0];
 const playerTeam = (playerName) => session4Teams.find((team) => team.squad.some((player) => player.name.toLowerCase() === playerName.toLowerCase()))?.name || 'NPL';
 const capPhoto = '/assets/bajrangi11_team.png';
 const performer = (key, category, playerKey, stat, details, badgeColor) => ({
@@ -133,6 +135,7 @@ export const session4Performers = {
     player: 'Mr Soumya'
   },
   mostSixes: performer('mostSixes', 'Maximum Sixes Award', mostSixes[0], `${mostSixes[1].sixes} Sixes`, `${mostSixes[1].runs} runs • ${mostSixes[1].fours} fours`, 'from-red-500 to-rose-700'),
+  bestEconomy: performer('bestEconomy', 'Best Bowling Economy', bestEconomy[0], `${(bestEconomy[1].runsConceded / (bestEconomy[1].ballsBowled / 6)).toFixed(2)} Econ`, `${bestEconomy[1].innings} bowling innings • ${bestEconomy[1].wickets} wickets`, 'from-emerald-600 to-teal-800'),
   highestScore: performer('highestScore', 'Highest Individual Score', highestScore[0], `${highestScore[1].highestScore} (${highestScore[1].bestScoreBalls})`, `${highestScore[1].runs} tournament runs • ${highestScore[1].sixes} sixes`, 'from-cyan-600 to-blue-800'),
   bestBowling: performer('bestBowling', 'Best Bowling Figures', bestFigures[0], bestFigures[1].bestBowling.figures, 'Best innings bowling figures in Session 4', 'from-violet-600 to-fuchsia-800')
 };

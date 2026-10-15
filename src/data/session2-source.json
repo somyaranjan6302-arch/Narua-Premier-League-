@@ -1350,6 +1350,11 @@
         "captain": false,
         "wicketkeeper": false
       },
+      "chikuuuuu": {
+        "name": "Chikuuuuu",
+        "captain": false,
+        "wicketkeeper": false
+      },
       "sankara bankipal ( 12th man )": {
         "name": "Sankara Bankipal ( 12th Man )",
         "captain": false,
@@ -1707,13 +1712,14 @@
     },
     "chikuuuuu": {
       "name": "Chikuuuuu",
-      "runs": 48,
+      "runs": 132,
       "balls": 14,
       "fours": 5,
-      "sixes": 4,
+      "sixes": 11,
       "innings": 1,
-      "highestScore": 48,
-      "bestScoreBalls": 14
+      "highestScore": 53,
+      "bestScoreBalls": null,
+      "finalBallCountUnknown": true
     },
     "akash sayedpur": {
       "name": "Akash Sayedpur",
@@ -1983,6 +1989,7 @@
       "wickets": 1,
       "ballsBowled": 24,
       "innings": 2,
+      "finalEconomy": 6.2,
       "bestBowling": {
         "wickets": 1,
         "runs": 14,
@@ -1992,13 +1999,13 @@
     "tulu madhapur": {
       "name": "Tulu Madhapur",
       "runsConceded": 35,
-      "wickets": 3,
+      "wickets": 9,
       "ballsBowled": 24,
       "innings": 2,
       "bestBowling": {
-        "wickets": 2,
-        "runs": 15,
-        "figures": "2/15"
+        "wickets": 3,
+        "runs": 17,
+        "figures": "3/17"
       }
     },
     "sarjan bankipal": {
