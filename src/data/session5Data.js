@@ -86,10 +86,9 @@ const bestFigures = [...bowlingLeaders].sort((a, b) => (b[1].bestBowling?.wicket
 const bestEconomy = [...bowlingLeaders].filter(([, player]) => player.ballsBowled >= 6)
   .sort((a, b) => a[1].runsConceded / a[1].ballsBowled - b[1].runsConceded / b[1].ballsBowled)[0];
 const playerTeam = (playerName) => session5Teams.find((team) => team.squad.some((player) => player.name.toLowerCase() === playerName.toLowerCase()))?.name || 'NPL';
-const capPhoto = '/assets/bajrangi11_team.png';
 const performer = (category, playerKey, stat, details, badgeColor) => ({
   category, player: toName(playerKey), team: playerTeam(toName(playerKey)), teamShort: playerTeam(toName(playerKey)),
-  stat, details, photo: capPhoto, badgeColor
+  stat, details, photo: '', badgeColor
 });
 
 export const session5Performers = {

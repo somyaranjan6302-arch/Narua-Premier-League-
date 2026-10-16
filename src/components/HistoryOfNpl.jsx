@@ -2,7 +2,7 @@ import React from 'react';
 import { ArrowRight, MapPin, Trophy } from 'lucide-react';
 import { useNpl } from '../context/NplContext';
 import { TopPerformers } from './TopPerformers';
-import { getChampionMediaKey, getSiteMedia } from '../utils/siteMedia';
+import { getChampionFallbackMedia, getChampionMediaKey, getSiteMedia } from '../utils/siteMedia';
 
 const getEditionKey = (edition) => (
   String(edition || '').match(/Season\s*\d+/i)?.[0].replace(/\s+/g, ' ') || edition
@@ -27,7 +27,7 @@ export const HistoryOfNpl = ({ scrollToSection }) => {
   const edition = getEditionKey(lastSession?.edition);
   const champion = champions.find((item) => getEditionKey(item.edition) === edition);
   const championImage = champion
-    ? getSiteMedia(siteMedia, getChampionMediaKey(champions, champion), champion.edition, champion.teamPhoto)
+    ? getSiteMedia(siteMedia, getChampionMediaKey(champions, champion), champion.edition, getChampionFallbackMedia(champion))
     : '';
   const aboutPhoto = siteMedia.stadium || '/assets/stadium.jpg';
 
@@ -78,7 +78,8 @@ export const HistoryOfNpl = ({ scrollToSection }) => {
                 src={championImage}
                 alt={`${champion.championTeam}, ${champion.edition} champions`}
                 className="absolute inset-0 h-full w-full object-cover"
-                loading="lazy"
+                loading="eager"
+                fetchPriority="high"
               />
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-[#06112b]/65 via-transparent to-transparent lg:bg-gradient-to-l lg:from-transparent lg:via-transparent lg:to-[#0b1a43]/10" />

@@ -3,7 +3,7 @@ import { useNpl } from '../../context/NplContext';
 import { TeamBadge } from '../TeamBadge';
 import { SessionSelector } from '../SessionSelector';
 import { ImageCropEditor } from '../ImageCropEditor';
-import { getChampionMediaKey, getSessionMediaKey } from '../../utils/siteMedia';
+import { getChampionFallbackMedia, getChampionMediaKey, getSessionMediaKey } from '../../utils/siteMedia';
 import { session2Performers } from '../../data/session2Data';
 import { session3Performers } from '../../data/session3Data';
 import { session4Performers } from '../../data/session4Data';
@@ -1149,7 +1149,7 @@ export const AdminDashboardModal = ({ onClose }) => {
       editTarget: { type: 'champion', index },
       title: `${champion.season} ${champion.edition} • ${champion.championTeam}`,
       description: `Champion feature photo • ${seasons.find((season) => getMediaSessionId(season.edition) === getMediaSessionId(champion.edition))?.edition || mediaSessionFilter}.`,
-      fallback: champion.teamPhoto,
+      fallback: getChampionFallbackMedia(champion),
       aspectRatio: 4 / 3,
       sessionSpecific: true,
       session: seasons.find((season) => getMediaSessionId(season.edition) === getMediaSessionId(champion.edition))?.edition

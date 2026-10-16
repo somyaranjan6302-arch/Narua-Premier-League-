@@ -110,7 +110,8 @@ export const TopPerformers = ({ seasonOverride, showSeasonSelector = true }) => 
                       src={photo}
                       alt={data.player || data.team}
                       className="absolute inset-0 h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]"
-                      loading="lazy"
+                      loading={displaySeason === 'Season 5' && key === 'orangeCap' ? 'eager' : 'lazy'}
+                      fetchPriority={displaySeason === 'Season 5' && key === 'orangeCap' ? 'high' : 'auto'}
                     />
                   )}
                   {!photo && <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-[#071535]" />}
