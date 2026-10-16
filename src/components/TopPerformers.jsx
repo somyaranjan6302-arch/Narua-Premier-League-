@@ -20,8 +20,9 @@ const getMetric = (text) => {
   return { value: trimmed, label: '' };
 };
 
-export const TopPerformers = () => {
+export const TopPerformers = ({ seasonOverride, showSeasonSelector = true }) => {
   const { topPerformers, teams, openModal, siteMedia, seasons, selectedSeason, setSelectedSeason } = useNpl();
+  const displaySeason = seasonOverride || selectedSeason;
 
   const performerList = [
     { key: 'orangeCap', data: topPerformers.orangeCap, icon: Award, label: 'Orange Cap' },
@@ -31,42 +32,44 @@ export const TopPerformers = () => {
     { key: 'highestScore', data: topPerformers.highestScore, icon: Zap, label: 'Highest Scorer' },
     { key: 'bestBowling', data: topPerformers.bestBowling, icon: Sparkles, label: 'Best Bowling Figures' }
   ];
-  const activePerformers = selectedSeason === 'Season 5'
+  const activePerformers = displaySeason === 'Season 5'
     ? session5Performers
-    : selectedSeason === 'Season 2' ? session2Performers
-      : selectedSeason === 'Season 3' ? session3Performers
-        : selectedSeason === 'Season 4' ? session4Performers
-          : selectedSeason === 'Season 1' ? session1Performers : topPerformers;
-  const sessionPerformers = ['Season 1', 'Season 2', 'Season 3', 'Season 4', 'Season 5'].includes(selectedSeason)
+    : displaySeason === 'Season 2' ? session2Performers
+      : displaySeason === 'Season 3' ? session3Performers
+        : displaySeason === 'Season 4' ? session4Performers
+          : displaySeason === 'Season 1' ? session1Performers : topPerformers;
+  const sessionPerformers = ['Season 1', 'Season 2', 'Season 3', 'Season 4', 'Season 5'].includes(displaySeason)
     ? performerList.map((item) => ({ ...item, data: activePerformers[item.key] }))
     : performerList;
 
   return (
-    <section id="performers" className="border-t border-slate-800 bg-[#05052f] py-12 sm:py-16">
+    <section id={showSeasonSelector ? 'performers' : undefined} className="border-t border-slate-800 bg-[#05052f] py-12 sm:py-16">
       <div className="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8">
         <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <div className="mb-2 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-sky-400">
               <Award className="h-4 w-4" />
-              {selectedSeason} awards
+              {displaySeason} awards
             </div>
             <h2 className="font-heading text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
               Season&apos;s Top Performers
             </h2>
           </div>
-          <SessionSelector seasons={seasons} selectedSeason={selectedSeason} setSelectedSeason={setSelectedSeason} />
+          {showSeasonSelector && (
+            <SessionSelector seasons={seasons} selectedSeason={selectedSeason} setSelectedSeason={setSelectedSeason} />
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3 sm:gap-x-5 lg:grid-cols-4 xl:grid-cols-6">
-          {sessionPerformers.map(({ key, data, icon: Icon, label }) => {
+          {sessionPerformers.map(({ key, data, label }) => {
             if (!data) return null;
             const rosterTeam = teams.find((team) => (
               (team.name === data.team || team.shortName === data.teamShort) &&
-              (team.sessions || team.seasons || [team.session]).includes(selectedSeason)
+              (team.sessions || team.seasons || [team.session]).includes(displaySeason)
             ));
-            const photo = getSiteMedia(siteMedia, `performer:${key}`, selectedSeason, data.photo);
+            const photo = getSiteMedia(siteMedia, `performer:${key}`, displaySeason, data.photo);
             const teamLogo = rosterTeam
-              ? getSiteMedia(siteMedia, `team-logo:${rosterTeam.id}`, selectedSeason, rosterTeam.logo)
+              ? getSiteMedia(siteMedia, `team-logo:${rosterTeam.id}`, displaySeason, rosterTeam.logo)
               : '';
             const nameParts = (data.player || data.team || 'NPL').trim().split(/\s+/);
             const familyName = nameParts.pop();
@@ -93,7 +96,7 @@ export const TopPerformers = () => {
                     teamShort: data.teamShort || rosterTeam?.shortName,
                     teamColor: rosterTeam?.primaryColor,
                     teamLogo,
-                    season: selectedSeason,
+                    season: displaySeason,
                     role: data.category,
                     runs: data.stat,
                     photo,
@@ -152,7 +155,7 @@ export const TopPerformers = () => {
           })}
           {sessionPerformers.length === 0 && (
             <p className="col-span-full rounded-2xl border border-dashed border-slate-700 bg-slate-950/60 p-10 text-center text-slate-400">
-              No performer records are available for {selectedSeason} yet.
+              No performer records are available for {displaySeason} yet.
             </p>
           )}
         </div>

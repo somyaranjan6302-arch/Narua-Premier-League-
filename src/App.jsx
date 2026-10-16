@@ -18,6 +18,7 @@ import { NewsSection } from './components/NewsSection';
 import { AuctionSection } from './components/AuctionSection';
 import { TrophySection } from './components/TrophySection';
 import { MemoriesLegacy } from './components/MemoriesLegacy';
+import { HistoryOfNpl } from './components/HistoryOfNpl';
 import { Footer } from './components/Footer';
 
 // Modals
@@ -119,6 +120,7 @@ export const App = () => {
         {activeSection === 'trophy' && <TrophySection />}
         {activeSection === 'memories' && <MemoriesLegacy />}
         <SectionPhotoGallery sectionId={activeSection} />
+        {activeSection === 'home' && <HistoryOfNpl scrollToSection={scrollToSection} />}
       </main>
 
       {/* 18. LARGE PROFESSIONAL FOOTER */}

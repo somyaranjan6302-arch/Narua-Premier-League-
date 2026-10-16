@@ -104,7 +104,7 @@ export const PointsTable = () => {
                           rel={teamObj ? 'noopener noreferrer' : undefined}
                           className={`flex items-center gap-3 group ${teamObj ? 'cursor-pointer' : 'cursor-default'}`}
                         >
-                          <TeamBadge team={teamObj || row} size="sm" />
+                          <TeamBadge team={teamObj || row} size="sm" shape="circle" />
                           <div>
                             <div className="font-heading font-bold text-white group-hover:text-amber-400 transition-colors flex items-center gap-1.5">
                               <span>{row.team}</span>

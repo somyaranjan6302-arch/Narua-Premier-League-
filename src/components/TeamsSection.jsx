@@ -69,18 +69,20 @@ export const TeamsSection = () => {
                     <span className="absolute -left-10 top-0 h-full w-16 -rotate-[22deg] bg-white/10" />
                     <span className="absolute -right-10 top-0 h-full w-16 rotate-[22deg] bg-white/10" />
                     <span className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/15 to-transparent" />
-                    {logo ? (
-                      <img
-                        src={logo}
-                        alt={`${team.name} logo`}
-                        className="relative z-10 h-28 w-28 object-contain drop-shadow-[0_8px_12px_rgba(0,0,0,0.4)] transition-transform duration-300 group-hover:scale-110 sm:h-32 sm:w-32"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <span className="relative z-10 flex h-24 w-24 items-center justify-center rounded-full border-2 border-white/70 bg-black/20 text-2xl font-black text-white shadow-xl">
-                        {getShortLabel(team)}
-                      </span>
-                    )}
+                    <span className="relative z-10 flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border-4 border-white/80 bg-white shadow-[0_8px_20px_rgba(0,0,0,0.35)] transition-transform duration-300 group-hover:scale-110 sm:h-32 sm:w-32">
+                      {logo ? (
+                        <img
+                          src={logo}
+                          alt={`${team.name} logo`}
+                          className="h-full w-full object-contain p-2"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <span className="flex h-full w-full items-center justify-center bg-black/10 px-2 text-center text-xl font-black text-slate-800">
+                          {getShortLabel(team)}
+                        </span>
+                      )}
+                    </span>
                     {team.titles > 0 && (
                       <span className="absolute right-3 top-3 z-20 inline-flex items-center gap-1 rounded-full bg-black/45 px-2.5 py-1 text-xs font-extrabold text-amber-200 backdrop-blur">
                         <Trophy className="h-3.5 w-3.5" />

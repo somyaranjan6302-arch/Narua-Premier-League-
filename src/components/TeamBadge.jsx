@@ -2,7 +2,7 @@ import React from 'react';
 import { useNpl } from '../context/NplContext';
 import { getSiteMedia } from '../utils/siteMedia';
 
-export const TeamBadge = ({ team, size = "md", showName = false }) => {
+export const TeamBadge = ({ team, size = "md", showName = false, shape = "rounded" }) => {
   const { siteMedia, selectedSeason } = useNpl();
   const sizeMap = {
     xs: "w-6 h-6 text-[10px]",
@@ -20,7 +20,7 @@ export const TeamBadge = ({ team, size = "md", showName = false }) => {
   return (
     <div className="inline-flex items-center gap-2.5">
       <div
-        className={`relative ${currentSize} rounded-xl flex items-center justify-center font-sports tracking-wider text-white shadow-lg overflow-hidden flex-shrink-0 transition-transform duration-200 hover:scale-105`}
+        className={`relative ${currentSize} ${shape === 'circle' ? 'rounded-full' : 'rounded-xl'} flex items-center justify-center font-sports tracking-wider text-white shadow-lg overflow-hidden flex-shrink-0 transition-transform duration-200 hover:scale-105`}
         style={{
           background: `linear-gradient(135deg, ${primaryColor} 0%, #0B132B 100%)`,
           boxShadow: `0 4px 14px ${primaryColor}40`,
