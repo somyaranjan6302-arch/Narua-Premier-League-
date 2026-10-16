@@ -8,9 +8,22 @@ const getEditionKey = (edition) => (
   String(edition || '').match(/Season\s*\d+/i)?.[0].replace(/\s+/g, ' ') || edition
 );
 
+const getSeasonNumber = (season) => {
+  const match = String(season?.edition || season?.session || season?.season || '').match(/Season\s*(\d+)/i);
+  return match ? Number(match[1]) : -1;
+};
+
+const getLatestSeason = (seasons) => {
+  const completedSeasons = seasons.filter((season) => String(season.status || '').toUpperCase() === 'COMPLETED');
+  const candidates = completedSeasons.length > 0 ? completedSeasons : seasons;
+  return candidates.reduce((latest, season) => (
+    getSeasonNumber(season) > getSeasonNumber(latest) ? season : latest
+  ), candidates[0]);
+};
+
 export const HistoryOfNpl = ({ scrollToSection }) => {
   const { champions, seasons, siteMedia, tournamentInfo } = useNpl();
-  const lastSession = seasons.find((season) => season.status === 'COMPLETED') || seasons[0];
+  const lastSession = getLatestSeason(seasons);
   const edition = getEditionKey(lastSession?.edition);
   const champion = champions.find((item) => getEditionKey(item.edition) === edition);
   const championImage = champion
