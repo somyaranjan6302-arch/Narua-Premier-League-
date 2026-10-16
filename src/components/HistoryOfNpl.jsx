@@ -34,31 +34,31 @@ export const HistoryOfNpl = ({ scrollToSection }) => {
   return (
     <section id="npl-history" className="overflow-hidden bg-[#05052f] text-white">
       {champion && (
-        <article className="mb-14 grid overflow-hidden bg-[#0b1a43] shadow-2xl sm:mb-16 lg:min-h-[480px] lg:grid-cols-2">
+        <article className="mb-14 grid overflow-hidden bg-white text-slate-800 shadow-2xl sm:mb-16 lg:min-h-[480px] lg:grid-cols-2">
           <div className="flex flex-col items-start justify-center p-6 sm:p-10 lg:px-16 xl:px-24">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-blue-900/80 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-sky-200">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-blue-100 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-blue-800">
               <Trophy className="h-4 w-4 text-amber-300" />
               {champion.edition} · Champions
             </div>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-300">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-700">
               Last session · Final report
             </p>
-            <h3 className="mt-2 font-heading text-2xl font-extrabold leading-tight text-white sm:text-3xl lg:text-4xl">
+            <h3 className="mt-2 font-heading text-2xl font-extrabold leading-tight text-slate-950 sm:text-3xl lg:text-4xl">
               {champion.championTeam} lift the NPL trophy
             </h3>
-            <p className="mt-4 text-sm leading-relaxed text-blue-100/85 sm:text-base">
+            <p className="mt-4 text-sm leading-relaxed text-slate-600 sm:text-base">
               {champion.description}
             </p>
-            <div className="mt-5 grid w-full grid-cols-1 gap-3 border-t border-white/10 pt-4 sm:grid-cols-2">
-              <div className="rounded-lg bg-white/[0.06] p-3">
-                <span className="block text-[10px] font-bold uppercase tracking-widest text-sky-300">Final result</span>
-                <span className="mt-1 block text-sm font-bold leading-relaxed text-white">{champion.finalScores}</span>
+            <div className="mt-5 grid w-full grid-cols-1 gap-3 border-t border-slate-200 pt-4 sm:grid-cols-2">
+              <div className="rounded-lg bg-slate-50 p-3">
+                <span className="block text-[10px] font-bold uppercase tracking-widest text-sky-700">Final result</span>
+                <span className="mt-1 block text-sm font-bold leading-relaxed text-slate-900">{champion.finalScores}</span>
               </div>
-              <div className="rounded-lg bg-white/[0.06] p-3">
-                <span className="block text-[10px] font-bold uppercase tracking-widest text-amber-300">Champions</span>
-                <span className="mt-1 block text-sm font-bold text-white">{champion.winningMargin}</span>
-                <span className="mt-1 flex items-center gap-1 text-xs text-blue-100/70">
-                  <MapPin className="h-3 w-3" />
+              <div className="rounded-lg bg-slate-50 p-3">
+                <span className="block text-[10px] font-bold uppercase tracking-widest text-amber-700">Champions</span>
+                <span className="mt-1 block text-sm font-bold text-slate-900">{champion.winningMargin}</span>
+                <span className="mt-1 flex items-center gap-1 text-xs text-slate-600">
+                  <MapPin className="h-3 w-3 text-slate-500" />
                   {champion.venue}
                 </span>
               </div>
@@ -82,7 +82,7 @@ export const HistoryOfNpl = ({ scrollToSection }) => {
                 fetchPriority="high"
               />
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#06112b]/65 via-transparent to-transparent lg:bg-gradient-to-l lg:from-transparent lg:via-transparent lg:to-[#0b1a43]/10" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#06112b]/65 via-transparent to-transparent" />
             <div className="absolute bottom-4 left-4 rounded-full border border-white/30 bg-slate-950/70 px-3 py-1.5 text-xs font-bold text-white backdrop-blur">
               NPL {champion.season} · {champion.edition}
             </div>

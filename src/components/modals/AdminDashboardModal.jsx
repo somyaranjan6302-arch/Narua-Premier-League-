@@ -1025,8 +1025,8 @@ export const AdminDashboardModal = ({ onClose }) => {
   };
 
   const mediaUploadControl = (item) => {
-    const { key: baseMediaKey, title, description, fallback: fallbackImage = '', aspectRatio = 1, fit = false, directUpload = false, sessionSpecific = false } = item;
-    const mediaSession = mediaSessionFilter;
+    const { key: baseMediaKey, title, description, fallback: fallbackImage = '', aspectRatio = 1, fit = false, directUpload = false, sessionSpecific = false, uploadLabel = 'Change photo' } = item;
+    const mediaSession = item.uploadSession || mediaSessionFilter;
     const mediaKey = sessionSpecific ? getSessionMediaKey(baseMediaKey, mediaSession) : baseMediaKey;
     const activeMediaKey = siteMedia[mediaKey] ? mediaKey : siteMedia[baseMediaKey] ? baseMediaKey : null;
     const pendingMedia = pendingMediaFiles[mediaKey];
@@ -1041,7 +1041,7 @@ export const AdminDashboardModal = ({ onClose }) => {
         )}
         <span className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-slate-950/85 py-1 text-[9px] font-bold text-white transition-colors group-hover:bg-amber-500 group-hover:text-slate-950">
           <Upload className="h-3 w-3" />
-          Change photo
+          {uploadLabel}
         </span>
         <input
           type="file"
@@ -2542,29 +2542,47 @@ export const AdminDashboardModal = ({ onClose }) => {
                         {teams.filter((team) => {
                           return getTeamSessions(team, seasons.map((season) => season.edition)).includes(teamSessionFocus);
                         }).map((team) => (
-                          <div key={team.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2">
-                            <div>
-                              <p className="font-bold text-white">{team.name}</p>
-                              <p className="text-[10px] text-slate-400">This session only</p>
+                          <div key={team.id} className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                              <div>
+                                <p className="font-bold text-white">{team.name}</p>
+                                <p className="text-[10px] text-slate-400">This session only</p>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  disabled={teams.some((candidate) => candidate.name === team.name && getTeamSessions(candidate, seasons.map((season) => season.edition)).includes(nextTeamSession))}
+                                  onClick={() => handleCopyTeamToNextSession(team)}
+                                  className="rounded-lg border border-emerald-800 bg-emerald-950/60 px-2 py-1 text-[10px] font-bold uppercase text-emerald-300 hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  {teams.some((candidate) => candidate.name === team.name && getTeamSessions(candidate, seasons.map((season) => season.edition)).includes(nextTeamSession))
+                                    ? `Already in ${nextTeamSession}`
+                                    : `Add to ${nextTeamSession}`}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveTeam(team.id)}
+                                  className="rounded-lg border border-rose-800 bg-rose-950/60 px-2 py-1 text-[10px] font-bold uppercase text-rose-300 hover:bg-rose-900"
+                                >
+                                  Remove from {teamSessionFocus}
+                                </button>
+                              </div>
                             </div>
-                            <div className="flex flex-wrap gap-2">
-                              <button
-                                type="button"
-                                disabled={teams.some((candidate) => candidate.name === team.name && getTeamSessions(candidate, seasons.map((season) => season.edition)).includes(nextTeamSession))}
-                                onClick={() => handleCopyTeamToNextSession(team)}
-                                className="rounded-lg border border-emerald-800 bg-emerald-950/60 px-2 py-1 text-[10px] font-bold uppercase text-emerald-300 hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50"
-                              >
-                                {teams.some((candidate) => candidate.name === team.name && getTeamSessions(candidate, seasons.map((season) => season.edition)).includes(nextTeamSession))
-                                  ? `Already in ${nextTeamSession}`
-                                  : `Add to ${nextTeamSession}`}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveTeam(team.id)}
-                                className="rounded-lg border border-rose-800 bg-rose-950/60 px-2 py-1 text-[10px] font-bold uppercase text-rose-300 hover:bg-rose-900"
-                              >
-                                Remove from {teamSessionFocus}
-                              </button>
+                            <div className="rounded-lg border border-sky-800/60 bg-sky-950/20 p-3">
+                              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-sky-300">
+                                Team crest shown in the circular badge
+                              </p>
+                              {mediaUploadControl({
+                                key: `team-logo:${team.id}`,
+                                title: `${team.name} logo`,
+                                description: `Square team crest for ${teamSessionFocus}.`,
+                                fallback: team.logo,
+                                aspectRatio: 1,
+                                fit: true,
+                                sessionSpecific: true,
+                                uploadLabel: 'Upload team logo',
+                                uploadSession: teamSessionFocus
+                              })}
                             </div>
                           </div>
                         ))}

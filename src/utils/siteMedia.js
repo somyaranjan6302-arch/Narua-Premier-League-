@@ -12,6 +12,7 @@ export const getChampionMediaKey = (champions, champion) => {
   const seasonNumber = Number(String(champion?.edition || '').match(/Season\s*(\d+)/i)?.[1]);
   if (seasonNumber === 2) return 'champion:season2';
   if (seasonNumber === 1) return 'champion:0';
+  if (seasonNumber === 5) return 'champion:0';
   if (seasonNumber >= 3) return `champion:${seasonNumber - 2}`;
 
   const championIndex = champions.indexOf(champion);
@@ -24,7 +25,7 @@ export const getChampionMediaKey = (champions, champion) => {
 
 export const getChampionFallbackMedia = (champion) => (
   Number(String(champion?.edition || '').match(/Season\s*(\d+)/i)?.[1]) === 5
-    ? '/uploads/5424446e978467501f09b5299b48fd24.png'
+    ? '/uploads/566bf1d697b581d4153a36df7f337ae8.png'
     : champion?.teamPhoto
 );
 
