@@ -58,7 +58,7 @@ export const NplProvider = ({ children }) => {
     }
   };
 
-  const initialSelectedSeason = loadState('selectedSeason', initialSeasons[0]?.edition || 'Season 5');
+  const initialSelectedSeason = initialSeasons[0]?.edition || 'Season 5';
 
   const [tournamentInfo, setTournamentInfo] = useState(() => loadState('tournamentInfo', initialTournamentInfo));
   const [champions, setChampions] = useState(() => {
@@ -193,7 +193,6 @@ export const NplProvider = ({ children }) => {
         if (Array.isArray(data.matches)) setMatches(data.matches);
         if (Array.isArray(data.pointsTable)) setPointsTable(data.pointsTable);
         if (data.seasonStandings) setSeasonStandings(data.seasonStandings);
-        if (data.selectedSeason) setSelectedSeason(data.selectedSeason);
         if (Array.isArray(data.topPerformers) || (data.topPerformers && typeof data.topPerformers === 'object')) {
           setTopPerformers(data.topPerformers);
         }
@@ -317,10 +316,6 @@ export const NplProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('npl_selectedSeason', JSON.stringify(selectedSeason));
-  }, [selectedSeason]);
-
-  useEffect(() => {
     localStorage.setItem('npl_topPerformers', JSON.stringify(topPerformers));
   }, [topPerformers]);
 
@@ -360,7 +355,6 @@ export const NplProvider = ({ children }) => {
     matches,
     pointsTable,
     seasonStandings,
-    selectedSeason,
     topPerformers,
     records,
     gallery,
@@ -379,7 +373,7 @@ export const NplProvider = ({ children }) => {
     savePublicSiteData(siteDataSaveQueue, publicSiteData)
       .catch((error) => console.error(error));
   }, [adminUser, siteDataLoaded, tournamentInfo, champions, seasons, teams, matches, pointsTable,
-    seasonStandings, selectedSeason, topPerformers, records, gallery, sectionPhotos, legacyPhotos, highlights, news]);
+    seasonStandings, topPerformers, records, gallery, sectionPhotos, legacyPhotos, highlights, news]);
 
   useEffect(() => {
     if (!import.meta.env.PROD || !adminUser || !registrationDataLoaded) return;
