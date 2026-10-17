@@ -6,7 +6,7 @@ export const TrophySection = () => {
   const { siteMedia } = useNpl();
 
   return (
-    <section id="trophy" className="py-24 relative bg-gradient-to-b from-[#050B17] via-[#0B152F] to-[#050B17] overflow-hidden border-t border-slate-800">
+    <section id="trophy" className="npl-section-bg relative overflow-hidden border-t border-slate-800 py-24">
       {/* Dramatic central spotlight beam */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[600px] bg-gradient-to-b from-amber-400/20 via-blue-500/10 to-transparent blur-[120px] pointer-events-none" />
 

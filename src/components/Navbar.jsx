@@ -50,16 +50,16 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 transition-all duration-300">
+    <header className="fixed left-0 right-0 top-0 z-50 transition-all duration-300">
       {/* Top Live Match Strip / Broadcast Ticker */}
       {liveMatch && (
-        <div className="flex items-center justify-between gap-2 overflow-hidden whitespace-nowrap border-b border-blue-900/50 bg-gradient-to-r from-slate-950 via-blue-950 to-slate-950 px-2 py-1.5 text-[10px] font-medium text-slate-300 sm:gap-4 sm:px-4 sm:text-xs">
+        <div className="flex items-center justify-between gap-2 overflow-hidden whitespace-nowrap border-b border-indigo-400/20 bg-[#070744] px-2 py-1.5 text-[10px] font-medium text-slate-200 shadow-[inset_0_-1px_rgba(255,255,255,0.04)] sm:gap-4 sm:px-4 sm:text-xs">
           <div className="mx-0 flex min-w-0 flex-1 items-center justify-start gap-2 sm:mx-auto sm:gap-3">
             <span className="flex flex-shrink-0 items-center gap-1.5 rounded-full bg-red-600/90 px-2 py-0.5 text-[9px] font-bold tracking-wider text-white animate-pulse sm:text-[10px]">
               <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
               {liveMatch.status}
             </span>
-            <span className="flex-shrink-0 font-semibold text-amber-400">{liveMatch.matchNumber}:</span>
+            <span className="flex-shrink-0 font-semibold text-[#ffdb19]">{liveMatch.matchNumber}:</span>
             <span className="max-w-[5.5rem] min-w-0 truncate font-bold text-white sm:max-w-none">{liveMatch.team1.shortName} {liveMatch.team1.score}</span>
             <span className="flex-shrink-0 text-slate-400">vs</span>
             <span className="max-w-[5.5rem] min-w-0 truncate font-bold text-white sm:max-w-none">{liveMatch.team2.shortName} {liveMatch.team2.score || "Yet to bat"}</span>
@@ -67,7 +67,7 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
             <span className="hidden md:inline text-amber-300/90 italic">{liveMatch.equation || liveMatch.preview}</span>
             <button
               onClick={() => openModal('match-details', liveMatch)}
-              className="ml-2 hidden flex-shrink-0 text-[11px] font-semibold text-blue-400 underline transition-colors hover:text-amber-400 sm:inline"
+              className="ml-2 hidden flex-shrink-0 text-[11px] font-semibold text-sky-300 underline decoration-sky-300/50 underline-offset-4 transition-colors hover:text-[#ffdb19] sm:inline"
             >
               Match Center →
             </button>
@@ -76,7 +76,7 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
           {/* Quick Admin Access */}
           <button
             onClick={() => setIsAdminModalOpen(true)}
-            className="hidden lg:flex items-center gap-1 text-[11px] text-slate-400 hover:text-amber-400 transition-colors ml-4 px-2 py-0.5 rounded bg-slate-900/80 border border-slate-700/60"
+            className="hidden lg:flex items-center gap-1 text-[11px] text-slate-300 hover:text-[#ffdb19] transition-colors ml-4 px-2 py-0.5 rounded bg-indigo-950/80 border border-indigo-300/20"
             title="Tournament Admin Console"
           >
             <Shield className="w-3 h-3 text-amber-500" />
@@ -87,28 +87,33 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
 
       {/* Main Sticky Navigation Bar */}
       <nav
-        className={`w-full transition-all duration-300 border-b ${
+        className={`relative w-full overflow-visible border-b transition-all duration-300 ${
           isScrolled
-            ? "bg-[#060D1E]/95 backdrop-blur-md border-slate-800 shadow-2xl py-1.5"
-            : "bg-[#071026]/85 backdrop-blur-sm border-slate-800/60 py-2.5"
+            ? "border-indigo-300/20 bg-[#0b0870]/95 py-1.5 shadow-2xl backdrop-blur-md"
+            : "border-indigo-300/20 bg-[#1800c9]/95 py-2.5 shadow-[0_10px_35px_rgba(5,5,75,0.35)] backdrop-blur-sm"
         }`}
       >
-        <div className="w-full max-w-none px-4 sm:px-6 2xl:px-8 flex items-center justify-between">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute inset-0 opacity-35" style={{ backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(100, 116, 255, 0.55), transparent 45%), repeating-conic-gradient(from 225deg at 50% 50%, rgba(56, 48, 255, 0.7) 0deg 8deg, transparent 8deg 18deg)' }} />
+          <div className="absolute -left-8 top-0 h-full w-24 -skew-x-[28deg] bg-gradient-to-r from-[#ff8a00]/30 to-[#e52bd1]/20" />
+          <div className="absolute -right-8 top-0 h-full w-24 skew-x-[28deg] bg-gradient-to-l from-[#ff8a00]/30 to-[#e52bd1]/20" />
+        </div>
+        <div className="relative z-10 flex w-full max-w-none items-center justify-between px-4 sm:px-6 2xl:px-8">
           {/* Left: NPL Brand Logo */}
           <div onClick={() => handleNavClick('home')}>
             <NplLogo size="sm" imageSrc={siteMedia.logo} compactOnMobile compact />
           </div>
 
           {/* Center: Desktop Navigation Links */}
-          <div className="hidden 2xl:flex flex-1 items-center justify-center gap-0.5 text-sm font-semibold tracking-wide">
+          <div className="hidden xl:flex flex-1 items-center justify-center gap-0.5 text-sm font-semibold tracking-wide">
             {navItems.map((item) => (
               <button
                 key={item.target}
                 onClick={() => handleNavClick(item.target)}
-                className={`px-2 py-1.5 rounded-lg transition-all duration-200 text-xs 2xl:text-xs font-bold uppercase tracking-wide whitespace-nowrap ${
+                className={`px-2 py-1.5 transition-all duration-200 text-xs font-bold uppercase tracking-wide whitespace-nowrap ${
                   activeSection === item.target
-                    ? "text-amber-400 bg-amber-500/10 shadow-[inset_0_0_12px_rgba(245,158,11,0.2)]"
-                    : "text-slate-300 hover:text-white hover:bg-slate-800/50"
+                    ? "text-[#ffdb19] bg-white/10 shadow-[inset_0_-2px_0_#ffdb19]"
+                    : "text-slate-100 hover:text-white hover:bg-white/10"
                 }`}
               >
                 {item.label}
@@ -119,24 +124,24 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
             <div className="relative">
               <button
                 onClick={() => setIsMoreOpen(!isMoreOpen)}
-                className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide whitespace-nowrap text-slate-300 hover:text-white hover:bg-slate-800/50 transition-colors"
+                className="flex items-center gap-1 px-2 py-1.5 text-xs font-bold uppercase tracking-wide whitespace-nowrap text-slate-100 hover:text-white hover:bg-white/10 transition-colors"
               >
                 <span>MORE</span>
                 <ChevronDown className="w-3.5 h-3.5 transition-transform duration-200" />
               </button>
 
               {isMoreOpen && (
-                <div className="absolute right-0 mt-2 w-52 bg-[#0B152B] border border-slate-700/80 rounded-xl shadow-2xl py-2 z-50 backdrop-blur-lg">
+                <div className="absolute right-0 z-50 mt-2 w-52 rounded-xl border border-indigo-300/20 bg-[#090858] py-2 shadow-2xl backdrop-blur-lg">
                   {moreItems.map((subItem) => (
                     <button
                       key={subItem.target}
                       onClick={() => handleNavClick(subItem.target)}
-                      className="w-full text-left px-4 py-2 text-xs font-semibold text-slate-300 hover:text-amber-400 hover:bg-slate-800/60 transition-colors"
+                      className="w-full px-4 py-2 text-left text-xs font-semibold text-slate-200 transition-colors hover:bg-white/10 hover:text-[#ffdb19]"
                     >
                       {subItem.label}
                     </button>
                   ))}
-                  <div className="border-t border-slate-800 my-1"></div>
+                  <div className="my-1 border-t border-indigo-300/20"></div>
                   <button
                     onClick={() => {
                       setIsMoreOpen(false);
@@ -157,11 +162,11 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
             {/* Prominent Auction Registration Button */}
             <button
               onClick={() => openModal('auction-register')}
-              className="relative hidden group overflow-hidden rounded-full p-[1.5px] font-sports text-sm tracking-wider uppercase transition-all duration-300 active:scale-95 shadow-[0_0_20px_rgba(245,158,11,0.35)] md:block"
+              className="relative hidden group overflow-hidden rounded-full p-[1.5px] font-sports text-sm tracking-wider uppercase transition-all duration-300 active:scale-95 shadow-[0_0_20px_rgba(255,138,0,0.3)] md:block"
             >
-              <span className="absolute inset-0 bg-gradient-to-r from-amber-400 via-yellow-300 to-orange-500 rounded-full animate-pulse"></span>
-              <span className="relative block px-3 py-2 rounded-full bg-[#080F21] group-hover:bg-opacity-80 transition-all duration-200 text-amber-300 font-bold flex items-center gap-2 text-xs whitespace-nowrap">
-                <Flame className="w-4 h-4 text-amber-400 group-hover:animate-bounce" />
+              <span className="absolute inset-0 rounded-full bg-gradient-to-r from-[#ff8a00] via-[#ffdb19] to-[#e52bd1]"></span>
+              <span className="relative flex items-center gap-2 whitespace-nowrap rounded-full bg-[#090858] px-3 py-2 text-xs font-bold text-[#ffdb19] transition-all duration-200 group-hover:bg-opacity-80">
+                <Flame className="w-4 h-4 text-[#ff8a00] group-hover:animate-bounce" />
                 <span>REGISTER FOR AUCTION</span>
               </span>
             </button>
@@ -169,7 +174,7 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
             {/* Mobile Menu Hamburger Toggle */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="2xl:hidden p-2 rounded-lg bg-slate-800/80 text-slate-200 hover:text-white border border-slate-700/60"
+              className="xl:hidden rounded-lg border border-white/20 bg-[#090858]/70 p-2 text-slate-100 hover:text-white"
               aria-label="Toggle menu"
             >
               {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -179,45 +184,45 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
 
         {/* Mobile Navigation Drawer */}
         {isMobileMenuOpen && (
-          <div className="2xl:hidden bg-[#070E20] border-t border-slate-800 px-4 pt-4 pb-6 mt-2 space-y-2 shadow-2xl animate-in slide-in-from-top duration-200">
-            <div className="grid grid-cols-2 gap-2 pb-3 border-b border-slate-800/80">
+          <div className="relative z-20 mt-2 space-y-2 border-t border-indigo-300/20 bg-[#090858] px-4 pb-6 pt-4 shadow-2xl animate-in slide-in-from-top duration-200 xl:hidden">
+            <div className="grid grid-cols-2 gap-2 border-b border-indigo-300/20 pb-3">
               {navItems.map((item) => (
                 <button
                   key={item.target}
                   onClick={() => handleNavClick(item.target)}
                   className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider text-left transition-colors ${
                     activeSection === item.target
-                      ? "text-amber-400 bg-amber-500/10"
-                      : "text-slate-300 hover:bg-slate-800/60"
+                      ? "text-[#ffdb19] bg-white/10"
+                      : "text-slate-200 hover:bg-white/10"
                   }`}
                 >
-                  {item.icon && <item.icon className="w-4 h-4 text-amber-400" />}
+                  {item.icon && <item.icon className="w-4 h-4 text-[#ff8a00]" />}
                   <span>{item.label}</span>
                 </button>
               ))}
             </div>
 
-            <div className="grid grid-cols-2 gap-2 pt-2 text-xs text-slate-400 font-medium">
+            <div className="grid grid-cols-2 gap-2 pt-2 text-xs font-medium text-slate-300">
               {moreItems.map((subItem) => (
                 <button
                   key={subItem.target}
                   onClick={() => handleNavClick(subItem.target)}
-                  className="text-left px-3 py-1.5 hover:text-amber-300"
+                  className="px-3 py-1.5 text-left hover:text-[#ffdb19]"
                 >
                   • {subItem.label}
                 </button>
               ))}
             </div>
 
-            <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+            <div className="flex items-center justify-between border-t border-indigo-300/20 pt-3">
               <button
                 onClick={() => {
                   setIsMobileMenuOpen(false);
                   setIsAdminModalOpen(true);
                 }}
-                className="flex items-center gap-2 text-xs font-bold text-slate-300 hover:text-amber-400 py-2"
+                className="flex items-center gap-2 py-2 text-xs font-bold text-slate-200 hover:text-[#ffdb19]"
               >
-                <Shield className="w-4 h-4 text-amber-500" />
+                <Shield className="w-4 h-4 text-[#ff8a00]" />
                 <span>Tournament Admin Panel</span>
               </button>
 
@@ -226,7 +231,7 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
                   setIsMobileMenuOpen(false);
                   openModal('auction-register');
                 }}
-                className="px-4 py-2 rounded-lg bg-amber-500 text-slate-950 font-bold text-xs"
+                className="rounded-lg bg-gradient-to-r from-[#ff8a00] to-[#ffdb19] px-4 py-2 text-xs font-bold text-slate-950"
               >
                 Register Now
               </button>

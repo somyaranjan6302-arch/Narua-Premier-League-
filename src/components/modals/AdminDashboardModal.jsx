@@ -8,6 +8,7 @@ import { session2Performers } from '../../data/session2Data';
 import { session3Performers } from '../../data/session3Data';
 import { session4Performers } from '../../data/session4Data';
 import { session5Performers } from '../../data/session5Data';
+import { session1Performers } from '../../data/session1Performers';
 import {
   X,
   Shield,
@@ -1025,7 +1026,7 @@ export const AdminDashboardModal = ({ onClose }) => {
   };
 
   const mediaUploadControl = (item) => {
-    const { key: baseMediaKey, title, description, fallback: fallbackImage = '', aspectRatio = 1, fit = false, directUpload = false, sessionSpecific = false, uploadLabel = 'Change photo' } = item;
+    const { key: baseMediaKey, title, description, fallback: fallbackImage = '', aspectRatio = 1, fit = false, directUpload = false, sessionSpecific = false, uploadLabel = 'Change photo', showPhotoGuide = false } = item;
     const mediaSession = item.uploadSession || mediaSessionFilter;
     const mediaKey = sessionSpecific ? getSessionMediaKey(baseMediaKey, mediaSession) : baseMediaKey;
     const activeMediaKey = siteMedia[mediaKey] ? mediaKey : siteMedia[baseMediaKey] ? baseMediaKey : null;
@@ -1036,6 +1037,25 @@ export const AdminDashboardModal = ({ onClose }) => {
       <label title={`Click to change ${title}`} className="group relative w-20 flex-shrink-0 cursor-pointer overflow-hidden rounded-lg border border-slate-700 bg-slate-950 focus-within:border-amber-400" style={{ aspectRatio }}>
         {(pendingMedia?.previewUrl || cropFile?.previewUrl || siteMedia[mediaKey] || siteMedia[baseMediaKey] || fallbackImage) ? (
           <img src={pendingMedia?.previewUrl || cropFile?.previewUrl || siteMedia[mediaKey] || siteMedia[baseMediaKey] || fallbackImage} alt={`${title} preview`} className={`h-full w-full ${fit ? 'object-contain' : 'object-cover'}`} />
+        ) : showPhotoGuide ? (
+          <div
+            className="relative flex h-full items-center justify-center overflow-hidden"
+            style={{
+              backgroundColor: '#172554',
+              backgroundImage: 'linear-gradient(45deg, rgba(255,255,255,0.08) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.08) 75%), linear-gradient(45deg, rgba(255,255,255,0.08) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.08) 75%)',
+              backgroundPosition: '0 0, 8px 8px',
+              backgroundSize: '16px 16px'
+            }}
+          >
+            <svg viewBox="0 0 90 170" aria-hidden="true" className="h-[88%] w-[88%] drop-shadow-[0_4px_8px_rgba(0,0,0,0.45)]">
+              <circle cx="45" cy="25" r="15" fill="#f2bd91" />
+              <path d="M32 43 Q45 37 58 43 L70 55 L63 66 L59 58 L62 107 L28 107 L31 58 L27 66 L20 55 Z" fill="#2563eb" />
+              <path d="M34 104 L56 104 L61 157 L49 157 L45 121 L41 157 L29 157 Z" fill="#dbeafe" />
+              <path d="M36 44 L45 55 L54 44" fill="none" stroke="#fef3c7" strokeWidth="3" />
+              <path d="M26 58 L17 88 M64 58 L73 88" fill="none" stroke="#f2bd91" strokeLinecap="round" strokeWidth="9" />
+            </svg>
+            <span className="absolute left-1 top-1 rounded bg-slate-950/80 px-1 py-0.5 text-[8px] font-black text-white">9:17</span>
+          </div>
         ) : (
           <div className="flex h-full items-center justify-center text-slate-600"><Image className="h-6 w-6" /></div>
         )}
@@ -1057,6 +1077,12 @@ export const AdminDashboardModal = ({ onClose }) => {
       <div className="min-w-0">
         <p className="text-sm font-bold text-white">{title}</p>
         <p className="text-xs text-slate-400">{description}</p>
+        {showPhotoGuide && (
+          <span className="mt-1.5 inline-flex items-center gap-1.5 rounded-md border border-sky-700/60 bg-sky-950/50 px-2 py-1 text-[10px] font-bold text-sky-200">
+            <span className="font-black text-white">9:17</span>
+            portrait · transparent PNG/WebP recommended
+          </span>
+        )}
       </div>
       <div className="col-span-2 flex items-center justify-start gap-2 xl:col-span-1 xl:justify-end">
         <button
@@ -1127,6 +1153,7 @@ export const AdminDashboardModal = ({ onClose }) => {
   };
 
   const performerPhotosBySeason = {
+    'Season 1': session1Performers,
     'Season 2': session2Performers,
     'Season 3': session3Performers,
     'Season 4': session4Performers,
@@ -1209,9 +1236,9 @@ export const AdminDashboardModal = ({ onClose }) => {
       session: item.season || item.session,
       editTarget: { type: 'gallery', id: item.id },
       title: item.title,
-      description: `Gallery photo • ${item.category} • ${item.season || item.session || mediaSessionFilter}`,
+      description: `Gallery photo • ${item.category} • ${item.season || item.session || mediaSessionFilter} • 5:4 landscape crop.`,
       fallback: item.image,
-      aspectRatio: 4 / 3,
+      aspectRatio: 5 / 4,
       galleryItem: item
     })),
     ...sectionPhotos.map((photo) => ({
@@ -1252,12 +1279,12 @@ export const AdminDashboardModal = ({ onClose }) => {
       key: `performer:${key}`,
       rowKey: `performer:${mediaSessionFilter}:${key}`,
       category: 'performers',
-      record: performer,
-      editTarget: { type: 'performer', key },
       title: `${performer.player || performer.team || 'Top performer'} • ${key.replace(/([A-Z])/g, ' $1')}`,
-      description: `${mediaSessionFilter} • ${key.replace(/([A-Z])/g, ' $1')} • 9:17 portrait crop.`,
-      fallback: performer.photo,
+      description: `${mediaSessionFilter} • ${key.replace(/([A-Z])/g, ' $1')} • transparent 9:17 player cutout.`,
       aspectRatio: 9 / 17,
+      fit: true,
+      directUpload: true,
+      showPhotoGuide: true,
       sessionSpecific: true,
       session: mediaSessionFilter
     }))
@@ -1273,7 +1300,7 @@ export const AdminDashboardModal = ({ onClose }) => {
     { value: 'gallery', label: 'Gallery' },
     { value: 'memories', label: 'Memories and Legacy' },
     { value: 'highlights', label: 'Video highlights' },
-    { value: 'performers', label: 'Player profiles' },
+    { value: 'performers', label: 'Top performer photos' },
     ...publicPhotoSections.map((section) => ({
       value: `section:${section.id}`,
       label: `${section.label} — section photos`
@@ -1840,7 +1867,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                         {editingGalleryItemId ? 'EDIT GALLERY PHOTO' : `ADD PHOTO TO ${selectedSeason.toUpperCase()}`}
                       </h5>
                       <p className="text-xs text-slate-400">
-                        {editingGalleryItemId ? 'Update the photo information. The uploaded image will stay unchanged.' : 'The new photo slot belongs only to this session.'}
+                        {editingGalleryItemId ? 'Update the photo information. The uploaded image will stay unchanged.' : 'The new photo slot belongs only to this session. Gallery photos display in a 5:4 landscape frame.'}
                       </p>
                     </div>
                     {!editingGalleryItemId && (
@@ -1905,7 +1932,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                           <img
                             src={pendingMediaFiles[`gallery:${item.id}`]?.previewUrl || siteMedia[getSessionMediaKey(`gallery:${item.id}`, item.season || item.session)] || siteMedia[`gallery:${item.id}`] || item.image}
                             alt=""
-                            className="h-14 w-20 flex-shrink-0 rounded-md border border-slate-800 object-cover"
+                            className="h-14 w-[4.375rem] flex-shrink-0 rounded-md border border-slate-800 object-cover"
                           />
                           <div className="min-w-0">
                             <p className="truncate text-sm font-semibold text-white">{item.title}</p>
@@ -1981,9 +2008,9 @@ export const AdminDashboardModal = ({ onClose }) => {
                 </div>
                 <div className="mb-5 flex flex-col gap-3 rounded-xl border border-sky-800/60 bg-sky-950/20 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h5 className="font-sports text-base text-sky-300">TOP PERFORMER PROFILE PHOTOS</h5>
+                    <h5 className="font-sports text-base text-sky-300">TOP PERFORMER PHOTO UPLOADS</h5>
                     <p className="mt-1 text-xs text-slate-300">
-                      Choose Top Performers below to display the real performers for the selected session. Photos use the same vertical 9:17 crop as the cards.
+                      Upload a transparent PNG or WebP cutout for each award and session. Images keep their original transparency and fit the 9:17 portrait frame without cropping. Performer names and stats come from the Top Performers data.
                     </p>
                   </div>
                   <button
@@ -1995,7 +2022,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                     className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-sky-500 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-slate-950 transition hover:bg-sky-400"
                   >
                     <UserRound className="h-4 w-4" />
-                    Show session performers
+                    Open performer uploads
                   </button>
                 </div>
                 <div id="media-image-library" className="mb-4 grid scroll-mt-4 grid-cols-1 gap-3 sm:grid-cols-[minmax(12rem,0.8fr)_minmax(10rem,0.6fr)_minmax(14rem,1fr)]">

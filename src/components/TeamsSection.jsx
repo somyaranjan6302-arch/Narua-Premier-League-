@@ -21,10 +21,10 @@ export const TeamsSection = () => {
   });
 
   return (
-    <section id="teams" className="border-t border-slate-800 bg-[#05052f] pb-16">
-      <div className="relative mb-10 overflow-hidden border-b border-sky-500/30 bg-[#103b83] px-5 py-10 sm:px-8 sm:py-12">
+    <section id="teams" className="npl-section-bg border-t border-slate-800 pb-16">
+      <div className="relative mb-10 overflow-hidden border-b border-sky-300/30 bg-[#2110c7] px-5 py-10 sm:px-8 sm:py-12">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_60%,rgba(0,183,255,0.8)_0_5%,transparent_5.2%),repeating-conic-gradient(from_250deg_at_72%_60%,rgba(0,183,255,0.65)_0deg_5deg,transparent_5deg_12deg)] opacity-70" />
-        <div className="absolute inset-y-0 left-0 w-20 bg-[#1a3672]/80" />
+        <div className="absolute inset-y-0 left-0 w-20 bg-[#3516bf]/80" />
         <div className="relative mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <div className="mb-2 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-sky-200">

@@ -9,7 +9,7 @@ export const SectionPhotoGallery = ({ sectionId }) => {
   if (photos.length === 0) return null;
 
   return (
-    <section className="border-t border-slate-800 bg-[#060D1E] py-12">
+    <section className="npl-section-bg border-t border-slate-800 py-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mb-6 flex items-center gap-3">
           <Image className="h-5 w-5 text-amber-400" />

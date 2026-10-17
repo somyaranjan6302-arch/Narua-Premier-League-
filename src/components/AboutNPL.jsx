@@ -45,7 +45,7 @@ export const AboutNPL = ({ scrollToSection }) => {
   ];
 
   return (
-    <section id="story" className="py-20 relative bg-[#060D1D] border-t border-b border-slate-800/80 overflow-hidden">
+    <section id="story" className="npl-section-bg relative overflow-hidden border-b border-t border-slate-800/80 py-20">
       {/* Background glow */}
       <div className="absolute top-1/2 left-0 w-96 h-96 bg-blue-600/10 rounded-full blur-[140px] pointer-events-none" />
       <div className="absolute bottom-0 right-0 w-80 h-80 bg-amber-500/10 rounded-full blur-[120px] pointer-events-none" />
@@ -130,7 +130,7 @@ export const AboutNPL = ({ scrollToSection }) => {
                 alt="Narua Premier League Tournament"
                 className="w-full h-[440px] object-cover group-hover:scale-105 transition-transform duration-700"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#060D1D] via-transparent to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-npl-navy)] via-transparent to-transparent" />
               
               {/* Floating Plaque */}
               <div className="absolute bottom-4 left-4 right-4 glass-panel p-4 rounded-xl border border-amber-500/30">

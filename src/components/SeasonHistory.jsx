@@ -8,7 +8,7 @@ export const SeasonHistory = () => {
   const currentSeasonData = seasons.find(s => s.edition === selectedSeason) || seasons[0];
 
   return (
-    <section id="history" className="py-20 bg-[#060D1E] border-t border-slate-800/80">
+    <section id="history" className="npl-section-bg border-t border-slate-800/80 py-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Title */}
         <div className="text-center max-w-3xl mx-auto mb-12">

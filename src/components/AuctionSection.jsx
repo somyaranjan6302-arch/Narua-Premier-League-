@@ -22,7 +22,7 @@ export const AuctionSection = () => {
   const isAuctionActive = isAuctionLive || auctionLiveState.status === 'paused';
 
   return (
-    <section id="auction" className="py-24 relative bg-gradient-to-b from-[#080F24] via-[#0D1836] to-[#070D1F] border-t border-b border-amber-500/30 overflow-hidden">
+    <section id="auction" className="npl-section-bg relative overflow-hidden border-b border-t border-amber-500/30 py-24">
       {/* Background fiery golden glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[850px] h-[500px] bg-gradient-to-r from-amber-600/15 via-orange-600/15 to-yellow-500/15 rounded-full blur-[160px] pointer-events-none" />
 

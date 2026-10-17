@@ -12,7 +12,7 @@ export const NplLogo = ({ size = "md", showText = true, imageSrc, compactOnMobil
     <div className={`flex min-w-0 max-w-full items-center ${compact ? 'gap-2' : 'gap-3'} select-none group cursor-pointer`}>
       <div className={`relative ${dimensionClass} flex-shrink-0 transition-transform duration-300 group-hover:scale-105`}>
         {/* Glow backdrop */}
-        <div className="absolute inset-0 bg-gradient-to-tr from-amber-500/30 to-blue-600/30 rounded-full blur-md" />
+        <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-[#ff8a00]/35 via-[#e52bd1]/25 to-blue-500/35 blur-md" />
         
         {imageSrc ? (
           <img src={imageSrc} alt="NPL logo" className="relative w-full h-full object-contain" />
@@ -25,9 +25,9 @@ export const NplLogo = ({ size = "md", showText = true, imageSrc, compactOnMobil
               <stop offset="100%" stopColor="#080E1E" />
             </linearGradient>
             <linearGradient id="goldBorder" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#FDE68A" />
-              <stop offset="50%" stopColor="#F59E0B" />
-              <stop offset="100%" stopColor="#B45309" />
+              <stop offset="0%" stopColor="#FFDB19" />
+              <stop offset="50%" stopColor="#FF8A00" />
+              <stop offset="100%" stopColor="#E52BD1" />
             </linearGradient>
             <linearGradient id="ballGrad" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="#EF4444" />
@@ -96,12 +96,12 @@ export const NplLogo = ({ size = "md", showText = true, imageSrc, compactOnMobil
             <span className={`font-sports ${compact ? 'text-base 2xl:text-xl' : compactOnMobile ? 'text-xl sm:text-2xl md:text-3xl' : 'text-2xl md:text-3xl'} leading-none tracking-wider text-white`}>
               NARUA
             </span>
-            <span className={`font-sports ${compact ? 'text-base 2xl:text-xl' : compactOnMobile ? 'text-xl sm:text-2xl md:text-3xl' : 'text-2xl md:text-3xl'} leading-none tracking-wider text-amber-400`}>
+            <span className={`font-sports ${compact ? 'text-base 2xl:text-xl' : compactOnMobile ? 'text-xl sm:text-2xl md:text-3xl' : 'text-2xl md:text-3xl'} leading-none tracking-wider text-[#ffdb19]`}>
               PREMIER LEAGUE
             </span>
           </div>
           <div className={`flex items-center gap-x-2 gap-y-1 text-[10px] md:text-xs text-slate-400 uppercase tracking-widest font-semibold ${compact ? 'whitespace-nowrap text-[9px]' : 'flex-wrap'}`}>
-            <span className="text-amber-500">EST. 2024</span>
+            <span className="text-[#ff8a00]">EST. 2024</span>
             <span className="w-1 h-1 rounded-full bg-slate-600"></span>
             <span>OFFICIAL T20 LEAGUE</span>
           </div>

@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+@theme {
+  --color-slate-950: #090847;
+  --color-slate-900: #121064;
+  --color-slate-800: #292584;
+}
+
 /* Modern, consistent hero actions */
 .hero-actions {
   width: 100%;
@@ -58,12 +64,12 @@
 
 .hero-button-primary {
   color: #17120a;
-  background: linear-gradient(110deg, #fbbf24, #fde68a 48%, #f59e0b);
-  box-shadow: 0 8px 28px rgba(245, 158, 11, 0.3), inset 0 1px rgba(255, 255, 255, 0.65);
+  background: linear-gradient(110deg, #ff8a00, #ffdb19 48%, #e52bd1);
+  box-shadow: 0 8px 28px rgba(255, 138, 0, 0.3), inset 0 1px rgba(255, 255, 255, 0.65);
 }
 
 .hero-button-primary:hover {
-  box-shadow: 0 12px 34px rgba(245, 158, 11, 0.48), inset 0 1px rgba(255, 255, 255, 0.75);
+  box-shadow: 0 12px 34px rgba(229, 43, 209, 0.35), inset 0 1px rgba(255, 255, 255, 0.75);
 }
 
 .hero-button-tertiary {
@@ -103,13 +109,13 @@
 
 @layer base {
   :root {
-    --color-npl-blue: #2a3ef9;
-    --color-npl-navy: #1354d5;
-    --color-npl-card: #1e61de;
-    --color-npl-border: #1E293B;
-    --color-npl-gold: #F59E0B;
-    --color-npl-amber: #FBBF24;
-    --color-npl-accent: #EF4444;
+    --color-npl-blue: #2514e8;
+    --color-npl-navy: #100d65;
+    --color-npl-card: #171076;
+    --color-npl-border: #3430a2;
+    --color-npl-gold: #ff8a00;
+    --color-npl-amber: #ffdb19;
+    --color-npl-accent: #e52bd1;
   }
 
   html {
@@ -125,6 +131,14 @@
 
   section[id] {
     scroll-margin-top: 180px;
+  }
+
+  .npl-section-bg {
+    background-color: var(--color-npl-navy);
+    background-image:
+      radial-gradient(ellipse at 50% -20%, rgba(64, 51, 255, 0.48), transparent 58%),
+      linear-gradient(145deg, rgba(29, 19, 151, 0.68), transparent 52%),
+      linear-gradient(180deg, #171078 0%, var(--color-npl-navy) 72%);
   }
 
   /* Unified font utilities - all Inter */
@@ -192,8 +206,8 @@
 
 /* Subtle broadcast grid & mesh background */
 .sports-grid-bg {
-  background-image: radial-gradient(rgba(245, 158, 11, 0.08) 1px, transparent 1px),
-                    radial-gradient(rgba(59, 130, 246, 0.05) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(255, 219, 25, 0.08) 1px, transparent 1px),
+                    radial-gradient(rgba(65, 82, 255, 0.12) 1px, transparent 1px);
   background-size: 32px 32px;
   background-position: 0 0, 16px 16px;
 }

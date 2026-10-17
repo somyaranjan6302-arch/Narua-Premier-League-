@@ -32,7 +32,7 @@ export const HistoryOfNpl = ({ scrollToSection }) => {
   const aboutPhoto = siteMedia.stadium || '/assets/stadium.jpg';
 
   return (
-    <section id="npl-history" className="overflow-hidden bg-[#05052f] text-white">
+    <section id="npl-history" className="npl-section-bg overflow-hidden text-white">
       {champion && (
         <article className="mb-14 grid overflow-hidden bg-white text-slate-800 shadow-2xl sm:mb-16 lg:min-h-[480px] lg:grid-cols-2">
           <div className="flex flex-col items-start justify-center p-6 sm:p-10 lg:px-16 xl:px-24">
@@ -82,7 +82,7 @@ export const HistoryOfNpl = ({ scrollToSection }) => {
                 fetchPriority="high"
               />
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#06112b]/65 via-transparent to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-npl-navy)]/65 via-transparent to-transparent" />
             <div className="absolute bottom-4 left-4 rounded-full border border-white/30 bg-slate-950/70 px-3 py-1.5 text-xs font-bold text-white backdrop-blur">
               NPL {champion.season} · {champion.edition}
             </div>
@@ -90,7 +90,7 @@ export const HistoryOfNpl = ({ scrollToSection }) => {
         </article>
       )}
 
-      <TopPerformers seasonOverride={edition} showSeasonSelector={false} />
+      <TopPerformers seasonOverride={edition} showSeasonSelector={false} featured scrollToSection={scrollToSection} />
 
       <section className="grid bg-white text-slate-800 lg:min-h-[480px] lg:grid-cols-[0.95fr_1.05fr]">
         <div className="relative min-h-72 overflow-hidden bg-slate-900 sm:min-h-96 lg:min-h-full">

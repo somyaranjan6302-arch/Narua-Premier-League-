@@ -14,7 +14,7 @@ export const MemoriesLegacy = () => {
     .filter((photo) => photo.image);
 
   return (
-    <section className="min-h-screen border-t border-slate-800 bg-[var(--color-npl-navy)] py-20">
+    <section className="npl-section-bg min-h-screen border-t border-slate-800 py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mb-12 text-center">
           <p className="mb-3 text-xs font-bold uppercase tracking-[0.25em] text-amber-400">Our journey, captured</p>

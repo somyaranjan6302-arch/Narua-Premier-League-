@@ -27,7 +27,7 @@ export const ChampionsSection = () => {
   const hasFinalScores = finalScoreEntries.length === 2 && finalScoreEntries.every(Boolean);
 
   return (
-    <section id="champions" className="py-20 relative bg-gradient-to-b from-[#050B17] via-[#091329] to-[#050B17] overflow-hidden">
+    <section id="champions" className="npl-section-bg relative overflow-hidden py-20">
       {/* Background radial gold glow */}
       <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[700px] h-[700px] bg-amber-500/10 rounded-full blur-[160px] pointer-events-none" />
 

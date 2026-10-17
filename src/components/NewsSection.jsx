@@ -28,7 +28,7 @@ export const NewsSection = () => {
   });
 
   return (
-    <section id="news" className="min-h-[calc(100vh-8rem)] border-t border-slate-800 bg-[#050936] py-10 sm:py-14">
+    <section id="news" className="npl-section-bg min-h-[calc(100vh-8rem)] border-t border-slate-800 py-10 sm:py-14">
       <div className="mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-8">
         <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>

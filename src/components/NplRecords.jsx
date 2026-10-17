@@ -7,7 +7,7 @@ export const NplRecords = () => {
   const visibleRecords = records.filter((record) => !record.season || record.season === selectedSeason);
 
   return (
-    <section id="records" className="py-20 bg-[#060D1E] border-t border-slate-800">
+    <section id="records" className="npl-section-bg border-t border-slate-800 py-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Title */}
         <div className="text-center max-w-3xl mx-auto mb-12">
