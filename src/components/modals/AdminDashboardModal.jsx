@@ -1278,9 +1278,22 @@ export const AdminDashboardModal = ({ onClose }) => {
     ...Object.entries(performersForMediaSession).map(([key, performer]) => ({
       key: `performer:${key}`,
       rowKey: `performer:${mediaSessionFilter}:${key}`,
-      category: 'performers',
+      category: 'performer-section',
       title: `${performer.player || performer.team || 'Top performer'} • ${key.replace(/([A-Z])/g, ' $1')}`,
       description: `${mediaSessionFilter} • ${key.replace(/([A-Z])/g, ' $1')} • transparent 9:17 player cutout.`,
+      aspectRatio: 9 / 17,
+      fit: true,
+      directUpload: true,
+      showPhotoGuide: true,
+      sessionSpecific: true,
+      session: mediaSessionFilter
+    })),
+    ...Object.entries(performersForMediaSession).map(([key, performer]) => ({
+      key: `featured-performer:${key}`,
+      rowKey: `featured-performer:${mediaSessionFilter}:${key}`,
+      category: 'featured-performers',
+      title: `${performer.player || performer.team || 'Featured performer'} • ${key.replace(/([A-Z])/g, ' $1')}`,
+      description: `${mediaSessionFilter} homepage carousel • transparent 9:17 portrait, original framing preserved.`,
       aspectRatio: 9 / 17,
       fit: true,
       directUpload: true,
@@ -1300,16 +1313,15 @@ export const AdminDashboardModal = ({ onClose }) => {
     { value: 'gallery', label: 'Gallery' },
     { value: 'memories', label: 'Memories and Legacy' },
     { value: 'highlights', label: 'Video highlights' },
-    { value: 'performers', label: 'Top performer photos' },
+    { value: 'featured-performers', label: 'Homepage featured performer photos' },
+    { value: 'performer-section', label: 'Top Performers section photos' },
     ...publicPhotoSections.map((section) => ({
       value: `section:${section.id}`,
       label: `${section.label} — section photos`
     }))
   ];
   const filteredMediaItems = mediaItems.filter((item) => {
-    const matchesCategory = mediaCategory === 'all' ||
-      item.category === mediaCategory ||
-      (mediaCategory === 'section:performers' && item.category === 'performers');
+    const matchesCategory = mediaCategory === 'all' || item.category === mediaCategory;
     const matchesSession = !item.session && !item.sessions
       ? true
       : item.sessions
@@ -2008,21 +2020,40 @@ export const AdminDashboardModal = ({ onClose }) => {
                 </div>
                 <div className="mb-5 flex flex-col gap-3 rounded-xl border border-sky-800/60 bg-sky-950/20 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h5 className="font-sports text-base text-sky-300">TOP PERFORMER PHOTO UPLOADS</h5>
+                    <h5 className="font-sports text-base text-sky-300">HOMEPAGE FEATURED PERFORMER PHOTOS</h5>
                     <p className="mt-1 text-xs text-slate-300">
-                      Upload a transparent PNG or WebP cutout for each award and session. Images keep their original transparency and fit the 9:17 portrait frame without cropping. Performer names and stats come from the Top Performers data.
+                      Separate uploads for the homepage carousel, for every award and session. Transparent PNG or WebP portraits keep their original framing in the 9:17 portrait slot; zoom and crop are not applied.
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => {
-                      setMediaCategory('section:performers');
+                      setMediaCategory('featured-performers');
                       setMediaSearch('');
                     }}
                     className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-sky-500 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-slate-950 transition hover:bg-sky-400"
                   >
                     <UserRound className="h-4 w-4" />
-                    Open performer uploads
+                    Manage homepage photos
+                  </button>
+                </div>
+                <div className="mb-5 flex flex-col gap-3 rounded-xl border border-indigo-800/60 bg-indigo-950/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h5 className="font-sports text-base text-indigo-300">TOP PERFORMERS SECTION PHOTOS</h5>
+                    <p className="mt-1 text-xs text-slate-300">
+                      Independent images for the full Top Performers section, managed separately from the homepage carousel. Portraits use the same 9:17 frame without zoom or crop.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMediaCategory('performer-section');
+                      setMediaSearch('');
+                    }}
+                    className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-indigo-500 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-white transition hover:bg-indigo-400"
+                  >
+                    <UserRound className="h-4 w-4" />
+                    Manage section photos
                   </button>
                 </div>
                 <div id="media-image-library" className="mb-4 grid scroll-mt-4 grid-cols-1 gap-3 sm:grid-cols-[minmax(12rem,0.8fr)_minmax(10rem,0.6fr)_minmax(14rem,1fr)]">

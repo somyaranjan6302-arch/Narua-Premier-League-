@@ -51,7 +51,7 @@ export const TopPerformers = ({ seasonOverride, showSeasonSelector = true, featu
   const selectedPerformer = sessionPerformers[selectedIndex];
 
   const getPerformerPhoto = (key, data) => {
-    const mediaKey = `performer:${key}`;
+    const mediaKey = `${featured ? 'featured-performer' : 'performer'}:${key}`;
     return featured
       ? siteMedia[getSessionMediaKey(mediaKey, displaySeason)] || ''
       : getSiteMedia(siteMedia, mediaKey, displaySeason, data.photo);
@@ -89,10 +89,6 @@ export const TopPerformers = ({ seasonOverride, showSeasonSelector = true, featu
     const primaryMetric = data ? getMetric(data.stat || '') : { value: '', label: '' };
     const details = (data?.details || '').split('•').map((item) => item.trim()).filter(Boolean);
     const detailMetrics = details.map(getMetric).slice(0, 3);
-    const previousPerformer = sessionPerformers[(selectedIndex - 1 + sessionPerformers.length) % sessionPerformers.length];
-    const nextPerformer = sessionPerformers[(selectedIndex + 1) % sessionPerformers.length];
-    const previousPhoto = previousPerformer ? getPerformerPhoto(previousPerformer.key, previousPerformer.data) : '';
-    const nextPhoto = nextPerformer ? getPerformerPhoto(nextPerformer.key, nextPerformer.data) : '';
 
     return (
       <section id={showSeasonSelector ? 'performers' : undefined} className="relative isolate overflow-hidden border-t border-indigo-300/15 bg-[#100b89] py-10 sm:py-14">
@@ -115,27 +111,6 @@ export const TopPerformers = ({ seasonOverride, showSeasonSelector = true, featu
 
           {data ? (
             <div className="relative mx-auto min-h-[650px] max-w-[1760px] md:min-h-[620px]">
-              {previousPhoto && sessionPerformers.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => setFeaturedIndex((selectedIndex - 1 + sessionPerformers.length) % sessionPerformers.length)}
-                  aria-label={`Previous performer: ${previousPerformer.data.player || previousPerformer.data.team}`}
-                  className="absolute bottom-0 left-0 hidden h-[38%] w-[17%] opacity-40 transition-opacity hover:opacity-70 xl:block"
-                >
-                  <img src={previousPhoto} alt="" className="h-full w-full object-contain object-bottom" />
-                </button>
-              )}
-              {nextPhoto && sessionPerformers.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => setFeaturedIndex((selectedIndex + 1) % sessionPerformers.length)}
-                  aria-label={`Next performer: ${nextPerformer.data.player || nextPerformer.data.team}`}
-                  className="absolute bottom-0 right-0 hidden h-[38%] w-[17%] opacity-40 transition-opacity hover:opacity-70 xl:block"
-                >
-                  <img src={nextPhoto} alt="" className="h-full w-full object-contain object-bottom" />
-                </button>
-              )}
-
               <button
                 type="button"
                 onClick={() => setFeaturedIndex((selectedIndex - 1 + sessionPerformers.length) % sessionPerformers.length)}
@@ -326,7 +301,7 @@ export const TopPerformers = ({ seasonOverride, showSeasonSelector = true, featu
                     <img
                       src={photo}
                       alt={data.player || data.team}
-                      className="absolute inset-0 h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]"
+                      className="absolute inset-0 h-full w-full object-contain object-bottom"
                       loading={displaySeason === 'Season 5' && key === 'orangeCap' ? 'eager' : 'lazy'}
                       fetchPriority={displaySeason === 'Season 5' && key === 'orangeCap' ? 'high' : 'auto'}
                     />
