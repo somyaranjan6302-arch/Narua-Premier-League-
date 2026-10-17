@@ -1296,7 +1296,6 @@ export const AdminDashboardModal = ({ onClose }) => {
       description: `${mediaSessionFilter} homepage carousel • transparent 9:17 portrait, original framing preserved.`,
       aspectRatio: 9 / 17,
       fit: true,
-      directUpload: true,
       showPhotoGuide: true,
       sessionSpecific: true,
       session: mediaSessionFilter
@@ -2022,7 +2021,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                   <div>
                     <h5 className="font-sports text-base text-sky-300">HOMEPAGE FEATURED PERFORMER PHOTOS</h5>
                     <p className="mt-1 text-xs text-slate-300">
-                      Separate uploads for the homepage carousel, for every award and session. Transparent PNG or WebP portraits keep their original framing in the 9:17 portrait slot; zoom and crop are not applied.
+                      Separate uploads for the homepage carousel, for every award and session. Use the crop editor to zoom and position each portrait in the 9:17 frame.
                     </p>
                   </div>
                   <button

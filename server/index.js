@@ -629,7 +629,7 @@ const start = async () => {
     });
   }, async (req, res) => {
     const mediaKey = typeof req.body.key === 'string' ? req.body.key : '';
-    if (!['logo', 'trophy', 'stadium'].includes(mediaKey) && !/^(news|champion|team-logo|team|gallery|memory-photo|highlight|performer|player-photo|section-photo):[A-Za-z0-9 ._-]{1,80}$/.test(mediaKey)) {
+    if (!['logo', 'trophy', 'stadium'].includes(mediaKey) && !/^(news|champion|team-logo|team|gallery|memory-photo|highlight|performer|featured-performer|player-photo|section-photo):[A-Za-z0-9 ._-]{1,80}$/.test(mediaKey)) {
       return res.status(400).json({ error: 'Choose a supported site image slot.' });
     }
     if (!req.file) return res.status(400).json({ error: 'Choose an image to upload.' });
@@ -641,7 +641,7 @@ const start = async () => {
 
   app.delete('/api/admin/media/:key', requireAdmin, requireOwner, async (req, res) => {
     const mediaKey = req.params.key;
-    if (!['logo', 'trophy', 'stadium'].includes(mediaKey) && !/^(news|champion|team-logo|team|gallery|memory-photo|highlight|performer|player-photo|section-photo):[A-Za-z0-9 ._-]{1,80}$/.test(mediaKey)) {
+    if (!['logo', 'trophy', 'stadium'].includes(mediaKey) && !/^(news|champion|team-logo|team|gallery|memory-photo|highlight|performer|featured-performer|player-photo|section-photo):[A-Za-z0-9 ._-]{1,80}$/.test(mediaKey)) {
       return res.status(400).json({ error: 'Choose a supported site image slot.' });
     }
 
