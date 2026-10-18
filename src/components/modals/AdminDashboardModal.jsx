@@ -2627,7 +2627,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                             </div>
                             <div className="rounded-lg border border-sky-800/60 bg-sky-950/20 p-3">
                               <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-sky-300">
-                                Team crest shown in the circular badge
+                                Team logo shown in the points table and team badges
                               </p>
                               {mediaUploadControl({
                                 key: `team-logo:${team.id}`,

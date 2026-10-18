@@ -63,7 +63,7 @@ export const PointsTable = () => {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-950/80 border-b border-slate-800 text-[11px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">
-                  <th className="py-4 px-4 sm:px-6 text-center w-12 sm:w-16">POS</th>
+                  <th className="py-4 px-1 sm:px-2 text-center w-8 sm:w-10">POS</th>
                   <th className="py-4 px-4 sm:px-6">TEAM</th>
                   <th className="py-4 px-3 text-center">P</th>
                   <th className="py-4 px-3 text-center text-emerald-400 font-bold">W</th>
@@ -87,7 +87,7 @@ export const PointsTable = () => {
                       }`}
                     >
                       {/* POS with green indicator bar for top 4 */}
-                      <td className="py-4 px-4 sm:px-6 text-center relative">
+                      <td className="py-4 px-1 sm:px-2 text-center relative">
                         {isTopFour && (
                           <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500" />
                         )}
@@ -97,14 +97,14 @@ export const PointsTable = () => {
                       </td>
 
                       {/* TEAM NAME & BADGE */}
-                      <td className="py-4 px-4 sm:px-6">
+                      <td className="py-4 px-1 sm:px-2">
                         <a
                           href={teamObj ? `/?team=${encodeURIComponent(teamObj.id)}&season=${encodeURIComponent(selectedSeason)}` : undefined}
                           target={teamObj ? '_blank' : undefined}
                           rel={teamObj ? 'noopener noreferrer' : undefined}
                           className={`flex items-center gap-3 group ${teamObj ? 'cursor-pointer' : 'cursor-default'}`}
                         >
-                          <TeamBadge team={teamObj || row} size="sm" shape="circle" />
+                          <TeamBadge team={teamObj || row} size="sm" shape="none" />
                           <div>
                             <div className="font-heading font-bold text-white group-hover:text-amber-400 transition-colors flex items-center gap-1.5">
                               <span>{row.team}</span>

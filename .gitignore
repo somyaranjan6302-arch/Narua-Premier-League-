@@ -8,6 +8,10 @@ dist/
 dist-ssr/
 build/
 
+# Local-only standings preview data
+/public/local-demo-standings.json
+/public/uploads/points-table-team-logo-preview.png
+
 # Private admin credentials and session signing key
 server/data/
 

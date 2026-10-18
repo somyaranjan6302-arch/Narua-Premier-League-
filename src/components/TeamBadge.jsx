@@ -13,6 +13,7 @@ export const TeamBadge = ({ team, size = "md", showName = false, shape = "rounde
   };
 
   const currentSize = sizeMap[size] || sizeMap.md;
+  const isLogoOnly = shape === "none";
   const primaryColor = team?.primaryColor || team?.color || "#F59E0B";
   const shortName = team?.shortName || team?.short || "NPL";
   const logoSrc = getSiteMedia(siteMedia, `team-logo:${team?.id}`, selectedSeason, team?.logo);
@@ -20,16 +21,16 @@ export const TeamBadge = ({ team, size = "md", showName = false, shape = "rounde
   return (
     <div className="inline-flex items-center gap-2.5">
       <div
-        className={`relative ${currentSize} ${shape === 'circle' ? 'rounded-full' : 'rounded-xl'} flex items-center justify-center font-sports tracking-wider text-white shadow-lg overflow-hidden flex-shrink-0 transition-transform duration-200 hover:scale-105`}
+        className={`relative ${isLogoOnly ? 'h-20 w-auto' : currentSize} ${shape === 'circle' ? 'rounded-full' : isLogoOnly ? '' : 'rounded-xl'} flex items-center justify-center font-sports tracking-wider text-white ${isLogoOnly ? '' : 'shadow-lg'} ${logoSrc ? 'overflow-visible' : 'overflow-hidden'} flex-shrink-0 transition-transform duration-200 hover:scale-105`}
         style={{
-          background: `linear-gradient(135deg, ${primaryColor} 0%, #0B132B 100%)`,
-          boxShadow: `0 4px 14px ${primaryColor}40`,
-          border: `1.5px solid ${primaryColor}80`
+          background: logoSrc ? 'transparent' : `linear-gradient(135deg, ${primaryColor} 0%, #0B132B 100%)`,
+          boxShadow: logoSrc ? 'none' : `0 4px 14px ${primaryColor}40`,
+          border: logoSrc ? 'none' : `1.5px solid ${primaryColor}80`
         }}
         title={team?.name}
       >
         {logoSrc ? (
-          <img src={logoSrc} alt={`${team?.name || shortName} logo`} className="absolute inset-0 z-10 h-full w-full object-contain p-1" />
+          <img src={logoSrc} alt={`${team?.name || shortName} logo`} className={`relative z-10 h-full ${isLogoOnly ? 'w-auto' : 'w-full object-contain drop-shadow-md'}`} />
         ) : (
           <>
             <div className="absolute inset-0 opacity-20 pointer-events-none">
@@ -42,7 +43,7 @@ export const TeamBadge = ({ team, size = "md", showName = false, shape = "rounde
         )}
 
         {/* Small corner star if team has won titles */}
-        {team?.titles > 0 && (
+        {!isLogoOnly && team?.titles > 0 && (
           <span className="absolute top-0.5 right-1 z-20 text-[9px] text-amber-300 drop-shadow">
             ★
           </span>
