@@ -10,7 +10,7 @@ const teamIds = {
 };
 
 const teamStyle = {
-  'GCC Fighter Binjharpur': ['#0a39f5', '#172554', 'Farhan Khan'],
+  'GCC Fighter Binjharpur': ['#ce0a1b', '#11141c', 'Farhan Khan'],
   'HP No Compromise': ['#f31558', '#4c0519', 'Abhishek Das'],
   'No Compromise Kaina': ['#2563eb', '#172554', 'Mojahid Ali Khan'],
   'Titan Strikers': ['#16a34a', '#14532d', 'Ananta Behera'],

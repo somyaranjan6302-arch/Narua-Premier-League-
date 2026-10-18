@@ -610,6 +610,14 @@ export const AdminDashboardModal = ({ onClose }) => {
     });
   };
 
+  const openTeamsForLogoSession = () => {
+    setTeamSessionFocus(mediaSessionFilter);
+    setTeamDraft((current) => ({ ...current, sessions: [mediaSessionFilter] }));
+    setTeamError('');
+    setIsSessionWorkspaceOpen(true);
+    setActiveTab('teams');
+  };
+
   const handleCancelGalleryEdit = () => {
     setEditingGalleryItemId(null);
     setGalleryDraft({ title: '', category: 'MATCH DAY', caption: '', date: '', season: selectedSeason });
@@ -1414,10 +1422,22 @@ export const AdminDashboardModal = ({ onClose }) => {
     const searchText = `${item.title} ${item.description}`.toLowerCase();
     return matchesCategory && matchesSession && searchText.includes(mediaSearch.trim().toLowerCase());
   });
+  const hasTeamLogoSlotsForSession = teams.some((team) => (
+    getTeamSessions(team, seasons.map((season) => season.edition))
+      .some((session) => getMediaSessionId(session) === getMediaSessionId(mediaSessionFilter))
+  ));
 
   const handleTournamentSave = () => {
     setTournamentInfo(tournamentDraft);
     showToast('Tournament settings saved.');
+  };
+
+  const showTeamLogoSlots = () => {
+    setMediaCategory('team-logos');
+    setMediaSearch('');
+    requestAnimationFrame(() => {
+      document.getElementById('media-image-library')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   };
 
   const profileMenu = adminUser && (
@@ -1766,14 +1786,24 @@ export const AdminDashboardModal = ({ onClose }) => {
                     <h4 className="font-sports text-xl text-white">SESSIONS &amp; PUBLISHED CONTENT</h4>
                     <p className="mt-1 text-xs text-slate-400">Create sessions for the whole site, add gallery photos, and publish articles, announcements, or important text-only news.</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => document.getElementById('media-image-library')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                    className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-sky-700 bg-sky-950/70 px-4 py-2 text-xs font-black uppercase tracking-wide text-sky-200 transition hover:bg-sky-900"
-                  >
-                    <Image className="h-4 w-4" />
-                    Go to photo uploads
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={showTeamLogoSlots}
+                      className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-sky-500 px-4 py-2 text-xs font-black uppercase tracking-wide text-slate-950 transition hover:bg-sky-400"
+                    >
+                      <Shield className="h-4 w-4" />
+                      Upload team logos
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('media-image-library')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                      className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-sky-700 bg-sky-950/70 px-4 py-2 text-xs font-black uppercase tracking-wide text-sky-200 transition hover:bg-sky-900"
+                    >
+                      <Image className="h-4 w-4" />
+                      All photo uploads
+                    </button>
+                  </div>
                 </div>
                 <form onSubmit={handleAddSession} className="mb-5 grid grid-cols-1 gap-3 rounded-xl border border-cyan-800/60 bg-cyan-950/20 p-4 sm:grid-cols-[1fr_10rem_auto] sm:items-end">
                   <div className="sm:col-span-3">
@@ -2149,7 +2179,9 @@ export const AdminDashboardModal = ({ onClose }) => {
                       className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-semibold text-white focus:border-amber-500 focus:outline-none"
                     >
                       {mediaCategories.map((category) => (
-                        <option key={category.value} value={category.value}>{category.label}</option>
+                        <option key={category.value} value={category.value}>
+                          {category.value === 'team-logos' ? 'Team logos — points table and team badges' : category.label}
+                        </option>
                       ))}
                     </select>
                   </label>
@@ -2223,7 +2255,23 @@ export const AdminDashboardModal = ({ onClose }) => {
                 {mediaError && <p role="alert" className="mb-3 rounded-lg border border-rose-800 bg-rose-950/70 px-3 py-2 text-sm text-rose-300">{mediaError}</p>}
                 <div className="divide-y divide-slate-800 rounded-xl border border-slate-800 bg-slate-950/50 px-4">
                   {filteredMediaItems.length > 0 ? filteredMediaItems.map((item) => mediaUploadControl(item)) : (
-                    <p className="px-3 py-8 text-center text-sm text-slate-400">No image slots match that search.</p>
+                    mediaCategory === 'team-logos' && !hasTeamLogoSlotsForSession ? (
+                      <div className="flex flex-col items-center gap-3 px-3 py-8 text-center">
+                        <p className="text-sm text-slate-300">
+                          No teams are assigned to {mediaSessionFilter}, so there are no team-logo upload slots yet.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={openTeamsForLogoSession}
+                          className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-sky-500 px-4 py-2 text-xs font-black uppercase tracking-wide text-slate-950 transition hover:bg-sky-400"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Add teams to {mediaSessionFilter}
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="px-3 py-8 text-center text-sm text-slate-400">No image slots match that search.</p>
+                    )
                   )}
                 </div>
               </div>
@@ -2710,6 +2758,54 @@ export const AdminDashboardModal = ({ onClose }) => {
                                 </button>
                               </div>
                             </div>
+                            <div className="rounded-lg border border-fuchsia-800/50 bg-fuchsia-950/20 p-3">
+                              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-fuchsia-200">
+                                Match banner color combination
+                              </p>
+                              <div className="grid grid-cols-2 gap-3">
+                                <label className="text-[10px] font-bold uppercase tracking-wide text-slate-300">
+                                  Primary
+                                  <span className="mt-1 flex h-9 items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-2">
+                                    <input
+                                      type="color"
+                                      aria-label={`${team.name} primary match banner color`}
+                                      value={team.primaryColor || '#1d4ed8'}
+                                      onChange={(event) => {
+                                        const primaryColor = event.target.value;
+                                        setTeams((current) => current.map((entry) => (
+                                          entry.id === team.id ? { ...entry, primaryColor } : entry
+                                        )));
+                                      }}
+                                      className="h-6 w-8 cursor-pointer rounded border-0 bg-transparent p-0"
+                                    />
+                                    <span className="font-mono text-[10px] text-slate-300">{team.primaryColor || '#1d4ed8'}</span>
+                                  </span>
+                                </label>
+                                <label className="text-[10px] font-bold uppercase tracking-wide text-slate-300">
+                                  Secondary
+                                  <span className="mt-1 flex h-9 items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-2">
+                                    <input
+                                      type="color"
+                                      aria-label={`${team.name} secondary match banner color`}
+                                      value={team.secondaryColor || '#0f172a'}
+                                      onChange={(event) => {
+                                        const secondaryColor = event.target.value;
+                                        setTeams((current) => current.map((entry) => (
+                                          entry.id === team.id ? { ...entry, secondaryColor } : entry
+                                        )));
+                                      }}
+                                      className="h-6 w-8 cursor-pointer rounded border-0 bg-transparent p-0"
+                                    />
+                                    <span className="font-mono text-[10px] text-slate-300">{team.secondaryColor || '#0f172a'}</span>
+                                  </span>
+                                </label>
+                              </div>
+                              <div
+                                aria-hidden="true"
+                                className="mt-3 h-5 rounded-md border border-white/15"
+                                style={{ background: `linear-gradient(90deg, ${team.primaryColor || '#1d4ed8'} 0%, ${team.secondaryColor || '#0f172a'} 100%)` }}
+                              />
+                            </div>
                             <div className="rounded-lg border border-sky-800/60 bg-sky-950/20 p-3">
                               <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-sky-300">
                                 Team logo shown in the points table and team badges
@@ -2728,7 +2824,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                             </div>
                             <div className="rounded-lg border border-amber-800/60 bg-amber-950/20 p-3">
                               <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-amber-300">
-                                Match card banner - 11:2 landscape
+                                Match card banner • 11:2 landscape
                               </p>
                               {mediaUploadControl({
                                 key: `match-banner:${team.id}`,

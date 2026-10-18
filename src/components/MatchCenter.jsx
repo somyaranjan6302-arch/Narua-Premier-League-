@@ -27,7 +27,70 @@ export const MatchCenter = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const sessionMatches = matches.filter((match) => (match.season || match.session) === selectedSeason);
+  const showDemoMatches = import.meta.env.DEV &&
+    new URLSearchParams(window.location.search).get('demoMatches') === '1';
+  const sessionTeams = teams.filter((team) => (
+    (team.sessions || team.seasons || [team.session]).includes(selectedSeason)
+  ));
+  const demoTeam1 = sessionTeams[0] || teams[0] || {
+    id: 'demo-team-1',
+    name: 'Narua Royals',
+    shortName: 'NR',
+    primaryColor: '#ef233c'
+  };
+  const demoTeam2 = sessionTeams[1] || teams.find((team) => team.id !== demoTeam1.id) || {
+    id: 'demo-team-2',
+    name: 'Barpada Strikers',
+    shortName: 'BS',
+    primaryColor: '#0ea5e9'
+  };
+  const demoMatches = [
+    {
+      id: `demo-final-${selectedSeason}`,
+      season: selectedSeason,
+      matchNumber: 'DEMO 01',
+      tournamentPhase: 'FINAL',
+      status: 'COMPLETED',
+      date: '18 Oct 2026',
+      time: '7:30 PM',
+      venue: 'NPL Demo Stadium',
+      result: `${demoTeam1.name} win by 5 wickets`,
+      playerOfMatch: { name: 'Demo Player', performance: '62 runs • 3 wickets' },
+      team1: { ...demoTeam1, score: '161/5', overs: '18.0' },
+      team2: { ...demoTeam2, score: '158/8', overs: '20.0' }
+    },
+    {
+      id: `demo-live-${selectedSeason}`,
+      season: selectedSeason,
+      matchNumber: 'DEMO 02',
+      tournamentPhase: 'LEAGUE MATCH',
+      status: 'LIVE',
+      date: '18 Oct 2026',
+      time: '4:00 PM',
+      venue: 'NPL Demo Ground',
+      equation: 'Need 42 runs from 28 balls',
+      currentBatsmen: [{ name: 'Demo Batter 1', score: '38 (24)' }, { name: 'Demo Batter 2', score: '16 (11)' }],
+      currentBowler: { name: 'Demo Bowler', figures: '2/24 (3.2)' },
+      team1: { ...demoTeam1, score: '126/4', overs: '16.0', target: 168 },
+      team2: { ...demoTeam2, score: '167/6', overs: '20.0' }
+    },
+    {
+      id: `demo-upcoming-${selectedSeason}`,
+      season: selectedSeason,
+      matchNumber: 'DEMO 03',
+      tournamentPhase: 'LEAGUE MATCH',
+      status: 'UPCOMING',
+      date: '19 Oct 2026',
+      time: '7:30 PM',
+      venue: 'Narua Cricket Ground',
+      preview: 'A sample upcoming fixture to preview the match card design.',
+      team1: { ...demoTeam2 },
+      team2: { ...demoTeam1 }
+    }
+  ];
+  const sessionMatches = showDemoMatches
+    ? demoMatches
+    : matches.filter((match) => (match.season || match.session) === selectedSeason);
   const filteredMatches = sessionMatches.filter(m => {
     if (filter === 'ALL') return true;
     return m.status === filter;
@@ -117,6 +180,12 @@ export const MatchCenter = () => {
             </div>
           </div>
         </div>
+
+        {showDemoMatches && (
+          <p className="mx-auto mb-4 max-w-[1700px] rounded-lg border border-amber-500/30 bg-amber-950/30 px-4 py-2 text-center text-xs font-bold text-amber-200">
+            Demo preview only — sample fixtures are not saved and are never shown on the live site.
+          </p>
+        )}
 
         {/* Match Cards Grid */}
         <div className="mx-auto grid max-w-[1700px] grid-cols-1 gap-4">

@@ -1,13 +1,40 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNpl } from '../context/NplContext';
 import { TeamBadge } from './TeamBadge';
 import { Trophy, Info } from 'lucide-react';
 
+const previewTeamLogo = '/uploads/points-table-team-logo-preview.png';
+
 export const PointsTable = () => {
   const { pointsTable, seasonStandings, seasons, selectedSeason, setSelectedSeason, teams } = useNpl();
+  const [demoStandings, setDemoStandings] = useState(null);
+  const [demoStandingsError, setDemoStandingsError] = useState('');
+  const showDemoStandings = import.meta.env.DEV
+    && new URLSearchParams(window.location.search).get('demoStandings') === '1';
   const seasonInfo = seasons.find((season) => season.edition === selectedSeason) || seasons[0];
-  const visiblePointsTable = seasonStandings[selectedSeason]
-    || (selectedSeason === seasons[0]?.edition ? pointsTable : []);
+  const visiblePointsTable = showDemoStandings
+    ? demoStandings || []
+    : seasonStandings[selectedSeason] || (selectedSeason === seasons[0]?.edition ? pointsTable : []);
+
+  useEffect(() => {
+    if (!showDemoStandings) return undefined;
+
+    const controller = new AbortController();
+    fetch('/local-demo-standings.json', { signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error(`Demo standings request failed (${response.status}).`);
+        return response.json();
+      })
+      .then((rows) => {
+        if (!Array.isArray(rows)) throw new Error('Demo standings data must be a list of rows.');
+        setDemoStandings(rows);
+      })
+      .catch((error) => {
+        if (error.name !== 'AbortError') setDemoStandingsError(error.message);
+      });
+
+    return () => controller.abort();
+  }, [showDemoStandings]);
 
   return (
     <section id="standings" className="npl-section-bg border-t border-slate-800 py-20">
@@ -58,7 +85,19 @@ export const PointsTable = () => {
         )}
 
         {/* Responsive Table Container */}
-        <div className="glass-panel-card rounded-3xl border border-slate-800 shadow-2xl overflow-hidden">
+        {showDemoStandings && (
+          <p className="mb-4 rounded-xl border border-amber-500/30 bg-amber-950/30 px-4 py-3 text-center text-xs font-bold text-amber-200">
+            Demo preview only — local sample standings are not saved and are never shown on the live site.
+          </p>
+        )}
+
+        {demoStandingsError && showDemoStandings && (
+          <p role="alert" className="mb-4 rounded-xl border border-rose-500/40 bg-rose-950/40 px-4 py-3 text-center text-sm font-semibold text-rose-200">
+            Could not load the local demo standings: {demoStandingsError}
+          </p>
+        )}
+
+        <div className="glass-panel-card overflow-hidden rounded-[2rem] border border-amber-400/15 shadow-2xl shadow-slate-950/50 ring-1 ring-white/5">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -104,7 +143,7 @@ export const PointsTable = () => {
                           rel={teamObj ? 'noopener noreferrer' : undefined}
                           className={`flex items-center gap-3 group ${teamObj ? 'cursor-pointer' : 'cursor-default'}`}
                         >
-                          <TeamBadge team={teamObj || row} size="sm" shape="none" />
+                          <TeamBadge team={teamObj || row} size="sm" shape="none" logoSrcOverride={previewTeamLogo} />
                           <div>
                             <div className="font-heading font-bold text-white group-hover:text-amber-400 transition-colors flex items-center gap-1.5">
                               <span>{row.team}</span>

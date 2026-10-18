@@ -33,7 +33,15 @@ import { VideoPlayerModal } from './components/modals/VideoPlayerModal';
 import { AdminDashboardModal } from './components/modals/AdminDashboardModal';
 
 export const App = () => {
-  const [activeSection, setActiveSection] = useState('home');
+  const [activeSection, setActiveSection] = useState(() => (
+    import.meta.env.DEV &&
+    new URLSearchParams(window.location.search).get('demoStandings') === '1'
+      ? 'standings'
+      : import.meta.env.DEV &&
+        new URLSearchParams(window.location.search).get('demoMatches') === '1'
+        ? 'matches'
+        : 'home'
+  ));
   const {
     activeModal,
     closeModal,

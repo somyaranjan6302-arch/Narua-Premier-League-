@@ -11,7 +11,7 @@ const teamIds = {
 
 const teamStyle = {
   'Fire 11 Narua': ['#f97316', '#7c2d12', 'Rahul Das'],
-  'Local 11 Sayedpur': ['#0ea5e9', '#082f49', 'Krishna Rout'],
+  'Local 11 Sayedpur': ['#f9fdff', '#493808', 'Krishna Rout'],
   'Titan Strikers': ['#22c55e', '#14532d', 'Abhishek Das'],
   'BMN Royals': ['#f59e0b', '#78350f', 'Prasan Jit'],
   'HP Commando 11': ['#f31558', '#4c0519', 'Muna'],

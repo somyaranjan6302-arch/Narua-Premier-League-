@@ -2,7 +2,7 @@ import React from 'react';
 import { useNpl } from '../context/NplContext';
 import { getSiteMedia } from '../utils/siteMedia';
 
-export const TeamBadge = ({ team, size = "md", showName = false, shape = "rounded" }) => {
+export const TeamBadge = ({ team, size = "md", showName = false, shape = "rounded", logoSrcOverride }) => {
   const { siteMedia, selectedSeason } = useNpl();
   const sizeMap = {
     xs: "w-6 h-6 text-[10px]",
@@ -16,7 +16,7 @@ export const TeamBadge = ({ team, size = "md", showName = false, shape = "rounde
   const isLogoOnly = shape === "none";
   const primaryColor = team?.primaryColor || team?.color || "#F59E0B";
   const shortName = team?.shortName || team?.short || "NPL";
-  const logoSrc = getSiteMedia(siteMedia, `team-logo:${team?.id}`, selectedSeason, team?.logo);
+  const logoSrc = getSiteMedia(siteMedia, `team-logo:${team?.id}`, selectedSeason, team?.logo) || logoSrcOverride;
 
   return (
     <div className="inline-flex items-center gap-2.5">
