@@ -44,6 +44,15 @@ const getTeamSessions = (team, seasonEditions) => {
 
 const getMediaSessionId = (session) => getSessionMediaKey('session', session);
 
+const matchBannerColorPresets = [
+  { id: 'royal-blue', label: 'Royal blue & gold', primaryColor: '#1D4ED8', secondaryColor: '#F59E0B' },
+  { id: 'crimson', label: 'Crimson & charcoal', primaryColor: '#E11D48', secondaryColor: '#1F2937' },
+  { id: 'emerald', label: 'Emerald & gold', primaryColor: '#059669', secondaryColor: '#FBBF24' },
+  { id: 'purple', label: 'Purple & silver', primaryColor: '#7C3AED', secondaryColor: '#CBD5E1' },
+  { id: 'orange', label: 'Orange & navy', primaryColor: '#F97316', secondaryColor: '#172554' },
+  { id: 'teal', label: 'Teal & midnight', primaryColor: '#0D9488', secondaryColor: '#0F172A' }
+];
+
 const publicPhotoSections = [
   { id: 'home', label: 'Home' },
   { id: 'story', label: 'About NPL Story' },
@@ -1029,6 +1038,15 @@ export const AdminDashboardModal = ({ onClose }) => {
     const { key: baseMediaKey, title, description, fallback: fallbackImage = '', aspectRatio = 1, fit = false, directUpload = false, sessionSpecific = false, uploadLabel = 'Change photo', showPhotoGuide = false, previewWide = false } = item;
     const mediaSession = item.uploadSession || mediaSessionFilter;
     const mediaKey = sessionSpecific ? getSessionMediaKey(baseMediaKey, mediaSession) : baseMediaKey;
+    const matchBannerTeam = item.matchBannerTeamId
+      ? teams.find((team) => team.id === item.matchBannerTeamId)
+      : null;
+    const bannerPrimaryColor = matchBannerTeam?.primaryColor || '#1d4ed8';
+    const bannerSecondaryColor = matchBannerTeam?.secondaryColor || '#0f172a';
+    const selectedBannerPreset = matchBannerColorPresets.find((preset) => (
+      preset.primaryColor.toLowerCase() === bannerPrimaryColor.toLowerCase()
+      && preset.secondaryColor.toLowerCase() === bannerSecondaryColor.toLowerCase()
+    ))?.id || 'custom';
     const activeMediaKey = siteMedia[mediaKey] ? mediaKey : siteMedia[baseMediaKey] ? baseMediaKey : null;
     const pendingMedia = pendingMediaFiles[mediaKey];
     const cropFile = mediaCropFiles[mediaKey];
@@ -1077,6 +1095,61 @@ export const AdminDashboardModal = ({ onClose }) => {
       <div className="min-w-0">
         <p className="text-sm font-bold text-white">{title}</p>
         <p className="text-xs text-slate-400">{description}</p>
+        {matchBannerTeam && (
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-end">
+            <label className="text-[10px] font-bold uppercase tracking-wide text-slate-300">
+              Banner color preset
+              <select
+                value={selectedBannerPreset}
+                aria-label={`${matchBannerTeam.name} banner color preset`}
+                onChange={(event) => {
+                  const preset = matchBannerColorPresets.find((option) => option.id === event.target.value);
+                  if (!preset) return;
+                  setTeams((current) => current.map((team) => (
+                    team.id === matchBannerTeam.id
+                      ? { ...team, primaryColor: preset.primaryColor, secondaryColor: preset.secondaryColor }
+                      : team
+                  )));
+                }}
+                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-xs font-semibold normal-case text-white focus:border-amber-500 focus:outline-none"
+              >
+                <option value="custom">Custom colors</option>
+                {matchBannerColorPresets.map((preset) => (
+                  <option key={preset.id} value={preset.id}>{preset.label}</option>
+                ))}
+              </select>
+            </label>
+            {[
+              { key: 'primaryColor', label: 'Primary', value: bannerPrimaryColor },
+              { key: 'secondaryColor', label: 'Secondary', value: bannerSecondaryColor }
+            ].map((color) => (
+              <label key={color.key} className="text-[10px] font-bold uppercase tracking-wide text-slate-300">
+                {color.label}
+                <span className="mt-1 flex h-9 items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-2">
+                  <input
+                    type="color"
+                    aria-label={`${matchBannerTeam.name} banner ${color.label.toLowerCase()} color`}
+                    value={color.value}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setTeams((current) => current.map((team) => (
+                        team.id === matchBannerTeam.id ? { ...team, [color.key]: value } : team
+                      )));
+                    }}
+                    className="h-6 w-8 cursor-pointer rounded border-0 bg-transparent p-0"
+                  />
+                  <span className="font-mono text-[10px] text-slate-300">{color.value}</span>
+                </span>
+              </label>
+            ))}
+            <div
+              aria-label={`${matchBannerTeam.name} banner color preview`}
+              className="h-5 rounded-md border border-white/15 sm:col-span-3"
+              style={{ background: `linear-gradient(90deg, ${bannerPrimaryColor} 0%, ${bannerSecondaryColor} 100%)` }}
+            />
+            <p className="text-[10px] text-slate-400 sm:col-span-3">Color changes save automatically and appear on this team’s Match Center banner.</p>
+          </div>
+        )}
         {showPhotoGuide && (
           <span className="mt-1.5 inline-flex items-center gap-1.5 rounded-md border border-sky-700/60 bg-sky-950/50 px-2 py-1 text-[10px] font-bold text-sky-200">
             <span className="font-black text-white">9:17</span>
@@ -1199,10 +1272,11 @@ export const AdminDashboardModal = ({ onClose }) => {
         category: 'match-banners',
         sessions: getTeamSessions(team, seasons.map((season) => season.edition)),
         title: `${team.name} match-card banner`,
-        description: `${mediaSessionFilter} - 11:2 landscape artwork for the Match Center result card.`,
+        description: `${mediaSessionFilter} • 11:2 landscape artwork for the Match Center result card.`,
         aspectRatio: 11 / 2,
         sessionSpecific: true,
-        previewWide: true
+        previewWide: true,
+        matchBannerTeamId: team.id
       },
       {
         key: `team-logo:${team.id}`,

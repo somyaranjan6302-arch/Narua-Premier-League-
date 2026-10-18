@@ -207,6 +207,17 @@ export const MatchCenter = () => {
                             className="absolute inset-0 h-full w-full object-cover"
                           />
                         )}
+                        {banner && (
+                          <div
+                            aria-hidden="true"
+                            className="absolute inset-0"
+                            style={{
+                              background: `linear-gradient(135deg, ${color} 0%, ${secondaryColor} 100%)`,
+                              mixBlendMode: 'multiply',
+                              opacity: 0.6
+                            }}
+                          />
+                        )}
                         <div className="absolute inset-0 bg-slate-950/10" />
                         <div className={`absolute inset-0 ${isLeft ? 'bg-gradient-to-r from-black/20 via-transparent to-black/10' : 'bg-gradient-to-l from-black/20 via-transparent to-black/10'}`} />
                         <div className={`absolute -top-8 h-16 w-16 rounded-full border-[12px] opacity-60 ${isLeft ? 'right-[14%]' : 'left-[14%]'}`} style={{ borderColor: `${secondaryColor}b3` }} />
