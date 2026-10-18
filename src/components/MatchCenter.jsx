@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNpl } from '../context/NplContext';
-import { TeamBadge } from './TeamBadge';
-import { Clock, MapPin, Award, ChevronRight } from 'lucide-react';
+import { Clock, MapPin, ChevronRight } from 'lucide-react';
+import { getSessionMediaKey, getSiteMedia } from '../utils/siteMedia';
 
 export const MatchCenter = () => {
-  const { matches, teams, openModal, seasons, selectedSeason, setSelectedSeason } = useNpl();
+  const { matches, teams, openModal, siteMedia, seasons, selectedSeason, setSelectedSeason } = useNpl();
   const [filter, setFilter] = useState('ALL'); // ALL, LIVE, UPCOMING, COMPLETED
   const seasonInfo = seasons.find((season) => season.edition === selectedSeason) || seasons[0];
 
@@ -39,7 +39,7 @@ export const MatchCenter = () => {
 
   return (
     <section id="matches" className="npl-section-bg border-t border-slate-800 py-20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1700px] px-4 sm:px-6 lg:px-8">
         {/* Header and Filter Tabs */}
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-6">
           <div>
@@ -119,143 +119,172 @@ export const MatchCenter = () => {
         </div>
 
         {/* Match Cards Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="mx-auto grid max-w-[1700px] grid-cols-1 gap-4">
           {filteredMatches.length === 0 ? (
-            <p className="lg:col-span-2 rounded-2xl border border-dashed border-slate-700 bg-slate-950/60 p-10 text-center text-slate-400">No matches are scheduled for {selectedSeason} yet.</p>
+            <p className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/60 p-10 text-center text-slate-400">No matches are scheduled for {selectedSeason} yet.</p>
           ) : filteredMatches.map((match) => {
             const team1Obj = teams.find(t => t.id === match.team1?.id) || match.team1;
             const team2Obj = teams.find(t => t.id === match.team2?.id) || match.team2;
+            const sides = [
+              {
+                team: team1Obj,
+                matchTeam: match.team1,
+                side: 'left'
+              },
+              {
+                team: team2Obj,
+                matchTeam: match.team2,
+                side: 'right'
+              }
+            ].map(({ team, matchTeam, side }) => ({
+              team,
+              matchTeam,
+              side,
+              color: team?.primaryColor || team?.color || '#1d4ed8',
+              secondaryColor: team?.secondaryColor || '#0f172a',
+              logo: team?.id
+                ? getSiteMedia(siteMedia, `team-logo:${team.id}`, selectedSeason, team.logo)
+                : team?.logo,
+              banner: team?.id
+                ? siteMedia[getSessionMediaKey(`match-banner:${team.id}`, selectedSeason)] || ''
+                : ''
+            }));
+            const winner = match.status === 'COMPLETED'
+              ? sides.find(({ matchTeam }) => match.result?.toLowerCase().startsWith(matchTeam?.name?.toLowerCase()))
+              : null;
 
             return (
               <div
                 key={match.id}
-                className={`rounded-3xl p-6 transition-all duration-300 relative overflow-hidden group border ${
-                  match.status === 'LIVE'
-                    ? "bg-gradient-to-br from-red-950/20 via-slate-900 to-slate-950 border-red-500/50 shadow-[0_0_30px_rgba(239,68,68,0.15)]"
-                    : match.status === 'UPCOMING'
-                    ? "bg-gradient-to-br from-blue-950/20 via-slate-900 to-slate-950 border-blue-500/30 hover:border-blue-500/60"
-                    : "bg-slate-900/80 border-slate-800 hover:border-slate-700"
-                }`}
+                className="group relative overflow-hidden rounded-[10px] border border-slate-700/70 bg-[#071638] shadow-lg shadow-slate-950/30 transition-colors hover:border-sky-400/40"
               >
-                {/* Top Status Bar */}
-                <div className="flex items-center justify-between pb-4 border-b border-slate-800/80 mb-5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-amber-400 tracking-wider">
-                      {match.matchNumber} • {match.tournamentPhase}
+                <div className="relative flex h-10 items-center justify-between gap-3 overflow-hidden border-b border-slate-800/80 bg-[#071638] px-4 sm:px-5">
+                  <p className="relative z-10 min-w-0 truncate text-xs font-extrabold text-white sm:text-sm">
+                    {match.status === 'COMPLETED' && match.result
+                      ? match.result
+                      : `${match.matchNumber} • ${match.tournamentPhase}`}
+                  </p>
+                  {match.status === 'LIVE' && (
+                    <span className="relative z-10 flex shrink-0 items-center gap-1.5 rounded-full bg-red-600 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-white">
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
+                      Live
                     </span>
-                  </div>
+                  )}
+                  {match.status === 'UPCOMING' && (
+                    <span className="relative z-10 flex shrink-0 items-center gap-1 rounded-full bg-blue-900/70 px-3 py-1 text-[10px] font-bold text-blue-100">
+                      <Clock className="h-3.5 w-3.5" />
+                      {match.date} • {match.time}
+                    </span>
+                  )}
+                  {match.status === 'COMPLETED' && (
+                    <span className="relative z-10 shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-100">FINAL</span>
+                  )}
+                </div>
 
-                  {/* Status Badge */}
-                  <div>
-                    {match.status === 'LIVE' && (
-                      <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-600 text-white font-bold text-xs uppercase tracking-wider animate-pulse">
-                        <span className="w-2 h-2 rounded-full bg-white"></span>
-                        LIVE
-                      </span>
-                    )}
-                    {match.status === 'UPCOMING' && (
-                      <span className="flex items-center gap-1 px-3 py-1 rounded-full bg-blue-900/60 text-blue-300 border border-blue-700 font-semibold text-xs">
-                        <Clock className="w-3.5 h-3.5" />
-                        {match.date} • {match.time}
-                      </span>
-                    )}
-                    {match.status === 'COMPLETED' && (
-                      <span className="px-3 py-1 rounded-full bg-slate-800 text-slate-300 font-semibold text-xs">
-                        {match.date}
-                      </span>
-                    )}
+                <div className="relative h-[clamp(120px,8.8vw,150px)] overflow-hidden bg-[#06172a]">
+                  {sides.map(({ team, matchTeam, side, color, secondaryColor, logo, banner }) => {
+                    const isLeft = side === 'left';
+                    const teamInitials = (team?.shortName || team?.name || matchTeam?.name || 'NPL')
+                      .split(/\s+/)
+                      .filter(Boolean)
+                      .map((part) => part[0])
+                      .join('')
+                      .slice(0, 3);
+                    const isWinner = winner?.side === side;
+                    const shouldDim = winner && !isWinner;
+                    return (
+                      <div
+                        key={side}
+                        className={`absolute inset-y-0 z-10 w-[55%] overflow-hidden ${isLeft ? 'left-0' : 'right-0'}`}
+                        style={{ clipPath: isLeft ? 'polygon(0 0, 100% 0, 89% 100%, 0 100%)' : 'polygon(11% 0, 100% 0, 100% 100%, 0 100%)' }}
+                      >
+                        <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${color} 0%, ${color} 48%, ${secondaryColor} 100%)` }} />
+                        {banner && (
+                          <img
+                            src={banner}
+                            alt=""
+                            aria-hidden="true"
+                            className="absolute inset-0 h-full w-full object-cover"
+                          />
+                        )}
+                        <div className="absolute inset-0 bg-slate-950/10" />
+                        <div className={`absolute inset-0 ${isLeft ? 'bg-gradient-to-r from-black/20 via-transparent to-black/10' : 'bg-gradient-to-l from-black/20 via-transparent to-black/10'}`} />
+                        <div className={`absolute -top-8 h-16 w-16 rounded-full border-[12px] opacity-60 ${isLeft ? 'right-[14%]' : 'left-[14%]'}`} style={{ borderColor: `${secondaryColor}b3` }} />
+                        <div className={`absolute -bottom-10 h-16 w-24 rounded-full border-[12px] opacity-45 ${isLeft ? 'right-[50%]' : 'left-[50%]'}`} style={{ borderColor: `${secondaryColor}99` }} />
+                        <div className={`absolute top-0 h-full w-[42%] opacity-20 ${isLeft ? 'right-0' : 'left-0'}`} style={{ background: isLeft ? 'linear-gradient(145deg, transparent 48%, #020817 49%, #020817 58%, transparent 59%)' : 'linear-gradient(35deg, transparent 48%, #020817 49%, #020817 58%, transparent 59%)' }} />
+                        <div className={`absolute inset-y-0 z-10 flex min-w-0 items-center gap-2 px-2 sm:gap-3 sm:px-4 lg:gap-5 lg:px-7 ${isLeft ? 'left-0 w-[84%]' : 'right-0 w-[84%]'}`}>
+                          {isLeft && (
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center sm:h-14 sm:w-14 lg:h-[92px] lg:w-[92px]">
+                              {logo ? (
+                                <img src={logo} alt={`${team?.name || matchTeam?.name} logo`} className="h-full w-full object-contain drop-shadow-lg" />
+                              ) : (
+                                <span className="flex h-8 w-8 items-center justify-center rounded-full border border-white/70 bg-slate-950/50 text-[9px] font-black text-white shadow-lg sm:h-11 sm:w-11 sm:text-xs">
+                                  {teamInitials}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {isLeft ? (
+                            <>
+                              <span className="min-w-0 flex-1 truncate text-[9px] font-extrabold leading-tight text-white drop-shadow sm:text-xs lg:text-lg">
+                                {matchTeam?.name || team?.name}
+                              </span>
+                              <div className="flex shrink-0 items-baseline gap-1 text-white drop-shadow-md">
+                                {matchTeam?.score ? (
+                                  <>
+                                    {matchTeam.overs && <span className="hidden text-[9px] font-semibold text-white/75 sm:inline sm:text-xs">{matchTeam.overs}</span>}
+                                    <span className="font-sports text-base font-black leading-none sm:text-2xl lg:text-[30px]">{matchTeam.score}</span>
+                                  </>
+                                ) : <span className="text-[9px] font-bold uppercase tracking-wide text-white/70 sm:text-xs">TBC</span>}
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="flex shrink-0 items-baseline gap-1 text-white drop-shadow-md">
+                                {matchTeam?.score ? (
+                                  <>
+                                    <span className="font-sports text-base font-black leading-none sm:text-2xl lg:text-[30px]">{matchTeam.score}</span>
+                                    {matchTeam.overs && <span className="hidden text-[9px] font-semibold text-white/75 sm:inline sm:text-xs">{matchTeam.overs}</span>}
+                                  </>
+                                ) : <span className="text-[9px] font-bold uppercase tracking-wide text-white/70 sm:text-xs">TBC</span>}
+                              </div>
+                              <span className="min-w-0 flex-1 truncate text-right text-[9px] font-extrabold leading-tight text-white drop-shadow sm:text-xs lg:text-lg">
+                                {matchTeam?.name || team?.name}
+                              </span>
+                            </>
+                          )}
+                          {!isLeft && (
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center sm:h-14 sm:w-14 lg:h-[92px] lg:w-[92px]">
+                              {logo ? (
+                                <img src={logo} alt={`${team?.name || matchTeam?.name} logo`} className="h-full w-full object-contain drop-shadow-lg" />
+                              ) : (
+                                <span className="flex h-8 w-8 items-center justify-center rounded-full border border-white/70 bg-slate-950/50 text-[9px] font-black text-white shadow-lg sm:h-11 sm:w-11 sm:text-xs">
+                                  {teamInitials}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        {shouldDim && <div className="absolute inset-0 z-[15] bg-slate-950/35" />}
+                      </div>
+                    );
+                  })}
+                  <div className="pointer-events-none absolute left-1/2 top-1/2 z-20 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black/90 font-sports text-[10px] font-black text-white shadow-lg sm:h-10 sm:w-10 sm:text-sm">
+                    VS
                   </div>
                 </div>
 
-                {/* Match Teams Faceoff */}
-                <div className="space-y-4">
-                  {/* Team 1 Row */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <TeamBadge team={team1Obj} size="md" />
-                      <div>
-                        <h4 className="font-heading font-bold text-white text-base sm:text-lg">
-                          {match.team1?.name}
-                        </h4>
-                        <span className="text-xs text-slate-400 font-medium">
-                          {team1Obj?.slogan || "Contender"}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="text-right">
-                      {match.team1?.score ? (
-                        <>
-                          <span className="font-sports text-2xl sm:text-3xl text-white block leading-none">
-                            {match.team1.score}
-                          </span>
-                          <span className="text-[11px] text-slate-400 font-medium">
-                            ({match.team1.overs} ov)
-                          </span>
-                        </>
-                      ) : (
-                        <span className="text-xs font-bold text-slate-500 uppercase">
-                          Upcoming
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* VS Divider */}
-                  <div className="flex items-center gap-3 my-2">
-                    <div className="h-px bg-slate-800 flex-grow" />
-                    <span className="font-sports text-sm text-slate-500 tracking-wider">VS</span>
-                    <div className="h-px bg-slate-800 flex-grow" />
-                  </div>
-
-                  {/* Team 2 Row */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <TeamBadge team={team2Obj} size="md" />
-                      <div>
-                        <h4 className="font-heading font-bold text-white text-base sm:text-lg">
-                          {match.team2?.name}
-                        </h4>
-                        <span className="text-xs text-slate-400 font-medium">
-                          {team2Obj?.slogan || "Contender"}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="text-right">
-                      {match.team2?.score ? (
-                        <>
-                          <span className="font-sports text-2xl sm:text-3xl text-white block leading-none">
-                            {match.team2.score}
-                          </span>
-                          <span className="text-[11px] text-slate-400 font-medium">
-                            ({match.team2.overs} ov)
-                          </span>
-                        </>
-                      ) : (
-                        <span className="text-xs font-bold text-slate-500 uppercase">
-                          Upcoming
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Specific Section content based on match state */}
-
-                {/* 1. If LIVE Match */}
                 {match.status === 'LIVE' && (
-                  <div className="mt-5 pt-4 border-t border-slate-800/80 space-y-3">
-                    <div className="flex items-center justify-between text-xs bg-red-950/30 p-2.5 rounded-xl border border-red-500/20">
-                      <span className="font-bold text-amber-300">
+                  <div className="space-y-3 border-t border-slate-800/80 bg-red-950/15 p-4">
+                    <div className="flex items-center justify-between gap-3 rounded-xl border border-red-500/20 bg-red-950/30 p-2.5 text-xs">
+                      <span className="truncate font-bold text-amber-300">
                         ⚡ {match.equation}
                       </span>
-                      <span className="text-slate-300 font-mono">
+                      <span className="shrink-0 font-mono text-slate-300">
                         Target: {match.team1?.target || 192}
                       </span>
                     </div>
 
-                    {/* Current Batsmen & Bowler at crease */}
                     <div className="grid grid-cols-2 gap-2 text-xs bg-slate-950 p-2.5 rounded-xl border border-slate-800">
                       <div>
                         <span className="text-[10px] text-slate-400 uppercase block font-bold">Batting</span>
@@ -278,10 +307,9 @@ export const MatchCenter = () => {
                   </div>
                 )}
 
-                {/* 2. If UPCOMING Match: Countdown timer & Venue */}
                 {match.status === 'UPCOMING' && (
-                  <div className="mt-5 pt-4 border-t border-slate-800/80 space-y-3">
-                    <div className="flex items-center justify-between bg-blue-950/30 p-3 rounded-xl border border-blue-600/20">
+                  <div className="space-y-3 border-t border-slate-800/80 bg-blue-950/15 p-4">
+                    <div className="flex items-center justify-between gap-2 rounded-xl border border-blue-600/20 bg-blue-950/30 p-3">
                       <span className="text-xs font-bold text-blue-300 uppercase tracking-wider">
                         MATCH STARTS IN:
                       </span>
@@ -306,42 +334,22 @@ export const MatchCenter = () => {
                   </div>
                 )}
 
-                {/* 3. If COMPLETED Match: Result & Player of the Match */}
-                {match.status === 'COMPLETED' && (
-                  <div className="mt-5 pt-4 border-t border-slate-800/80 space-y-2">
-                    <div className="text-sm font-bold text-emerald-400">
-                      ✓ {match.result}
-                    </div>
-
-                    {match.playerOfMatch && (
-                      <div className="flex items-center justify-between text-xs bg-slate-950/80 p-2.5 rounded-xl border border-slate-800">
-                        <div className="flex items-center gap-2">
-                          <Award className="w-4 h-4 text-amber-400" />
-                          <div>
-                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Player of the Match</span>
-                            <span className="text-white font-bold">{match.playerOfMatch.name}</span>
-                          </div>
-                        </div>
-                        <span className="text-slate-300 font-medium text-[11px] text-right">
-                          {match.playerOfMatch.performance}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Bottom Bar: Venue and View Button */}
-                <div className="mt-5 pt-3 border-t border-slate-800/60 flex items-center justify-between text-xs text-slate-400">
-                  <div className="flex items-center gap-1.5 truncate">
-                    <MapPin className="w-3.5 h-3.5 text-slate-500" />
-                    <span>{match.venue}</span>
+                <div className="relative flex min-h-[58px] flex-col gap-2 overflow-hidden border-t border-slate-800/80 bg-[#071638] px-4 py-2 text-xs text-slate-100 sm:min-h-[62px] sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                  <div className="relative z-10 min-w-0">
+                    <p className="truncate font-bold text-white">
+                      {match.tournamentPhase} • {match.date}{match.time ? `, ${match.time}` : ''}
+                    </p>
+                    <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-slate-400">
+                      <MapPin className="h-3 w-3 shrink-0 text-slate-400" />
+                      <span className="truncate">{match.venue}</span>
+                    </p>
                   </div>
 
                   <button
                     onClick={() => openModal('match-details', match)}
-                    className="font-sports text-sm tracking-wider text-amber-400 hover:text-amber-300 flex items-center gap-1 group-hover:translate-x-1 transition-transform"
+                    className="relative z-10 flex shrink-0 items-center gap-1 rounded-full bg-slate-800/80 px-3 py-1.5 font-sports text-xs tracking-wider text-white transition-colors hover:bg-slate-700 hover:text-amber-300"
                   >
-                    <span>VIEW MATCH CENTER</span>
+                    <span>Match Center</span>
                     <ChevronRight className="w-3.5 h-3.5" />
                   </button>
                 </div>

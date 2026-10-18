@@ -1026,15 +1026,15 @@ export const AdminDashboardModal = ({ onClose }) => {
   };
 
   const mediaUploadControl = (item) => {
-    const { key: baseMediaKey, title, description, fallback: fallbackImage = '', aspectRatio = 1, fit = false, directUpload = false, sessionSpecific = false, uploadLabel = 'Change photo', showPhotoGuide = false } = item;
+    const { key: baseMediaKey, title, description, fallback: fallbackImage = '', aspectRatio = 1, fit = false, directUpload = false, sessionSpecific = false, uploadLabel = 'Change photo', showPhotoGuide = false, previewWide = false } = item;
     const mediaSession = item.uploadSession || mediaSessionFilter;
     const mediaKey = sessionSpecific ? getSessionMediaKey(baseMediaKey, mediaSession) : baseMediaKey;
     const activeMediaKey = siteMedia[mediaKey] ? mediaKey : siteMedia[baseMediaKey] ? baseMediaKey : null;
     const pendingMedia = pendingMediaFiles[mediaKey];
     const cropFile = mediaCropFiles[mediaKey];
     return (
-    <div key={item.rowKey || baseMediaKey} className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3 border-b border-slate-800 py-4 last:border-0 xl:grid-cols-[5rem_minmax(0,1fr)_auto] xl:gap-4">
-      <label title={`Click to change ${title}`} className="group relative w-20 flex-shrink-0 cursor-pointer overflow-hidden rounded-lg border border-slate-700 bg-slate-950 focus-within:border-amber-400" style={{ aspectRatio }}>
+    <div key={item.rowKey || baseMediaKey} className={`grid ${previewWide ? 'grid-cols-[12rem_minmax(0,1fr)] xl:grid-cols-[12rem_minmax(0,1fr)_auto]' : 'grid-cols-[5rem_minmax(0,1fr)] xl:grid-cols-[5rem_minmax(0,1fr)_auto]'} items-center gap-3 border-b border-slate-800 py-4 last:border-0 xl:gap-4`}>
+      <label title={`Click to change ${title}`} className={`group relative flex-shrink-0 cursor-pointer overflow-hidden rounded-lg border border-slate-700 bg-slate-950 focus-within:border-amber-400 ${previewWide ? 'w-44' : 'w-20'}`} style={{ aspectRatio }}>
         {(pendingMedia?.previewUrl || cropFile?.previewUrl || siteMedia[mediaKey] || siteMedia[baseMediaKey] || fallbackImage) ? (
           <img src={pendingMedia?.previewUrl || cropFile?.previewUrl || siteMedia[mediaKey] || siteMedia[baseMediaKey] || fallbackImage} alt={`${title} preview`} className={`h-full w-full ${fit ? 'object-contain' : 'object-cover'}`} />
         ) : showPhotoGuide ? (
@@ -1195,6 +1195,16 @@ export const AdminDashboardModal = ({ onClose }) => {
         sessionSpecific: true
       },
       {
+        key: `match-banner:${team.id}`,
+        category: 'match-banners',
+        sessions: getTeamSessions(team, seasons.map((season) => season.edition)),
+        title: `${team.name} match-card banner`,
+        description: `${mediaSessionFilter} - 11:2 landscape artwork for the Match Center result card.`,
+        aspectRatio: 11 / 2,
+        sessionSpecific: true,
+        previewWide: true
+      },
+      {
         key: `team-logo:${team.id}`,
         category: 'team-logos',
         sessions: getTeamSessions(team, seasons.map((season) => season.edition)),
@@ -1306,6 +1316,7 @@ export const AdminDashboardModal = ({ onClose }) => {
     { value: 'branding', label: 'Brand & venue' },
     { value: 'champions', label: 'Champions' },
     { value: 'teams', label: 'Team banners' },
+    { value: 'match-banners', label: 'Match card banners' },
     { value: 'team-logos', label: 'Team logos' },
     { value: 'player-assets', label: 'Player photos' },
     { value: 'news', label: 'News' },
@@ -2639,6 +2650,21 @@ export const AdminDashboardModal = ({ onClose }) => {
                                 sessionSpecific: true,
                                 uploadLabel: 'Upload team logo',
                                 uploadSession: teamSessionFocus
+                              })}
+                            </div>
+                            <div className="rounded-lg border border-amber-800/60 bg-amber-950/20 p-3">
+                              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                                Match card banner - 11:2 landscape
+                              </p>
+                              {mediaUploadControl({
+                                key: `match-banner:${team.id}`,
+                                title: `${team.name} match-card banner`,
+                                description: `Wide background artwork for the Match Center result cards in ${teamSessionFocus}.`,
+                                aspectRatio: 11 / 2,
+                                sessionSpecific: true,
+                                uploadLabel: 'Upload match banner',
+                                uploadSession: teamSessionFocus,
+                                previewWide: true
                               })}
                             </div>
                           </div>
