@@ -19,6 +19,8 @@ export const getRecordMediaKey = (record) => {
   return `record:${recordSlug}`;
 };
 
+export const getRecordPartnerMediaKey = (record) => `${getRecordMediaKey(record)}-partner`;
+
 export const isHiddenTournamentRecord = (record) => (
   (
     record.title === 'Most Sixes in an Inning' &&

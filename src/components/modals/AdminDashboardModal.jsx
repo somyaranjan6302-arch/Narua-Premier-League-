@@ -3,7 +3,7 @@ import { useNpl } from '../../context/NplContext';
 import { TeamBadge } from '../TeamBadge';
 import { SessionSelector } from '../SessionSelector';
 import { ImageCropEditor } from '../ImageCropEditor';
-import { getChampionFallbackMedia, getChampionMediaKey, getRecordMediaKey, getSessionMediaKey, isHiddenTournamentRecord } from '../../utils/siteMedia';
+import { getChampionFallbackMedia, getChampionMediaKey, getRecordMediaKey, getRecordPartnerMediaKey, getSessionMediaKey, isHiddenTournamentRecord } from '../../utils/siteMedia';
 import { session2Performers } from '../../data/session2Data';
 import { session3Performers } from '../../data/session3Data';
 import { session4Performers } from '../../data/session4Data';
@@ -1088,7 +1088,7 @@ export const AdminDashboardModal = ({ onClose }) => {
         )}
         <span className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-slate-950/85 py-1 text-[9px] font-bold text-white transition-colors group-hover:bg-amber-500 group-hover:text-slate-950">
           <Upload className="h-3 w-3" />
-          {uploadLabel}
+          {activeMediaKey ? uploadLabel : 'Choose photo'}
         </span>
         <input
           type="file"
@@ -1368,19 +1368,43 @@ export const AdminDashboardModal = ({ onClose }) => {
       sessionSpecific: true,
       session: item.season || item.session
     })),
-    ...records.filter((record) => !isHiddenTournamentRecord(record)).map((record) => ({
-      key: getRecordMediaKey(record),
-      rowKey: getRecordMediaKey(record),
-      category: 'records',
-      title: `${record.title} • ${record.holder}`,
-      description: `${record.season || 'All-time'} • transparent 9:17 player cutout.`,
-      fallback: record.photo,
-      aspectRatio: 9 / 17,
-      fit: true,
-      directUpload: true,
-      showPhotoGuide: true,
-      session: record.season
-    })),
+    ...records.filter((record) => !isHiddenTournamentRecord(record)).flatMap((record) => {
+      const baseMediaItem = {
+        category: 'records',
+        description: `${record.season || 'All-time'} • transparent 9:17 player cutout. Select the image to choose or replace it, adjust the crop, then save.`,
+        aspectRatio: 9 / 17,
+        fit: true,
+        showPhotoGuide: true,
+        uploadLabel: 'Edit photo',
+        session: record.season
+      };
+      const players = record.title === 'Highest Partnership'
+        ? String(record.holder || '').split(/\s*&\s*/, 2)
+        : [];
+      if (players.length === 2) {
+        return [
+          {
+            ...baseMediaItem,
+            key: getRecordMediaKey(record),
+            rowKey: `${getRecordMediaKey(record)}-left`,
+            title: `${record.title} • ${players[0]} (left)`
+          },
+          {
+            ...baseMediaItem,
+            key: getRecordPartnerMediaKey(record),
+            rowKey: `${getRecordPartnerMediaKey(record)}-right`,
+            title: `${record.title} • ${players[1]} (right)`
+          }
+        ];
+      }
+      return [{
+        ...baseMediaItem,
+        key: getRecordMediaKey(record),
+        rowKey: getRecordMediaKey(record),
+        title: `${record.title} • ${record.holder}`,
+        fallback: record.photo
+      }];
+    }),
     ...Object.entries(performersForMediaSession).map(([key, performer]) => ({
       key: `performer:${key}`,
       rowKey: `performer:${mediaSessionFilter}:${key}`,

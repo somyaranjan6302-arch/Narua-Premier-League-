@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNpl } from '../context/NplContext';
 import { Star } from 'lucide-react';
-import { getSiteMedia, getRecordMediaKey, isHiddenTournamentRecord } from '../utils/siteMedia';
+import { getSiteMedia, getRecordMediaKey, getRecordPartnerMediaKey, isHiddenTournamentRecord } from '../utils/siteMedia';
 import { AwardBannerCard } from './AwardBannerCard';
 
 export const NplRecords = () => {
@@ -51,6 +51,10 @@ export const NplRecords = () => {
               ? getSiteMedia(siteMedia, `team-logo:${team.id}`, rec.season || selectedSeason, team.logo)
               : '';
             const uploadedPhoto = getSiteMedia(siteMedia, recordMediaKey, undefined, rec.photo);
+            const isPartnership = rec.title === 'Highest Partnership';
+            const partnerPhoto = isPartnership
+              ? getSiteMedia(siteMedia, getRecordPartnerMediaKey(rec))
+              : '';
             const photo = import.meta.env.DEV
               ? uploadedPhoto || (rec === demoRecord ? '/local-demo-player.png' : '')
               : uploadedPhoto;
@@ -68,6 +72,8 @@ export const NplRecords = () => {
                 valueLabel="Record"
                 details={details}
                 photo={photo}
+                partnerPhoto={partnerPhoto}
+                pairedPhotos={isPartnership}
                 teamLogo={teamLogo}
                 teamName={teamName}
                 primaryColor={team?.primaryColor || '#0e7490'}
