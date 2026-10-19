@@ -161,6 +161,7 @@ export const AdminDashboardModal = ({ onClose }) => {
     setSeasonStandings,
     topPerformers,
     setTopPerformers,
+    records,
     gallery,
     setGallery,
     sectionPhotos,
