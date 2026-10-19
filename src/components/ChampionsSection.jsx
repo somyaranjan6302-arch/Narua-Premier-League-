@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import { useNpl } from '../context/NplContext';
 import { SessionSelector } from './SessionSelector';
-import { TeamBadge } from './TeamBadge';
-import { Trophy, ChevronLeft, ChevronRight, Eye, Medal } from 'lucide-react';
+import { Trophy, ChevronLeft, ChevronRight, Eye, Medal, MapPin } from 'lucide-react';
 import { getChampionFallbackMedia, getChampionMediaKey, getSiteMedia } from '../utils/siteMedia';
 
 const getEditionKey = (edition) => String(edition || '').match(/Season\s*\d+/i)?.[0].replace(/\s+/g, ' ') || edition;
 
 export const ChampionsSection = () => {
-  const { champions, teams, openModal, siteMedia, seasons, selectedSeason, setSelectedSeason } = useNpl();
+  const { champions, openModal, siteMedia, seasons, selectedSeason, setSelectedSeason } = useNpl();
   const [currentIndex, setCurrentIndex] = useState(0);
   const sessionChampions = champions.filter((champion) => getEditionKey(champion.edition) === selectedSeason);
   const sessionChampionIndex = Math.min(currentIndex, Math.max(0, sessionChampions.length - 1));
@@ -22,7 +21,6 @@ export const ChampionsSection = () => {
   };
 
   const activeChampion = sessionChampions[sessionChampionIndex];
-  const championTeamObj = activeChampion && teams.find(t => t.shortName === activeChampion.championShort);
   const finalScoreEntries = activeChampion?.finalScores?.split('|').map((score) => score.trim()) || [];
   const hasFinalScores = finalScoreEntries.length === 2 && finalScoreEntries.every(Boolean);
 
@@ -31,7 +29,7 @@ export const ChampionsSection = () => {
       {/* Background radial gold glow */}
       <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[700px] h-[700px] bg-amber-500/10 rounded-full blur-[160px] pointer-events-none" />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         {/* Section Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-4">
           <div>
@@ -73,147 +71,73 @@ export const ChampionsSection = () => {
           </div>
         </div>
 
-        {/* Featured Champion Highlight Card */}
+        {/* Featured champion match report */}
         {activeChampion ? (
-          <div className="glass-panel-gold rounded-3xl p-6 sm:p-10 border border-amber-500/40 shadow-2xl relative overflow-hidden group">
-            {/* Ambient gold glow */}
-            <div className="absolute top-0 right-0 w-80 h-80 bg-amber-500/15 rounded-full blur-[100px] pointer-events-none" />
-
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-              {/* Left Column: Team Photograph & Trophy Badge */}
-              <div className="lg:col-span-6 relative">
-                <div className="relative rounded-2xl overflow-hidden shadow-2xl border-2 border-amber-500/30">
-                  <img
-                    src={getSiteMedia(siteMedia, getChampionMediaKey(champions, activeChampion), activeChampion.edition, getChampionFallbackMedia(activeChampion))}
-                    alt={`${activeChampion.championTeam} Champions`}
-                    className="w-full h-[320px] sm:h-[400px] object-cover group-hover:scale-105 transition-transform duration-700"
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = '/assets/stadium.jpg';
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
-
-                  {/* Season Badge */}
-                  <div className="absolute top-4 left-4 flex items-center gap-2 bg-slate-950/90 border border-amber-500/60 px-3.5 py-1.5 rounded-full shadow-xl">
-                    <Medal className="w-4 h-4 text-amber-400" />
-                    <span className="font-sports text-lg text-amber-300 tracking-wider">
-                      NPL {activeChampion.season} • {activeChampion.edition}
-                    </span>
-                  </div>
-
-                  {/* Trophy floating badge */}
-                  <div className="absolute bottom-4 right-4 flex items-center gap-3 bg-slate-950/90 border border-amber-500/50 p-2.5 rounded-2xl shadow-xl backdrop-blur-md">
-                    <img
-                      src={siteMedia.trophy || "/assets/trophy.jpg"}
-                      alt="NPL Trophy"
-                      className="w-12 h-14 object-cover rounded-lg border border-amber-500/40"
-                    />
-                    <div>
-                      <span className="text-[10px] text-amber-400 uppercase tracking-widest font-bold block">
-                        PRIZE
-                      </span>
-                      <span className="font-sports text-base text-white">
-                        NPL TROPHY
-                      </span>
-                    </div>
-                  </div>
+          <div className="grid overflow-hidden border border-slate-800 bg-[#061538] shadow-2xl lg:min-h-[440px] lg:grid-cols-2">
+            <div className="flex flex-col items-start justify-center p-6 sm:p-10 lg:px-12">
+              <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-blue-950/80 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-sky-300 ring-1 ring-sky-400/20">
+                <Medal className="h-4 w-4 text-amber-400" />
+                NPL {activeChampion.season} · {activeChampion.edition}
+              </div>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-300">
+                Championship final · Match report
+              </p>
+              <h3 className="mt-2 font-heading text-2xl font-extrabold leading-tight text-white sm:text-3xl lg:text-4xl">
+                {activeChampion.championTeam} lift the NPL trophy
+              </h3>
+              <p className="mt-4 text-sm leading-relaxed text-slate-200 sm:text-base">
+                {activeChampion.description}
+              </p>
+              <div className="mt-5 grid w-full grid-cols-1 gap-3 border-t border-slate-700 pt-4 sm:grid-cols-2">
+                <div className="rounded-lg bg-slate-950/50 p-3">
+                  <span className="block text-[10px] font-bold uppercase tracking-widest text-sky-300">Final result</span>
+                  <span className="mt-1 block text-sm font-bold leading-relaxed text-white">{activeChampion.finalScores || 'Final scores unavailable'}</span>
+                </div>
+                <div className="rounded-lg bg-slate-950/50 p-3">
+                  <span className="block text-[10px] font-bold uppercase tracking-widest text-amber-300">Winning margin</span>
+                  <span className="mt-1 block text-sm font-bold text-white">{activeChampion.winningMargin}</span>
+                  <span className="mt-1 flex items-center gap-1 text-xs text-slate-300">
+                    <MapPin className="h-3 w-3 text-slate-400" />
+                    {activeChampion.venue}
+                  </span>
                 </div>
               </div>
-
-              {/* Right Column: Champion Details & Stats */}
-              <div className="lg:col-span-6 space-y-6">
-                <div>
-                  <div className="flex items-center gap-3 mb-2">
-                    <TeamBadge team={championTeamObj} size="lg" />
-                    <div>
-                      <span className="text-xs font-bold text-amber-400 tracking-widest uppercase block">
-                        CROWNED CHAMPIONS
-                      </span>
-                      <h3 className="font-sports text-4xl sm:text-5xl text-white tracking-wide leading-none">
-                        {activeChampion.championTeam}
-                      </h3>
-                    </div>
-                  </div>
-
-                  <p className="text-sm text-slate-300 leading-relaxed mt-4 bg-slate-900/60 p-4 rounded-xl border border-slate-800">
-                    "{activeChampion.description}"
-                  </p>
-                </div>
-
-                {/* Match Final Summary Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  <div className="bg-slate-950/70 p-3.5 rounded-xl border border-slate-800/80">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                      Winning Captain
-                    </span>
-                    <span className="font-heading font-bold text-white text-base mt-0.5 block">
-                      {activeChampion.captain}
-                    </span>
-                  </div>
-
-                  <div className="bg-slate-950/70 p-3.5 rounded-xl border border-slate-800/80">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                      Final Opponent
-                    </span>
-                    <span className="font-heading font-bold text-slate-200 text-base mt-0.5 block">
-                      {activeChampion.runnerUp}
-                    </span>
-                  </div>
-
-                  <div className="col-span-2 sm:col-span-1 bg-slate-950/70 p-3.5 rounded-xl border border-slate-800/80">
-                    <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">
-                      Winning Margin
-                    </span>
-                    <span className="font-heading font-bold text-amber-300 text-base mt-0.5 block">
-                      {activeChampion.winningMargin}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Player of the Final & Final Scoreline */}
-                <div className="bg-amber-500/10 border border-amber-500/30 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block">
-                      PLAYER OF THE FINAL
-                    </span>
-                    <span className="font-sports text-xl text-white tracking-wider">
-                      {activeChampion.playerOfFinal}
-                    </span>
-                  </div>
-
-                  <div className="text-right sm:border-l sm:border-amber-500/30 sm:pl-4">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">
-                      FINAL VENUE
-                    </span>
-                    <span className="text-xs font-semibold text-slate-300">
-                      {activeChampion.venue}
-                    </span>
-                  </div>
-                </div>
-
-                {/* View Season Button */}
-                <div className="pt-2 flex items-center gap-4">
-                  {hasFinalScores ? <button
-                    onClick={() => openModal('match-details', {
-                      status: 'COMPLETED',
-                      matchNumber: `NPL ${activeChampion.season} Grand Final`,
-                      tournamentPhase: "Championship Final",
-                      venue: activeChampion.venue,
-                      date: `${activeChampion.season} Final`,
-                      team1: { name: activeChampion.championTeam, shortName: activeChampion.championShort, score: activeChampion.finalScores.split('|')[0] || "" },
-                      team2: { name: activeChampion.runnerUp, shortName: activeChampion.runnerUpShort, score: activeChampion.finalScores.split('|')[1] || "" },
-                      result: `${activeChampion.championTeam} ${activeChampion.winningMargin}`,
-                      playerOfMatch: { name: activeChampion.playerOfFinal, performance: "Match Winning Knock", photo: activeChampion.teamPhoto }
-                    })}
-                    className="px-6 py-3 rounded-xl font-sports text-base tracking-wider uppercase bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-black hover:opacity-90 transition-opacity flex items-center gap-2 shadow-lg shadow-amber-500/30"
-                  >
-                    <Eye className="w-4 h-4 text-slate-950" />
-                    <span>VIEW FINAL SCORECARD</span>
-                  </button> : (
-                    <p className="text-xs font-semibold text-slate-400">Final scorecard unavailable; final scores were not provided.</p>
-                  )}
-                </div>
+              {hasFinalScores ? (
+                <button
+                  type="button"
+                  onClick={() => openModal('match-details', {
+                    status: 'COMPLETED',
+                    matchNumber: `NPL ${activeChampion.season} Grand Final`,
+                    tournamentPhase: 'Championship Final',
+                    venue: activeChampion.venue,
+                    date: `${activeChampion.season} Final`,
+                    team1: { name: activeChampion.championTeam, shortName: activeChampion.championShort, score: finalScoreEntries[0] },
+                    team2: { name: activeChampion.runnerUp, shortName: activeChampion.runnerUpShort, score: finalScoreEntries[1] },
+                    result: `${activeChampion.championTeam} ${activeChampion.winningMargin}`,
+                    playerOfMatch: { name: activeChampion.playerOfFinal, performance: 'Match Winning Knock', photo: activeChampion.teamPhoto }
+                  })}
+                  className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-full bg-sky-400 px-6 text-sm font-extrabold text-[#061538] transition hover:bg-sky-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+                >
+                  <Eye className="h-4 w-4" />
+                  View Final Scorecard
+                </button>
+              ) : (
+                <p className="mt-6 text-xs font-semibold text-slate-400">Final scorecard unavailable; final scores were not provided.</p>
+              )}
+            </div>
+            <div className="relative min-h-64 overflow-hidden bg-slate-900 sm:min-h-80 lg:min-h-full">
+              <img
+                src={getSiteMedia(siteMedia, getChampionMediaKey(champions, activeChampion), activeChampion.edition, getChampionFallbackMedia(activeChampion))}
+                alt={`${activeChampion.championTeam}, ${activeChampion.edition} champions`}
+                className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 hover:scale-105"
+                onError={(event) => {
+                  event.currentTarget.onerror = null;
+                  event.currentTarget.src = '/assets/stadium.jpg';
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent" />
+              <div className="absolute bottom-4 left-4 rounded-full border border-white/30 bg-slate-950/70 px-3 py-1.5 text-xs font-bold text-white backdrop-blur">
+                Champions · {activeChampion.season}
               </div>
             </div>
           </div>

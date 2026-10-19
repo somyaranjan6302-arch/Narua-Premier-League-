@@ -1,5 +1,4 @@
 import React from 'react';
-import { Maximize2 } from 'lucide-react';
 import { useNpl } from '../context/NplContext';
 
 export const MemoriesLegacy = () => {
@@ -31,32 +30,21 @@ export const MemoriesLegacy = () => {
             No old photos have been added yet.
           </p>
         ) : (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {memories.map((item, index) => (
-              <article
+              <button
+                type="button"
                 key={item.id}
+                aria-label={`View photo: ${item.title || 'NPL league memory'}`}
                 onClick={() => openModal('lightbox', { item, all: memories, currentIndex: index, photosOnly: true })}
-                className={`group relative cursor-pointer overflow-hidden rounded-[1.35rem] border border-white/10 shadow-xl shadow-black/25 ring-1 ring-inset ring-white/[0.03] transition-all duration-300 hover:-translate-y-1 hover:border-amber-400/70 ${
-                  index % 5 === 0 ? 'sm:col-span-2 sm:row-span-2 h-[380px]' : 'h-[240px]'
-                }`}
+                className="group relative aspect-[5/4] cursor-pointer overflow-hidden rounded-[1.35rem] border border-white/10 bg-slate-950 shadow-xl shadow-black/25 ring-1 ring-inset ring-white/[0.03] transition-all duration-300 hover:-translate-y-1 hover:border-amber-400/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
               >
                 <img
                   src={item.image}
                   alt={item.title || 'NPL league memory'}
-                  className="h-full w-full object-cover brightness-90 transition-transform duration-700 group-hover:scale-105 group-hover:brightness-100"
+                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#050b18] via-slate-950/30 to-slate-950/5 opacity-40 transition-opacity group-hover:opacity-70" />
-                {(item.title || item.caption) && (
-                  <div className="absolute inset-x-0 bottom-0 p-4">
-                    {item.title && <h2 className="font-sports text-lg tracking-wide text-white">{item.title}</h2>}
-                    {item.caption && <p className="mt-1 text-xs leading-relaxed text-slate-200">{item.caption}</p>}
-                  </div>
-                )}
-                <div className="pointer-events-none absolute inset-2 rounded-[1rem] border border-white/10 transition-colors group-hover:border-amber-300/40" />
-                <div className="absolute right-3 top-3 rounded-xl border border-slate-700 bg-slate-900/80 p-2 text-white opacity-0 transition-opacity group-hover:opacity-100">
-                  <Maximize2 className="h-3.5 w-3.5" />
-                </div>
-              </article>
+              </button>
             ))}
           </div>
         )}

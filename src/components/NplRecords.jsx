@@ -1,10 +1,26 @@
 import React from 'react';
 import { useNpl } from '../context/NplContext';
-import { Trophy, Zap, Shield, Flame, Award, Target, Star } from 'lucide-react';
+import { Star } from 'lucide-react';
+import { getSiteMedia, getRecordMediaKey } from '../utils/siteMedia';
+import { AwardBannerCard } from './AwardBannerCard';
 
 export const NplRecords = () => {
-  const { records, selectedSeason } = useNpl();
+  const { records, teams, siteMedia, selectedSeason } = useNpl();
   const visibleRecords = records.filter((record) => !record.season || record.season === selectedSeason);
+  const demoRecord = import.meta.env.DEV
+    ? visibleRecords.find((record) => record.title === 'Highest Individual Score' && record.season === selectedSeason)
+      || visibleRecords.find((record) => record.title === 'Highest Individual Score')
+    : null;
+  const getRecordTeam = (record) => {
+    const findTeamInText = (text) => [...teams]
+      .sort((first, second) => second.name.length - first.name.length)
+      .find((team) => {
+        const name = team.name.trim().toLowerCase();
+        return name && (text.includes(name) || name.includes(text.trim()));
+      });
+    return findTeamInText(record.holder || '')
+      || findTeamInText(record.details || '');
+  };
 
   return (
     <section id="records" className="npl-section-bg border-t border-slate-800 py-20">
@@ -24,36 +40,40 @@ export const NplRecords = () => {
         </div>
 
         {/* Records Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {visibleRecords.map((rec, idx) => (
-            <div
-              key={idx}
-              className="glass-panel-card p-5 rounded-2xl border border-slate-800 hover:border-amber-500/40 transition-all duration-300 hover:-translate-y-1 relative group shadow-lg"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest">
-                  RECORD #{idx + 1}
-                </span>
-                <Trophy className="w-4 h-4 text-amber-400/80 group-hover:scale-110 transition-transform" />
-              </div>
+        <div className="grid grid-cols-1 gap-x-5 gap-y-16 sm:grid-cols-2 xl:grid-cols-3">
+          {visibleRecords.map((rec, idx) => {
+            const team = getRecordTeam(rec);
+            const recordMediaKey = getRecordMediaKey(rec);
+            const teamLogo = team
+              ? getSiteMedia(siteMedia, `team-logo:${team.id}`, rec.season || selectedSeason, team.logo)
+              : '';
+            const uploadedPhoto = getSiteMedia(siteMedia, recordMediaKey, undefined, rec.photo);
+            const photo = import.meta.env.DEV
+              ? uploadedPhoto || (rec === demoRecord ? '/local-demo-player.png' : '')
+              : uploadedPhoto;
+            const teamName = team?.shortName || team?.name || rec.holder || 'NPL';
 
-              <h3 className="font-sports text-xl text-slate-200 tracking-wide line-clamp-1">
-                {rec.title}
-              </h3>
-
-              <div className="font-sports text-3xl sm:text-4xl text-white tracking-wider my-1 text-gold-gradient">
-                {rec.value}
-              </div>
-
-              <div className="font-heading font-bold text-slate-100 text-sm">
-                {rec.holder}
-              </div>
-
-              <div className="text-xs text-slate-400 mt-2 pt-2 border-t border-slate-800/80">
-                {rec.details}
-              </div>
-            </div>
-          ))}
+            return (
+              <AwardBannerCard
+                key={recordMediaKey || idx}
+                title={rec.title}
+                name={rec.holder}
+                value={rec.value}
+                valueLabel="Record"
+                details={rec.details}
+                photo={photo}
+                teamLogo={teamLogo}
+                teamName={teamName}
+                primaryColor={team?.primaryColor || '#0e7490'}
+                secondaryColor={team?.secondaryColor || '#075985'}
+              />
+            );
+          })}
+          {visibleRecords.length === 0 && (
+            <p className="col-span-full rounded-2xl border border-dashed border-slate-700 bg-slate-950/60 p-10 text-center text-slate-400">
+              No tournament records are available for {selectedSeason}.
+            </p>
+          )}
         </div>
       </div>
     </section>

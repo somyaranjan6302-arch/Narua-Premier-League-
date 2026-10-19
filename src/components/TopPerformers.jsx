@@ -8,6 +8,7 @@ import { session4Performers } from '../data/session4Data';
 import { session5Performers } from '../data/session5Data';
 import { session2Performers } from '../data/session2Data';
 import { session1Performers } from '../data/session1Performers';
+import { AwardBannerCard } from './AwardBannerCard';
 
 const getMetric = (text) => {
   const trimmed = text.trim();
@@ -50,11 +51,16 @@ export const TopPerformers = ({ seasonOverride, showSeasonSelector = true, featu
   const selectedIndex = sessionPerformers.length ? featuredIndex % sessionPerformers.length : 0;
   const selectedPerformer = sessionPerformers[selectedIndex];
 
-  const getPerformerPhoto = (key, data) => {
+  const getPerformerPhoto = (key) => {
     const mediaKey = `${featured ? 'featured-performer' : 'performer'}:${key}`;
-    return featured
+    const uploadedPhoto = featured
       ? siteMedia[getSessionMediaKey(mediaKey, displaySeason)] || ''
-      : getSiteMedia(siteMedia, mediaKey, displaySeason, data.photo);
+      : getSiteMedia(siteMedia, mediaKey, displaySeason);
+    return uploadedPhoto || (
+      import.meta.env.DEV && key === 'orangeCap'
+        ? '/local-demo-player.png'
+        : ''
+    );
   };
 
   const getRosterTeam = (data) => teams.find((team) => (
@@ -85,7 +91,7 @@ export const TopPerformers = ({ seasonOverride, showSeasonSelector = true, featu
   if (featured) {
     const performer = selectedPerformer;
     const data = performer?.data;
-    const photo = data ? getPerformerPhoto(performer.key, data) : '';
+    const photo = data ? getPerformerPhoto(performer.key) : '';
     const primaryMetric = data ? getMetric(data.stat || '') : { value: '', label: '' };
     const details = (data?.details || '').split('•').map((item) => item.trim()).filter(Boolean);
     const detailMetrics = details.map(getMetric).slice(0, 3);
@@ -139,7 +145,7 @@ export const TopPerformers = ({ seasonOverride, showSeasonSelector = true, featu
                     <img
                       src={photo}
                       alt={`${data.player || data.team} portrait`}
-                      className="absolute inset-x-0 bottom-0 mx-auto h-full max-h-full w-full object-contain object-bottom transition-transform duration-500 group-hover:scale-[1.02]"
+                      className="absolute inset-x-0 bottom-0 mx-auto h-full max-h-full w-full origin-bottom object-contain object-bottom transition-transform duration-500 ease-out group-hover:scale-[1.08]"
                       loading="lazy"
                     />
                   ) : (
@@ -268,80 +274,36 @@ export const TopPerformers = ({ seasonOverride, showSeasonSelector = true, featu
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3 sm:gap-x-5 lg:grid-cols-4 xl:grid-cols-6">
+        <div className="grid grid-cols-1 gap-x-5 gap-y-16 sm:grid-cols-2 xl:grid-cols-3">
           {sessionPerformers.map(({ key, data, label }) => {
             const rosterTeam = getRosterTeam(data);
-            const photo = getPerformerPhoto(key, data);
+            const photo = getPerformerPhoto(key);
             const teamLogo = rosterTeam
               ? getSiteMedia(siteMedia, `team-logo:${rosterTeam.id}`, displaySeason, rosterTeam.logo)
               : '';
-            const nameParts = (data.player || data.team || 'NPL').trim().split(/\s+/);
-            const familyName = nameParts.pop();
-            const givenName = nameParts.join(' ');
             const teamInitials = (data.teamShort || data.team || 'NPL')
               .split(/\s+/)
               .filter(Boolean)
               .map((part) => part[0])
               .join('')
               .slice(0, 3);
-            const metrics = [data.stat, ...(data.details || '').split('•')]
-              .filter(Boolean)
-              .map(getMetric)
-              .slice(0, 3);
+            const primaryMetric = getMetric(data.stat || '');
 
             return (
               <div key={key} className="min-w-0">
-                <button
-                  type="button"
+                <AwardBannerCard
+                  title={data.category || label}
+                  name={data.player || data.team || 'NPL'}
+                  value={primaryMetric.value}
+                  valueLabel={primaryMetric.label}
+                  details={data.details}
+                  photo={photo}
+                  teamLogo={teamLogo}
+                  teamName={data.teamShort || data.team || teamInitials}
+                  primaryColor={rosterTeam?.primaryColor || '#0e7490'}
+                  secondaryColor={rosterTeam?.secondaryColor || '#075985'}
                   onClick={() => openPerformerProfile(key, data, label, photo)}
-                  className="group relative block aspect-[9/17] w-full overflow-hidden rounded-xl bg-[#171076] text-left shadow-lg outline-none ring-offset-2 ring-offset-[#100d65] transition hover:-translate-y-1 hover:shadow-2xl focus-visible:ring-2 focus-visible:ring-sky-400"
-                  aria-label={`${label}: ${data.player || data.team}, ${data.stat}`}
-                >
-                  {photo && (
-                    <img
-                      src={photo}
-                      alt={data.player || data.team}
-                      className="absolute inset-0 h-full w-full object-contain object-bottom"
-                      loading={displaySeason === 'Season 5' && key === 'orangeCap' ? 'eager' : 'lazy'}
-                      fetchPriority={displaySeason === 'Season 5' && key === 'orangeCap' ? 'high' : 'auto'}
-                    />
-                  )}
-                  {!photo && <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-[#071535]" />}
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#031437]/50 via-transparent to-transparent" />
-                  <div className="absolute inset-x-0 bottom-0 h-[43%] bg-gradient-to-t from-[#06245b] via-[#06245b]/95 to-transparent" />
-
-                  <div className="absolute right-2.5 top-2.5 flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/80 bg-slate-950/80 p-1 shadow-lg sm:right-3 sm:top-3 sm:h-11 sm:w-11">
-                    {teamLogo ? (
-                      <img src={teamLogo} alt="" className="h-full w-full object-contain" />
-                    ) : (
-                      <span className="text-center text-[10px] font-black uppercase leading-tight text-white">{teamInitials}</span>
-                    )}
-                  </div>
-
-                  <div className="absolute inset-x-0 bottom-0 p-2.5 sm:p-3">
-                    {givenName && (
-                      <p className="truncate text-center text-xs font-bold leading-tight text-white drop-shadow-md sm:text-sm">
-                        {givenName}
-                      </p>
-                    )}
-                    <p className="line-clamp-2 text-center font-heading text-lg font-black uppercase leading-[1.05] text-white drop-shadow-md sm:text-xl">
-                      {familyName}
-                    </p>
-
-                    <div className="mt-3 grid grid-cols-3 divide-x divide-white/15 border-t border-white/20 pt-2 text-center">
-                      {metrics.map((metric, index) => (
-                        <span key={`${metric.value}-${index}`} className="min-w-0 px-0.5">
-                          <span className="block truncate text-[8px] font-bold uppercase leading-tight text-sky-100 sm:text-[9px]">
-                            {metric.label || (index === 0 ? 'Stat' : 'Record')}
-                          </span>
-                          <span className="mt-0.5 block truncate text-sm font-black leading-tight text-white sm:text-base">
-                            {metric.value}
-                          </span>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </button>
+                />
                 <p className="mt-2.5 min-h-5 text-sm font-extrabold leading-tight text-white sm:text-base">{label}</p>
               </div>
             );

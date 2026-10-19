@@ -3,7 +3,7 @@ import { useNpl } from '../../context/NplContext';
 import { TeamBadge } from '../TeamBadge';
 import { SessionSelector } from '../SessionSelector';
 import { ImageCropEditor } from '../ImageCropEditor';
-import { getChampionFallbackMedia, getChampionMediaKey, getSessionMediaKey } from '../../utils/siteMedia';
+import { getChampionFallbackMedia, getChampionMediaKey, getRecordMediaKey, getSessionMediaKey } from '../../utils/siteMedia';
 import { session2Performers } from '../../data/session2Data';
 import { session3Performers } from '../../data/session3Data';
 import { session4Performers } from '../../data/session4Data';
@@ -1367,6 +1367,19 @@ export const AdminDashboardModal = ({ onClose }) => {
       sessionSpecific: true,
       session: item.season || item.session
     })),
+    ...records.map((record) => ({
+      key: getRecordMediaKey(record),
+      rowKey: getRecordMediaKey(record),
+      category: 'records',
+      title: `${record.title} • ${record.holder}`,
+      description: `${record.season || 'All-time'} • transparent 9:17 player cutout.`,
+      fallback: record.photo,
+      aspectRatio: 9 / 17,
+      fit: true,
+      directUpload: true,
+      showPhotoGuide: true,
+      session: record.season
+    })),
     ...Object.entries(performersForMediaSession).map(([key, performer]) => ({
       key: `performer:${key}`,
       rowKey: `performer:${mediaSessionFilter}:${key}`,
@@ -1403,6 +1416,7 @@ export const AdminDashboardModal = ({ onClose }) => {
     { value: 'player-assets', label: 'Player photos' },
     { value: 'news', label: 'News' },
     { value: 'gallery', label: 'Gallery' },
+    { value: 'records', label: 'Tournament record photos' },
     { value: 'memories', label: 'Memories and Legacy' },
     { value: 'highlights', label: 'Video highlights' },
     { value: 'featured-performers', label: 'Homepage featured performer photos' },

@@ -181,8 +181,8 @@ export const Footer = ({ scrollToSection }) => {
               </div>
               <div className="flex items-center gap-2.5">
                 <Mail className="w-4 h-4 flex-shrink-0 text-[#ff8a00]" />
-                <a href={`mailto:${tournamentInfo.contactEmail}`} className="transition-colors hover:text-[#ffdb19]">
-                  {tournamentInfo.contactEmail}
+                <a href="mailto:naruapremierleague@gmail.com" className="transition-colors hover:text-[#ffdb19]">
+                  naruapremierleague@gmail.com
                 </a>
               </div>
               <div className="flex items-center gap-2.5">

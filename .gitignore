@@ -10,6 +10,7 @@ build/
 
 # Local-only standings preview data
 /public/local-demo-standings.json
+/public/local-demo-player.png
 /public/uploads/points-table-team-logo-preview.png
 
 # Private admin credentials and session signing key

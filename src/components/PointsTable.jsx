@@ -99,17 +99,18 @@ export const PointsTable = () => {
 
         <div className="glass-panel-card overflow-hidden rounded-[2rem] border border-amber-400/15 shadow-2xl shadow-slate-950/50 ring-1 ring-white/5">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full table-fixed text-left border-collapse md:table-auto md:min-w-[44rem]">
               <thead>
                 <tr className="bg-slate-950/80 border-b border-slate-800 text-[11px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">
-                  <th className="py-4 px-1 sm:px-2 text-center w-8 sm:w-10">POS</th>
-                  <th className="py-4 px-4 sm:px-6">TEAM</th>
-                  <th className="py-4 px-3 text-center">P</th>
-                  <th className="py-4 px-3 text-center text-emerald-400 font-bold">W</th>
-                  <th className="py-4 px-3 text-center text-rose-400 font-bold">L</th>
-                  <th className="py-4 px-3 text-center">NR</th>
-                  <th className="py-4 px-3 text-center">NRR</th>
-                  <th className="py-4 px-4 text-center text-amber-400 font-black">PTS</th>
+                  <th className="w-[8%] py-4 px-1 text-center md:w-10 md:px-2">POS</th>
+                  <th className="w-[42%] py-4 px-1 sm:px-2 md:w-auto md:px-6">TEAM</th>
+                  <th className="w-[9%] py-4 px-1 text-center md:w-auto md:px-3">P</th>
+                  <th className="hidden py-4 px-3 text-center text-emerald-400 font-bold md:table-cell">W</th>
+                  <th className="hidden py-4 px-3 text-center text-rose-400 font-bold md:table-cell">L</th>
+                  <th className="hidden py-4 px-3 text-center md:table-cell">NR</th>
+                  <th className="w-[17%] py-4 px-1 text-center md:hidden">W-L-NR</th>
+                  <th className="w-[14%] py-4 px-1 text-center md:w-auto md:px-3">NRR</th>
+                  <th className="w-[10%] py-4 px-1 text-center text-amber-400 font-black md:w-auto md:px-4">PTS</th>
                   <th className="py-4 px-4 text-center hidden md:table-cell">RECENT FORM</th>
                 </tr>
               </thead>
@@ -126,7 +127,7 @@ export const PointsTable = () => {
                       }`}
                     >
                       {/* POS with green indicator bar for top 4 */}
-                      <td className="py-4 px-1 sm:px-2 text-center relative">
+                      <td className="py-4 px-1 text-center relative md:px-2">
                         {isTopFour && (
                           <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500" />
                         )}
@@ -136,19 +137,24 @@ export const PointsTable = () => {
                       </td>
 
                       {/* TEAM NAME & BADGE */}
-                      <td className="py-4 px-1 sm:px-2">
+                      <td className="min-w-0 py-4 px-1 sm:px-2 md:min-w-48 md:px-6">
                         <a
                           href={teamObj ? `/?team=${encodeURIComponent(teamObj.id)}&season=${encodeURIComponent(selectedSeason)}` : undefined}
                           target={teamObj ? '_blank' : undefined}
                           rel={teamObj ? 'noopener noreferrer' : undefined}
-                          className={`flex items-center gap-3 group ${teamObj ? 'cursor-pointer' : 'cursor-default'}`}
+                          className={`flex min-w-0 items-center gap-1 sm:gap-2 md:gap-3 group ${teamObj ? 'cursor-pointer' : 'cursor-default'}`}
                         >
-                          <TeamBadge team={teamObj || row} size="sm" shape="none" logoSrcOverride={previewTeamLogo} />
-                          <div>
-                            <div className="font-heading font-bold text-white group-hover:text-amber-400 transition-colors flex items-center gap-1.5">
-                              <span>{row.team}</span>
+                          <TeamBadge
+                            team={teamObj || row}
+                            size="sm"
+                            sizeClassName="md:h-16 md:w-16 md:text-base"
+                            logoSrcOverride={previewTeamLogo}
+                          />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1 font-heading text-[10px] font-bold leading-tight text-white transition-colors group-hover:text-amber-400 sm:text-sm md:gap-1.5">
+                              <span className="whitespace-normal break-words" title={row.team}>{row.short || teamObj?.shortName || row.team}</span>
                               {isTopFour && (
-                                <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/60 px-1.5 py-0.2 rounded border border-emerald-600/30">
+                                <span className="shrink-0 rounded border border-emerald-600/30 bg-emerald-950/60 px-1 text-[9px] font-bold text-emerald-400 sm:px-1.5 sm:text-[10px]">
                                   Q
                                 </span>
                               )}
@@ -161,35 +167,40 @@ export const PointsTable = () => {
                       </td>
 
                       {/* PLAYED */}
-                      <td className="py-4 px-3 text-center text-slate-300 font-semibold font-mono">
+                      <td className="py-4 px-1 text-center text-slate-300 font-semibold font-mono md:px-3">
                         {row.p}
                       </td>
 
                       {/* WON */}
-                      <td className="py-4 px-3 text-center text-emerald-400 font-bold font-mono">
+                      <td className="hidden py-4 px-3 text-center text-emerald-400 font-bold font-mono md:table-cell">
                         {row.w}
                       </td>
 
                       {/* LOST */}
-                      <td className="py-4 px-3 text-center text-rose-400 font-bold font-mono">
+                      <td className="hidden py-4 px-3 text-center text-rose-400 font-bold font-mono md:table-cell">
                         {row.l}
                       </td>
 
                       {/* NO RESULT */}
-                      <td className="py-4 px-3 text-center text-slate-400 font-mono">
+                      <td className="hidden py-4 px-3 text-center text-slate-400 font-mono md:table-cell">
                         {row.nr}
                       </td>
 
+                      {/* Combined match record on mobile */}
+                      <td className="py-4 px-1 text-center text-slate-200 font-bold font-mono whitespace-nowrap md:hidden">
+                        {row.w}-{row.l}-{row.nr}
+                      </td>
+
                       {/* NET RUN RATE */}
-                      <td className="py-4 px-3 text-center font-mono text-xs font-semibold text-slate-300">
+                      <td className="py-4 px-1 text-center font-mono text-[10px] sm:text-xs font-semibold text-slate-300 md:px-3">
                         <span className={row.nrr.startsWith('+') ? "text-emerald-400" : "text-rose-400"}>
                           {row.nrr}
                         </span>
                       </td>
 
                       {/* POINTS */}
-                      <td className="py-4 px-4 text-center">
-                        <span className="font-sports text-2xl text-amber-400 px-3 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 font-bold">
+                      <td className="py-4 px-1 text-center md:px-4">
+                        <span className="font-sports text-xl md:text-2xl text-amber-400 px-1.5 md:px-3 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 font-bold">
                           {row.pts}
                         </span>
                       </td>

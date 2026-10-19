@@ -246,7 +246,9 @@ export const MatchCenter = () => {
                     </span>
                   )}
                   {match.status === 'COMPLETED' && (
-                    <span className="relative z-10 shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-100">FINAL</span>
+                    <span className="relative z-10 shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-100">
+                      {match.tournamentPhase || 'MATCH'}
+                    </span>
                   )}
                 </div>
 

@@ -18,6 +18,15 @@ const teamStyle = {
   'Barpada XI': ['#02bba6', '#0f172a', 'Akhil Barik Friend Barpada']
 };
 
+const teamShortNames = {
+  'GCC Fighter Binjharpur': 'GCC Fighter',
+  'HP No Compromise': 'HP No Compromise',
+  'No Compromise Kaina': 'No Compromise',
+  'Titan Strikers': 'Titan Strikers',
+  'Young Star Narua': 'Young Star',
+  'Barpada XI': 'Barpada XI'
+};
+
 const toName = (key) => key.split(' ').map((part) => part ? part[0].toUpperCase() + part.slice(1) : part).join(' ');
 const toOvers = (overs) => String(overs).includes('.') ? String(overs) : `${overs}.0`;
 const rosterFor = (teamName) => Object.entries(source.rosters[teamName] || {}).map(([key, member], index) => {
@@ -69,7 +78,7 @@ export const session5Matches = source.matches.map((match) => ({
 
 export const session5Standings = Object.entries(source.standings)
   .map(([name, row]) => ({
-    pos: 0, teamId: teamIds[name], team: name, short: name, p: row.p, w: row.w, l: row.l,
+    pos: 0, teamId: teamIds[name], team: name, short: teamShortNames[name] || name, p: row.p, w: row.w, l: row.l,
     nr: 0, nrr: row.nrr >= 0 ? `+${row.nrr.toFixed(3)}` : row.nrr.toFixed(3),
     pts: row.pts, form: row.form, qualified: false, color: teamStyle[name][0]
   }))

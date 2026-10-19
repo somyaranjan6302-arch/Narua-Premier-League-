@@ -127,7 +127,7 @@ export const App = () => {
         {activeSection === 'auction' && <AuctionSection />}
         {activeSection === 'trophy' && <TrophySection />}
         {activeSection === 'memories' && <MemoriesLegacy />}
-        <SectionPhotoGallery sectionId={activeSection} />
+        {activeSection !== 'news' && <SectionPhotoGallery sectionId={activeSection} />}
         {activeSection === 'home' && <HistoryOfNpl scrollToSection={scrollToSection} />}
       </main>
 

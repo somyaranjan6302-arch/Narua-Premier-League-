@@ -5,8 +5,9 @@ import { Newspaper, Calendar, Clock, ArrowRight, Megaphone } from 'lucide-react'
 import { getSiteMedia } from '../utils/siteMedia';
 
 export const NewsSection = () => {
-  const { news, openModal, siteMedia, seasons, selectedSeason, setSelectedSeason } = useNpl();
+  const { news, sectionPhotos, openModal, siteMedia, seasons, selectedSeason, setSelectedSeason } = useNpl();
   const sessionNews = news.filter((item) => (item.season || item.session) === selectedSeason);
+  const newsSectionPhotos = sectionPhotos.filter((photo) => photo.sectionId === 'news');
   const announcements = sessionNews.filter((item) => (
     item.contentType === 'announcement' ||
     item.contentType === 'textOnly' ||
@@ -108,7 +109,7 @@ export const NewsSection = () => {
               </span>
             </button>
 
-            {otherNews.length > 0 && (
+            {(otherNews.length > 0 || newsSectionPhotos.length > 0) && (
               <div className="mt-7 grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
                 {otherNews.map((item) => (
                   <button
@@ -139,6 +140,26 @@ export const NewsSection = () => {
                       {item.date}
                     </span>
                   </button>
+                ))}
+                {newsSectionPhotos.map((photo) => (
+                  <article key={photo.id} className="min-w-0">
+                    <span className="relative mb-3 block aspect-[4/2.55] overflow-hidden rounded-lg bg-[#0b1745]">
+                      <img
+                        src={siteMedia[`section-photo:${photo.id}`] || photo.image}
+                        alt={photo.title}
+                        className="h-full w-full object-cover"
+                      />
+                    </span>
+                    <span className="block text-xs font-bold text-sky-400">NPL PHOTO</span>
+                    <span className="mt-1 block font-heading text-base font-bold leading-snug text-white">
+                      {photo.title}
+                    </span>
+                    {photo.caption && (
+                      <span className="mt-1 block text-xs leading-relaxed text-slate-400">
+                        {photo.caption}
+                      </span>
+                    )}
+                  </article>
                 ))}
               </div>
             )}

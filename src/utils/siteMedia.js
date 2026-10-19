@@ -8,6 +8,17 @@ export const getSessionMediaKey = (mediaKey, session) => {
   return sessionSlug ? `${mediaKey}-${sessionSlug}` : mediaKey;
 };
 
+export const getRecordMediaKey = (record) => {
+  const recordSlug = [record.season || 'all-time', record.title, record.holder]
+    .filter(Boolean)
+    .join('-')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+  return `record:${recordSlug}`;
+};
+
 export const getChampionMediaKey = (champions, champion) => {
   const seasonNumber = Number(String(champion?.edition || '').match(/Season\s*(\d+)/i)?.[1]);
   if (seasonNumber === 2) return 'champion:season2';
