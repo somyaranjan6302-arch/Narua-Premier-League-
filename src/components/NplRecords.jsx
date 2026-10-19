@@ -3,9 +3,10 @@ import { useNpl } from '../context/NplContext';
 import { Star } from 'lucide-react';
 import { getSiteMedia, getRecordMediaKey, getRecordPartnerMediaKey, isHiddenTournamentRecord } from '../utils/siteMedia';
 import { AwardBannerCard } from './AwardBannerCard';
+import { SessionSelector } from './SessionSelector';
 
 export const NplRecords = () => {
-  const { records, teams, siteMedia, selectedSeason } = useNpl();
+  const { records, teams, siteMedia, seasons, selectedSeason, setSelectedSeason } = useNpl();
   const visibleRecords = records.filter((record) => (
     !isHiddenTournamentRecord(record) &&
     (!record.season || record.season === selectedSeason)
@@ -40,6 +41,9 @@ export const NplRecords = () => {
           <p className="text-slate-400 text-sm sm:text-base mt-2">
             The extraordinary tournament benchmarks, records, and unbreakable performances in Narua cricket history.
           </p>
+          <div className="mt-5 flex justify-center">
+            <SessionSelector seasons={seasons} selectedSeason={selectedSeason} setSelectedSeason={setSelectedSeason} />
+          </div>
         </div>
 
         {/* Records Grid */}

@@ -57,7 +57,6 @@ const publicPhotoSections = [
   { id: 'home', label: 'Home' },
   { id: 'story', label: 'About NPL Story' },
   { id: 'champions', label: 'Champions' },
-  { id: 'history', label: 'Season History' },
   { id: 'matches', label: 'Matches' },
   { id: 'standings', label: 'Points Table' },
   { id: 'teams', label: 'Teams' },
@@ -68,7 +67,6 @@ const publicPhotoSections = [
   { id: 'highlights', label: 'Highlights' },
   { id: 'news', label: 'News' },
   { id: 'auction', label: 'Auction' },
-  { id: 'trophy', label: 'Trophy Showcase' },
   { id: 'memories', label: 'Memories and Legacy' }
 ];
 

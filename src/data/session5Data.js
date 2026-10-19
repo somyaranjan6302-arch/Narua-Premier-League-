@@ -112,8 +112,8 @@ export const session5Performers = {
 export const session5Records = [
   { season: 'Season 5', title: 'Highest Team Total', holder: 'HP No Compromise', value: '127/1', details: '6.3 overs vs GCC Fighter Binjharpur (League)' },
   { season: 'Season 5', title: 'Lowest Total', holder: 'Young Star Narua', value: '51 all out', details: '6.3 overs vs Titan Strikers (Super Knockout)' },
-  { season: 'Season 5', title: 'Highest Individual Score', holder: 'Amirul', value: '56 (22)', details: 'GCC Fighter Binjharpur vs HP No Compromise' },
-  { season: 'Season 5', title: 'Best Bowling Figures', holder: 'Abhishek Das', value: '6/14', details: 'HP No Compromise vs Titan Strikers' }
+  { season: 'Season 5', title: 'Highest Individual Score', holder: 'Amirul', value: '55 (22)', details: 'GCC Fighter Binjharpur vs HP No Compromise' },
+  { season: 'Season 5', title: 'Best Bowling Figures', holder: 'Abhishek Das', value: '6/16', details: 'HP No Compromise vs Titan Strikers' }
 ];
 
 export const session5Season = {

@@ -4,7 +4,6 @@ import { Navbar } from './components/Navbar';
 import { HeroSection } from './components/HeroSection';
 import { AboutNPL } from './components/AboutNPL';
 import { ChampionsSection } from './components/ChampionsSection';
-import { SeasonHistory } from './components/SeasonHistory';
 import { MatchCenter } from './components/MatchCenter';
 import { PointsTable } from './components/PointsTable';
 import { TeamsSection } from './components/TeamsSection';
@@ -16,7 +15,6 @@ import { SectionPhotoGallery } from './components/SectionPhotoGallery';
 import { VideoHighlights } from './components/VideoHighlights';
 import { NewsSection } from './components/NewsSection';
 import { AuctionSection } from './components/AuctionSection';
-import { TrophySection } from './components/TrophySection';
 import { MemoriesLegacy } from './components/MemoriesLegacy';
 import { HistoryOfNpl } from './components/HistoryOfNpl';
 import { Footer } from './components/Footer';
@@ -114,7 +112,6 @@ export const App = () => {
         {activeSection === 'home' && <HeroSection scrollToSection={scrollToSection} />}
         {activeSection === 'story' && <AboutNPL scrollToSection={scrollToSection} />}
         {activeSection === 'champions' && <ChampionsSection />}
-        {activeSection === 'history' && <SeasonHistory />}
         {activeSection === 'matches' && <MatchCenter />}
         {activeSection === 'standings' && <PointsTable />}
         {activeSection === 'teams' && <TeamsSection />}
@@ -125,7 +122,6 @@ export const App = () => {
         {activeSection === 'highlights' && <VideoHighlights />}
         {activeSection === 'news' && <NewsSection />}
         {activeSection === 'auction' && <AuctionSection />}
-        {activeSection === 'trophy' && <TrophySection />}
         {activeSection === 'memories' && <MemoriesLegacy />}
         {activeSection !== 'news' && <SectionPhotoGallery sectionId={activeSection} />}
         {activeSection === 'home' && <HistoryOfNpl scrollToSection={scrollToSection} />}
