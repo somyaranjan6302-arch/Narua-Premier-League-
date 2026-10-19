@@ -3,16 +3,12 @@ import { useNpl } from '../context/NplContext';
 import { Star } from 'lucide-react';
 import { getSiteMedia, getRecordMediaKey, getRecordPartnerMediaKey, isHiddenTournamentRecord } from '../utils/siteMedia';
 import { AwardBannerCard } from './AwardBannerCard';
-import { SessionSelector } from './SessionSelector';
 
 export const NplRecords = () => {
-  const { records, teams, siteMedia, seasons, selectedSeason, setSelectedSeason } = useNpl();
-  const visibleRecords = records.filter((record) => (
-    !isHiddenTournamentRecord(record) &&
-    (!record.season || record.season === selectedSeason)
-  ));
+  const { records, teams, siteMedia, selectedSeason } = useNpl();
+  const visibleRecords = records.filter((record) => !isHiddenTournamentRecord(record));
   const demoRecord = import.meta.env.DEV
-    ? visibleRecords.find((record) => record.title === 'Highest Individual Score' && record.season === selectedSeason)
+    ? visibleRecords.find((record) => record.title === 'Highest Individual Score' && record.season === 'Season 5')
       || visibleRecords.find((record) => record.title === 'Highest Individual Score')
     : null;
   const getRecordTeam = (record) => {
@@ -41,9 +37,6 @@ export const NplRecords = () => {
           <p className="text-slate-400 text-sm sm:text-base mt-2">
             The extraordinary tournament benchmarks, records, and unbreakable performances in Narua cricket history.
           </p>
-          <div className="mt-5 flex justify-center">
-            <SessionSelector seasons={seasons} selectedSeason={selectedSeason} setSelectedSeason={setSelectedSeason} />
-          </div>
         </div>
 
         {/* Records Grid */}
@@ -87,7 +80,7 @@ export const NplRecords = () => {
           })}
           {visibleRecords.length === 0 && (
             <p className="col-span-full rounded-2xl border border-dashed border-slate-700 bg-slate-950/60 p-10 text-center text-slate-400">
-              No tournament records are available for {selectedSeason}.
+              No tournament records are available yet.
             </p>
           )}
         </div>
