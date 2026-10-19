@@ -3,7 +3,7 @@ import { useNpl } from '../../context/NplContext';
 import { TeamBadge } from '../TeamBadge';
 import { SessionSelector } from '../SessionSelector';
 import { ImageCropEditor } from '../ImageCropEditor';
-import { getChampionFallbackMedia, getChampionMediaKey, getRecordMediaKey, getSessionMediaKey } from '../../utils/siteMedia';
+import { getChampionFallbackMedia, getChampionMediaKey, getRecordMediaKey, getSessionMediaKey, isHiddenTournamentRecord } from '../../utils/siteMedia';
 import { session2Performers } from '../../data/session2Data';
 import { session3Performers } from '../../data/session3Data';
 import { session4Performers } from '../../data/session4Data';
@@ -1368,7 +1368,7 @@ export const AdminDashboardModal = ({ onClose }) => {
       sessionSpecific: true,
       session: item.season || item.session
     })),
-    ...records.map((record) => ({
+    ...records.filter((record) => !isHiddenTournamentRecord(record)).map((record) => ({
       key: getRecordMediaKey(record),
       rowKey: getRecordMediaKey(record),
       category: 'records',
@@ -2145,6 +2145,26 @@ export const AdminDashboardModal = ({ onClose }) => {
                   >
                     <Plus className="h-4 w-4" />
                     Add old photo
+                  </button>
+                </div>
+                <div className="mb-5 flex flex-col gap-3 rounded-xl border border-amber-800/60 bg-amber-950/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h5 className="font-sports text-base text-amber-300">TOURNAMENT RECORD PLAYER PHOTOS</h5>
+                    <p className="mt-1 text-xs text-slate-300">
+                      Upload a separate transparent player cutout for each tournament record. Use the session filter below to find other seasons; these record slots do not replace Top Performer photos.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMediaCategory('records');
+                      setMediaSearch('');
+                      document.getElementById('media-image-library')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }}
+                    className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-slate-950 transition hover:bg-amber-400"
+                  >
+                    <Image className="h-4 w-4" />
+                    Manage record photos
                   </button>
                 </div>
                 <div className="mb-5 flex flex-col gap-3 rounded-xl border border-sky-800/60 bg-sky-950/20 p-4 sm:flex-row sm:items-center sm:justify-between">

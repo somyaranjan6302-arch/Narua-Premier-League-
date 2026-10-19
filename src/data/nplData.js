@@ -542,7 +542,7 @@ export const initialTopPerformers = {
 
 export const initialRecords = [
   { title: "Highest Team Total", holder: "Commando 11", value: "158/3", details: "10.0 Overs vs BMN Royals (Season 2)" },
-  { title: "Fastest Fifty", holder: "Chiku Das (BMN Royals)", value: "14 Balls", details: "7 Sixes, 2 Fours vs Star Xi Sayedpur (2025)" },
+  { title: "Fastest Fifty", holder: "Chiku Das (BMN Royals)", value: "14 Balls", details: "6 Sixes, 2 Fours vs Star Xi Sayedpur (2025)" },
   { title: "Highest Partnership", holder: "Kamar & Banty", value: "104 Runs", details: "1st Wicket for Commando 11 vs BMN Royals (2025)" },
   { title: "Most Sixes in an Inning", holder: "Chiku Das", value: "14 Sixes", details: "88 runs off 32 balls (Season 2)" },
   { title: "Best Bowling in NPL History", holder: "Abhishek Das", value: "5/14", details: "Ramchandrapur Fighter (Season 3)" },

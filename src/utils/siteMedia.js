@@ -19,6 +19,24 @@ export const getRecordMediaKey = (record) => {
   return `record:${recordSlug}`;
 };
 
+export const isHiddenTournamentRecord = (record) => (
+  (
+    record.title === 'Most Sixes in an Inning' &&
+    record.holder === 'Chiku Das' &&
+    record.value === '14 Sixes'
+  ) || (
+    record.title === 'Lowest Total' &&
+    record.holder === 'Young Star Narua'
+  ) || (
+    record.title === 'Highest Team Total' &&
+    record.holder === 'HP No Compromise'
+  ) || (
+    record.title?.toLowerCase().startsWith('best bowling') &&
+    record.holder === 'Abhishek Das' &&
+    String(record.value).replace(/\s/g, '') === '5/14'
+  )
+);
+
 export const getChampionMediaKey = (champions, champion) => {
   const seasonNumber = Number(String(champion?.edition || '').match(/Season\s*(\d+)/i)?.[1]);
   if (seasonNumber === 2) return 'champion:season2';

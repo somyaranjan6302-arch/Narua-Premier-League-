@@ -274,7 +274,7 @@ export const TopPerformers = ({ seasonOverride, showSeasonSelector = true, featu
           )}
         </div>
 
-        <div className="grid grid-cols-1 gap-x-5 gap-y-16 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-2 xl:grid-cols-3">
           {sessionPerformers.map(({ key, data, label }) => {
             const rosterTeam = getRosterTeam(data);
             const photo = getPerformerPhoto(key);

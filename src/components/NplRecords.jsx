@@ -1,12 +1,15 @@
 import React from 'react';
 import { useNpl } from '../context/NplContext';
 import { Star } from 'lucide-react';
-import { getSiteMedia, getRecordMediaKey } from '../utils/siteMedia';
+import { getSiteMedia, getRecordMediaKey, isHiddenTournamentRecord } from '../utils/siteMedia';
 import { AwardBannerCard } from './AwardBannerCard';
 
 export const NplRecords = () => {
   const { records, teams, siteMedia, selectedSeason } = useNpl();
-  const visibleRecords = records.filter((record) => !record.season || record.season === selectedSeason);
+  const visibleRecords = records.filter((record) => (
+    !isHiddenTournamentRecord(record) &&
+    (!record.season || record.season === selectedSeason)
+  ));
   const demoRecord = import.meta.env.DEV
     ? visibleRecords.find((record) => record.title === 'Highest Individual Score' && record.season === selectedSeason)
       || visibleRecords.find((record) => record.title === 'Highest Individual Score')
@@ -52,6 +55,9 @@ export const NplRecords = () => {
               ? uploadedPhoto || (rec === demoRecord ? '/local-demo-player.png' : '')
               : uploadedPhoto;
             const teamName = team?.shortName || team?.name || rec.holder || 'NPL';
+            const details = rec.title === 'Fastest Fifty' && /chiku das/i.test(rec.holder || '')
+              ? rec.details?.replace(/\b7(?=\s+Sixes\b)/i, '6')
+              : rec.details;
 
             return (
               <AwardBannerCard
@@ -60,7 +66,7 @@ export const NplRecords = () => {
                 name={rec.holder}
                 value={rec.value}
                 valueLabel="Record"
-                details={rec.details}
+                details={details}
                 photo={photo}
                 teamLogo={teamLogo}
                 teamName={teamName}
