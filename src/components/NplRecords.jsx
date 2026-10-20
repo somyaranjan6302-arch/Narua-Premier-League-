@@ -4,9 +4,27 @@ import { Star } from 'lucide-react';
 import { getSiteMedia, getRecordMediaKey, getRecordPartnerMediaKey, isHiddenTournamentRecord } from '../utils/siteMedia';
 import { AwardBannerCard } from './AwardBannerCard';
 
+const featuredRecordKeys = new Set([
+  'most tournament titles|no compromise kaina|2 title',
+  'most catches by a fielder|rahul das|28 catches',
+  'best bowling figures|abhishek das|6/16',
+  'fastest fifty|chiku das (bmn royals)|14 balls',
+  'highest partnership|kamar & banty|104 runs',
+  'highest individual score|amirul|55 (22)',
+  'highest team total|commando 11|158/3'
+]);
+
+const getRecordKey = (record) => (
+  [record.title, record.holder, record.value]
+    .map((part) => String(part || '').trim().toLowerCase())
+    .join('|')
+);
+
 export const NplRecords = () => {
   const { records, teams, siteMedia, selectedSeason } = useNpl();
-  const visibleRecords = records.filter((record) => !isHiddenTournamentRecord(record));
+  const visibleRecords = records.filter((record) => (
+    featuredRecordKeys.has(getRecordKey(record)) && !isHiddenTournamentRecord(record)
+  ));
   const demoRecord = import.meta.env.DEV
     ? visibleRecords.find((record) => record.title === 'Highest Individual Score' && record.season === 'Season 5')
       || visibleRecords.find((record) => record.title === 'Highest Individual Score')
