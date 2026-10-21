@@ -79,10 +79,10 @@ export const NewsSection = () => {
               onClick={() => openArticle(featuredNews)}
               className="group grid min-h-[360px] w-full overflow-hidden rounded-xl text-left shadow-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 md:min-h-[450px] md:grid-cols-12"
             >
-              <span className="relative z-10 flex flex-col items-start justify-between bg-[#091a4d] p-5 sm:p-8 md:col-span-4 md:p-8">
-                <span>
+              <span className="relative z-10 flex min-w-0 flex-col items-start justify-between bg-[#091a4d] p-5 sm:p-8 md:col-span-4 md:p-8">
+                <span className="min-w-0 w-full">
                   <span className="block text-sm font-bold text-sky-400">{featuredNews.category || 'Press Releases'}</span>
-                  <span className="mt-2 block font-heading text-3xl font-extrabold leading-tight text-white transition-colors group-hover:text-sky-200 sm:text-4xl md:text-[clamp(2rem,3.5vw,4.5rem)]">
+                  <span className="mt-2 block max-w-full break-words font-heading text-3xl font-extrabold leading-tight text-white transition-colors group-hover:text-sky-200 sm:text-4xl md:text-[clamp(1.75rem,2.6vw,3rem)]">
                     {featuredNews.headline}
                   </span>
                   <span className="mt-5 flex items-center gap-2 text-xs font-semibold text-slate-300 sm:text-sm">

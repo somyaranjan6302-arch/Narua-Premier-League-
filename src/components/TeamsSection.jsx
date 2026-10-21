@@ -31,7 +31,7 @@ export const TeamsSection = () => {
               <Users className="h-4 w-4" />
               {filteredTeams.length} competing franchises
             </div>
-            <h2 className="font-heading text-4xl font-black tracking-tight text-white sm:text-5xl">Teams</h2>
+            <h2 className="font-heading text-4xl font-black uppercase tracking-[0.12em] text-white sm:text-5xl">TEAMS</h2>
             <p className="mt-2 max-w-xl text-sm text-blue-100">
               Discover the squads competing for the Narua Premier League crown in {selectedSeason}.
             </p>
@@ -40,8 +40,8 @@ export const TeamsSection = () => {
         </div>
       </div>
 
-      <div className="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="mx-auto max-w-[960px] px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {filteredTeams.length === 0 ? (
             <div className="col-span-full rounded-2xl border border-dashed border-slate-700 bg-slate-950/60 p-10 text-center text-slate-400">
               No teams are registered for {selectedSeason} yet.
