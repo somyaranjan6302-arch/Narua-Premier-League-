@@ -191,6 +191,7 @@ export const AdminDashboardModal = ({ onClose }) => {
   const [passwordInput, setPasswordInput] = useState('');
   const [loginError, setLoginError] = useState('');
   const [newAdminId, setNewAdminId] = useState('');
+  const [newAdminEmail, setNewAdminEmail] = useState('');
   const [newAdminPassword, setNewAdminPassword] = useState('');
   const [replacementAdminPassword, setReplacementAdminPassword] = useState('');
   const [confirmAdminPassword, setConfirmAdminPassword] = useState('');
@@ -198,6 +199,8 @@ export const AdminDashboardModal = ({ onClose }) => {
   const [isSavingPassword, setIsSavingPassword] = useState(false);
   const [adminAccounts, setAdminAccounts] = useState([]);
   const [adminAccountError, setAdminAccountError] = useState('');
+  const [adminPasswordResets, setAdminPasswordResets] = useState({});
+  const [adminPasswordResetError, setAdminPasswordResetError] = useState('');
   const [mediaError, setMediaError] = useState('');
   const [isSavingMediaInfo, setIsSavingMediaInfo] = useState(false);
   const [mediaCategory, setMediaCategory] = useState('all');
@@ -320,7 +323,7 @@ export const AdminDashboardModal = ({ onClose }) => {
     const response = await fetch('/api/admin/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ adminId: newAdminId, password: newAdminPassword })
+      body: JSON.stringify({ adminId: newAdminId, email: newAdminEmail, password: newAdminPassword })
     });
     const result = await response.json();
     if (!response.ok) {
@@ -328,8 +331,40 @@ export const AdminDashboardModal = ({ onClose }) => {
       return;
     }
     setNewAdminId('');
+    setNewAdminEmail('');
     setNewAdminPassword('');
     await loadAdminAccounts();
+  };
+
+  const handleResetAdminPassword = async (adminId) => {
+    setAdminPasswordResetError('');
+    const reset = adminPasswordResets[adminId] || {};
+    const email = (reset.email || '').trim();
+    const newPassword = reset.password || '';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setAdminPasswordResetError(`Enter a valid email address for ${adminId}.`);
+      return;
+    }
+    if (newPassword.length < 6) {
+      setAdminPasswordResetError('Admin passwords must be at least 6 characters.');
+      return;
+    }
+    try {
+      const response = await fetch(`/api/admin/users/${encodeURIComponent(adminId)}/password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, newPassword })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Could not reset admin password.');
+      setAdminPasswordResets((previous) => ({
+        ...previous,
+        [adminId]: { email, password: '' }
+      }));
+      showToast(`Password reset for ${adminId}.`);
+    } catch (error) {
+      setAdminPasswordResetError(error.message || 'Could not reset admin password.');
+    }
   };
 
   const handlePasswordChange = async (event) => {
@@ -1545,6 +1580,15 @@ export const AdminDashboardModal = ({ onClose }) => {
               className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
             />
             <input
+              type="email"
+              autoComplete="email"
+              placeholder="Admin email address"
+              aria-label="Admin email address"
+              value={newAdminEmail}
+              onChange={(event) => setNewAdminEmail(event.target.value)}
+              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+            />
+            <input
               required
               type="password"
               minLength={6}
@@ -1563,14 +1607,60 @@ export const AdminDashboardModal = ({ onClose }) => {
           </form>
           <div className="divide-y divide-slate-800 rounded-lg border border-slate-800 bg-slate-950/60">
             {adminAccounts.map((account) => (
-              <div key={account.adminId} className="flex items-center justify-between gap-3 px-3 py-2 text-xs">
-                <span className="truncate font-semibold text-white">{account.adminId}</span>
-                <span className={account.role === 'owner' ? 'text-amber-300' : 'text-slate-400'}>
-                  {account.role === 'owner' ? 'Developer' : 'Admin'}
-                </span>
+              <div key={account.adminId} className="space-y-2 px-3 py-2 text-xs">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="truncate font-semibold text-white">{account.adminId}</span>
+                  <span className={account.role === 'owner' ? 'text-amber-300' : 'text-slate-400'}>
+                    {account.role === 'owner' ? 'Developer' : 'Admin'}
+                  </span>
+                </div>
+                {account.email && <p className="break-all text-slate-500">{account.email}</p>}
+                {account.role !== 'owner' && (
+                  <div className="flex flex-wrap gap-2">
+                    <input
+                      type="email"
+                      autoComplete="email"
+                      placeholder={`Email for ${account.adminId}`}
+                      aria-label={`Email for ${account.adminId}`}
+                      value={adminPasswordResets[account.adminId]?.email ?? account.email ?? ''}
+                      onChange={(event) => setAdminPasswordResets((previous) => ({
+                        ...previous,
+                        [account.adminId]: {
+                          ...previous[account.adminId],
+                          email: event.target.value
+                        }
+                      }))}
+                      className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white"
+                    />
+                    <input
+                      type="password"
+                      minLength={6}
+                      autoComplete="new-password"
+                      placeholder={`Reset ${account.adminId}'s password`}
+                      aria-label={`New password for ${account.adminId}`}
+                      value={adminPasswordResets[account.adminId]?.password || ''}
+                      onChange={(event) => setAdminPasswordResets((previous) => ({
+                        ...previous,
+                        [account.adminId]: {
+                          ...previous[account.adminId],
+                          password: event.target.value
+                        }
+                      }))}
+                      className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleResetAdminPassword(account.adminId)}
+                      className="rounded-lg border border-slate-700 px-3 py-2 font-semibold text-slate-200 hover:bg-slate-800"
+                    >
+                      Reset password
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
+          {adminPasswordResetError && <p role="alert" className="text-xs text-rose-400">{adminPasswordResetError}</p>}
         </div>
       ) : (
         <p className="border-t border-slate-800 pt-3 text-xs text-slate-400">

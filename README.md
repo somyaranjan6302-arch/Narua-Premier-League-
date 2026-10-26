@@ -34,17 +34,25 @@ Both services use free plans. Supabase Free includes 500 MB of database space an
 
 The server refuses to start in production without `DATABASE_URL`. The database schema is created automatically at startup. If shared content has not been initialized yet, the first owner sign-in saves that browser's current public content as the initial shared snapshot. Browser storage is scoped to its origin, so edits made at `localhost` do not automatically appear on the Render URL. Public registrations are saved directly to Postgres; the owner portal loads those records privately. Tracked files already under `public/uploads/` remain available as static assets, while future Owner Media uploads are stored in Postgres so they survive deploys.
 
-### Host the website on Cloudflare Pages and keep the API on Render
+### Deploy the website and API on Cloudflare Pages
 
-The app can use Cloudflare Pages for its static Vite website while keeping the existing Express API on Render and Postgres on Supabase. The Pages Function in `functions/api/[[path]].js` forwards `/api/*` requests to the Render service, preserving the app's same-origin API requests and admin session cookies. Keep the Render service running; do not put the Supabase connection string in Cloudflare or in any `VITE_` variable.
+Cloudflare Pages serves the Vite website and `functions/api/[[path]].js` implements the existing `/api/*` routes directly. It connects to the existing Supabase project through its HTTPS Data API; it does not proxy to Render. The original Express backend in `server/` and `render.yaml` remain in the repository for local development or a future Render restart. Local development still runs `npm run dev` and uses that Express backend.
 
-1. Deploy the project to Render as described above and confirm its `https://<service-name>.onrender.com/api/site-data` endpoint responds. Keep `DATABASE_URL` and `NPL_INITIAL_OWNER_PASSWORD` configured in Render.
-2. In Cloudflare, create a **Pages** project connected to this repository. Use the project directory as the root directory, `npm run build` as the build command, and `dist` as the build output directory.
-3. In the Pages project, add the `API_ORIGIN` environment variable for both Production and Preview, setting it to the Render service's origin only, for example `https://narua-premier-league.onrender.com` (no path or trailing slash). This value is not a database credential.
-4. Deploy the Pages project. Verify the public site loads, `/api/site-data` responds through its Pages domain, and admin login plus image uploads work.
-5. If using a custom domain, attach it to the Cloudflare Pages project and use that Pages domain for visitors. Keep the Render origin as the API target; the browser should make requests to the Pages domain, not directly to Render.
+Before deploying:
 
-The API proxy requires no extra runtime packages. A missing or invalid `API_ORIGIN` returns an explicit configuration error rather than silently serving a broken site.
+1. Keep the Supabase project and its existing database. In the Supabase SQL Editor, run [`supabase/cloudflare-api.sql`](./supabase/cloudflare-api.sql). The script is safe to rerun, preserves existing tournament data, grants the Cloudflare service role the needed table access, and adds database functions for atomic auction updates, image writes, registration writes, and rate limiting.
+2. In Supabase, copy the **Project URL** and the server-only **service_role** API key. Never use the `anon` key for this backend, and never put the service-role key in a `VITE_` variable or browser code.
+3. In Cloudflare, create a Pages project connected to this GitHub repository. Use the repository root, build command `npm run build`, and output directory `dist`.
+4. In the Pages project **Settings → Variables and Secrets**, add these runtime variables/secrets for Production (and Preview if you use preview deployments):
+   - `SUPABASE_URL` — the Supabase Project URL.
+   - `SUPABASE_SERVICE_ROLE_KEY` — the Supabase server-only service-role key; mark it as a secret.
+   - `NPL_OWNER_EMAIL` — the email address to use for the `developer` owner in Supabase Auth.
+   - `NPL_INITIAL_OWNER_PASSWORD` — choose a new unique password of at least 16 characters for the `developer` owner account; store it as a secret.
+5. Deploy the Pages project and verify the public site, `/api/site-data`, registration flow, admin login, live auction, and owner media uploads.
+
+The Cloudflare API preserves the database records and admin account IDs/roles, but uses Supabase Auth for password verification rather than doing password hashing in a Cloudflare Function. The owner signs in as `developer` using `NPL_INITIAL_OWNER_PASSWORD`; on first sign-in, the API links that account to `NPL_OWNER_EMAIL` in Supabase Auth. Existing admin accounts keep their IDs and roles, but the owner must assign each admin an email and a new password in **Admin Members** before that admin can sign in. The app's sign-in form still accepts the admin ID and password. Supabase Auth stores the active email/password credentials and the app database stores each admin's Supabase Auth user link. Existing legacy password hashes are left untouched so the Render backend can continue using them; the Cloudflare API does not verify those old hashes. Tournament data and registration records are not changed.
+
+The Render URL is not a secret and does not belong in `.gitignore`. `.gitignore` excludes only local Cloudflare `.dev.vars` files so you can keep development credentials out of Git. Keep the existing Render API source tracked; the Cloudflare Pages Function is a separate implementation and does not alter local behavior.
 
 ## Features
 

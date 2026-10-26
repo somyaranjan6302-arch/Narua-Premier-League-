@@ -620,6 +620,32 @@ const start = async () => {
     return res.status(201).json({ user: publicUser(user) });
   });
 
+  app.post('/api/admin/users/:adminId/password', requireAdmin, requireOwner, async (req, res) => {
+    const user = auth.users.find(account => account.adminId === req.params.adminId);
+    if (!user) return res.status(404).json({ error: 'Admin account not found.' });
+
+    const newPassword = typeof req.body.newPassword === 'string' ? req.body.newPassword : '';
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters.' });
+    }
+
+    const passwordHash = await createPasswordHash(newPassword);
+    Object.assign(user, passwordHash, {
+      authVersion: (user.authVersion || 0) + 1,
+      passwordChangedAt: new Date().toISOString()
+    });
+    if (database) {
+      await database.query(
+        `UPDATE npl_admin_users SET salt = $2, password_hash = $3,
+          auth_version = $4, password_changed_at = $5 WHERE admin_id = $1`,
+        [user.adminId, user.salt, user.hash, user.authVersion, user.passwordChangedAt]
+      );
+    } else {
+      await writeJson(usersFile, auth.users);
+    }
+    return res.json({ success: true });
+  });
+
   app.post('/api/admin/media', requireAdmin, requireOwner, (req, res, next) => {
     imageUpload.single('image')(req, res, (error) => {
       if (!error) return next();
