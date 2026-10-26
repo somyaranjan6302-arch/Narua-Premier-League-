@@ -34,6 +34,18 @@ Both services use free plans. Supabase Free includes 500 MB of database space an
 
 The server refuses to start in production without `DATABASE_URL`. The database schema is created automatically at startup. If shared content has not been initialized yet, the first owner sign-in saves that browser's current public content as the initial shared snapshot. Browser storage is scoped to its origin, so edits made at `localhost` do not automatically appear on the Render URL. Public registrations are saved directly to Postgres; the owner portal loads those records privately. Tracked files already under `public/uploads/` remain available as static assets, while future Owner Media uploads are stored in Postgres so they survive deploys.
 
+### Host the website on Cloudflare Pages and keep the API on Render
+
+The app can use Cloudflare Pages for its static Vite website while keeping the existing Express API on Render and Postgres on Supabase. The Pages Function in `functions/api/[[path]].js` forwards `/api/*` requests to the Render service, preserving the app's same-origin API requests and admin session cookies. Keep the Render service running; do not put the Supabase connection string in Cloudflare or in any `VITE_` variable.
+
+1. Deploy the project to Render as described above and confirm its `https://<service-name>.onrender.com/api/site-data` endpoint responds. Keep `DATABASE_URL` and `NPL_INITIAL_OWNER_PASSWORD` configured in Render.
+2. In Cloudflare, create a **Pages** project connected to this repository. Use the project directory as the root directory, `npm run build` as the build command, and `dist` as the build output directory.
+3. In the Pages project, add the `API_ORIGIN` environment variable for both Production and Preview, setting it to the Render service's origin only, for example `https://narua-premier-league.onrender.com` (no path or trailing slash). This value is not a database credential.
+4. Deploy the Pages project. Verify the public site loads, `/api/site-data` responds through its Pages domain, and admin login plus image uploads work.
+5. If using a custom domain, attach it to the Cloudflare Pages project and use that Pages domain for visitors. Keep the Render origin as the API target; the browser should make requests to the Pages domain, not directly to Render.
+
+The API proxy requires no extra runtime packages. A missing or invalid `API_ORIGIN` returns an explicit configuration error rather than silently serving a broken site.
+
 ## Features
 
 - **Broadcast Live Score Ticker:** Sticky strip across top of viewport with real-time match status.
