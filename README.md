@@ -38,6 +38,10 @@ The server refuses to start in production without `DATABASE_URL`. The database s
 
 Cloudflare Pages serves the Vite website and `functions/api/[[path]].js` implements the existing `/api/*` routes directly. It connects to the existing Supabase project through its HTTPS Data API; it does not proxy to Render. The original Express backend in `server/` and `render.yaml` remain in the repository for local development or a future Render restart. Local development still runs `npm run dev` and uses that Express backend.
 
+#### Static image-only deployment (no database)
+
+To preview the public site and repository-hosted images without Supabase, connect the repository to Cloudflare Pages and use `npm run build` with `dist` as the output directory. Leave the Supabase variables unset. The public site uses its bundled default content, `public/site-media.json`, and images under `public/uploads/`. The Admin Portal, registrations, shared edits, and live database features will not work in this mode. To publish local image uploads, commit and push both the image files and `public/site-media.json`.
+
 Before deploying:
 
 1. Keep the Supabase project and its existing database. In the Supabase SQL Editor, run [`supabase/cloudflare-api.sql`](./supabase/cloudflare-api.sql). The script is safe to rerun, preserves existing tournament data, grants the Cloudflare service role the needed table access, and adds database functions for atomic auction updates, image writes, registration writes, and rate limiting.

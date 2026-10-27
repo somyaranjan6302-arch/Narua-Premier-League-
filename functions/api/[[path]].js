@@ -3,6 +3,7 @@ import { mergeOfficialSession2Content } from '../../src/data/session2Data.js';
 import { mergeOfficialSession3Content } from '../../src/data/session3Data.js';
 import { mergeOfficialSession4Content } from '../../src/data/session4Data.js';
 import { mergeOfficialSession5Content } from '../../src/data/session5Data.js';
+import staticSiteMedia from '../../public/site-media.json' with { type: 'json' };
 
 const SESSION_COOKIE = 'npl_admin_session';
 const SESSION_SECONDS = 8 * 60 * 60;
@@ -291,16 +292,19 @@ const apiRequest = async (request, env) => {
   const method = request.method.toUpperCase();
 
   if (method === 'GET' && path === '/api/admin/session') {
+    if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return json({ user: null });
     const secret = await loadSessionSecret(env);
     const user = await currentUser(request, env, secret);
     return json({ user: user ? publicUser(user) : null });
   }
 
   if (method === 'GET' && path === '/api/site-media') {
-    return json(await getSiteValue(env, 'site-media') || {});
+    if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return json(staticSiteMedia);
+    return json(await getSiteValue(env, 'site-media') || staticSiteMedia);
   }
 
   if (method === 'GET' && path === '/api/site-data') {
+    if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return json(null);
     const stored = await getSiteValue(env, 'public-content');
     return json(stored ? mergeOfficialSession5Content(
       mergeOfficialSession4Content(
@@ -329,10 +333,14 @@ const apiRequest = async (request, env) => {
   if (method === 'GET' && path === '/api/auction/live') {
     const season = url.searchParams.get('season')?.trim() || '';
     if (!season || season.length > 60) return errorResponse('Choose a valid auction season.', 400);
+    if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return json({ state: null });
     return json({ state: await getSiteValue(env, `auction-live:${season}`) });
   }
 
   if (method === 'POST' && path === '/api/auction-registrations') {
+    if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+      return errorResponse('Player registration storage is not configured.', 503);
+    }
     const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
     const ipDigest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(ip)));
     if (!await rpc(env, 'npl_cf_check_rate_limit', {
