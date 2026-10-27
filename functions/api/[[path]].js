@@ -3,7 +3,7 @@ import { mergeOfficialSession2Content } from '../../src/data/session2Data.js';
 import { mergeOfficialSession3Content } from '../../src/data/session3Data.js';
 import { mergeOfficialSession4Content } from '../../src/data/session4Data.js';
 import { mergeOfficialSession5Content } from '../../src/data/session5Data.js';
-import staticSiteMedia from '../../public/site-media.json' with { type: 'json' };
+import staticSiteMedia from '../../public/site-media.json';
 
 const SESSION_COOKIE = 'npl_admin_session';
 const SESSION_SECONDS = 8 * 60 * 60;
