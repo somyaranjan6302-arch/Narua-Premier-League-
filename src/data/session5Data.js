@@ -1,4 +1,4 @@
-import source from './session5-source.json' with { type: 'json' };
+import source from './session5-source.js';
 
 const teamIds = {
   'GCC Fighter Binjharpur': 'gcc-fighter-binjharpur-s5',

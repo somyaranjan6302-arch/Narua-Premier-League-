@@ -1,4 +1,4 @@
-import source from './session4-source.json' with { type: 'json' };
+import source from './session4-source.js';
 
 const teamIds = {
   'Fire 11 Narua': 'fire-11-narua-s4',

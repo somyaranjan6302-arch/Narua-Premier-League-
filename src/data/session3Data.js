@@ -1,4 +1,4 @@
-import source from './session3-source.json' with { type: 'json' };
+import source from './session3-source.js';
 
 const teamIds = {
   'Commando 11': 'commando-11-s3',

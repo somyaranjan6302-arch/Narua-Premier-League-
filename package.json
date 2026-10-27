@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "node server/index.js",
-    "build": "vite build",
+    "build": "node scripts/generate-static-site-media.mjs && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
     "start": "node server/index.js"

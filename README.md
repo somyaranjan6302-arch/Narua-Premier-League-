@@ -42,6 +42,8 @@ Cloudflare Pages serves the Vite website and `functions/api/[[path]].js` impleme
 
 To preview the public site and repository-hosted images without Supabase, connect the repository to Cloudflare Pages and use `npm run build` with `dist` as the output directory. Leave the Supabase variables unset. The public site uses its bundled default content, `public/site-media.json`, and images under `public/uploads/`. The Admin Portal, registrations, shared edits, and live database features will not work in this mode. To publish local image uploads, commit and push both the image files and `public/site-media.json`.
 
+The build command also generates JavaScript modules from the bundled JSON data files so Cloudflare Pages Functions can bundle the static fallback and historical season data.
+
 Before deploying:
 
 1. Keep the Supabase project and its existing database. In the Supabase SQL Editor, run [`supabase/cloudflare-api.sql`](./supabase/cloudflare-api.sql). The script is safe to rerun, preserves existing tournament data, grants the Cloudflare service role the needed table access, and adds database functions for atomic auction updates, image writes, registration writes, and rate limiting.

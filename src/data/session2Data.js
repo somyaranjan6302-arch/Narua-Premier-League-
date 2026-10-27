@@ -1,4 +1,4 @@
-import source from './session2-source.json' with { type: 'json' };
+import source from './session2-source.js';
 
 const teamIds = {
   '11 Star Sayedpur': '11-star-sayedpur-s2',
