@@ -4,6 +4,7 @@ import { mergeOfficialSession3Content } from '../../src/data/session3Data.js';
 import { mergeOfficialSession4Content } from '../../src/data/session4Data.js';
 import { mergeOfficialSession5Content } from '../../src/data/session5Data.js';
 import staticSiteMedia from '../staticSiteMedia.js';
+import { handleLiveScoringApi } from './liveScoring.js';
 
 const SESSION_COOKIE = 'npl_admin_session';
 const SESSION_SECONDS = 8 * 60 * 60;
@@ -361,6 +362,9 @@ const apiRequest = async (request, env) => {
   const requireOwner = () => user?.role === 'owner'
     ? null
     : errorResponse(user ? 'Only the developer owner can manage admin accounts.' : 'Sign in required.', user ? 403 : 401);
+
+  const liveScoringResponse = await handleLiveScoringApi({ request, env, url, path, method, user });
+  if (liveScoringResponse) return liveScoringResponse;
 
   if (method === 'POST' && path === '/api/admin/password') {
     const denied = requireAdmin();

@@ -246,6 +246,8 @@ export const processDelivery = (currentState, deliveryInput) => {
     wicketType,
     dismissedPlayerId: isActualWicket || isRetiredHurt ? (dismissedPlayerId || nextStriker.id) : null,
     dismissedPlayerName: isActualWicket || isRetiredHurt ? (dismissedPlayerName || nextStriker.name) : null,
+    incomingPlayerId,
+    incomingPlayerName,
     fielderId,
     fielderName,
     display: getDeliveryDisplay({ batRuns: batterRuns, extraType, extraRuns: teamExtraRuns, totalRuns, wicketType }),
@@ -339,6 +341,9 @@ export const calculateInningsState = ({
 
   for (const del of deliveries) {
     const isLegal = del.isLegal !== false && del.extraType !== EXTRA_TYPES.WIDE && del.extraType !== EXTRA_TYPES.NO_BALL;
+    if (del.strikerId) currentStriker = { id: del.strikerId, name: del.strikerName };
+    if (del.nonStrikerId) currentNonStriker = { id: del.nonStrikerId, name: del.nonStrikerName };
+    if (del.bowlerId) currentBowler = { id: del.bowlerId, name: del.bowlerName };
     const batter = getBatter(del.strikerId, del.strikerName);
     const bowler = getBowler(del.bowlerId, del.bowlerName);
 
@@ -388,6 +393,11 @@ export const calculateInningsState = ({
       const dismissedId = del.dismissedPlayerId || del.strikerId;
       const dismissedBatter = battingStats.get(dismissedId) || batter;
       dismissedBatter.isOut = true;
+      if (del.incomingPlayerId) {
+        const incoming = { id: del.incomingPlayerId, name: del.incomingPlayerName || 'New Batter' };
+        if (dismissedId === currentStriker.id) currentStriker = incoming;
+        else if (dismissedId === currentNonStriker.id) currentNonStriker = incoming;
+      }
 
       let dismissalText = 'out';
       if (del.wicketType === WICKET_TYPES.BOWLED) dismissalText = `b ${del.bowlerName}`;
@@ -416,6 +426,11 @@ export const calculateInningsState = ({
       const dismissedId = del.dismissedPlayerId || del.strikerId;
       const dismissedBatter = battingStats.get(dismissedId) || batter;
       dismissedBatter.dismissal = 'retired hurt';
+      if (del.incomingPlayerId) {
+        const incoming = { id: del.incomingPlayerId, name: del.incomingPlayerName || 'New Batter' };
+        if (dismissedId === currentStriker.id) currentStriker = incoming;
+        else if (dismissedId === currentNonStriker.id) currentNonStriker = incoming;
+      }
     }
 
     // Strike rotation simulation

@@ -47,6 +47,8 @@ Cloudflare Pages serves the Vite website, `functions/api/[[path]].js` implements
 
 The local Cloudflare database is separate from the Express server's local data and from the Cloudflare production database. Use `npm run dev` if you want to keep using the existing Express setup.
 
+The Cloudflare Pages API also supports match setup, squads, tosses, innings, ball-by-ball scoring, undo, scorecards, live score streams, points tables, and player leaderboards. Scoring changes are stored in the D1 database. Sign in as an admin, open the Admin Portal, and launch the live scorer for a fixture. Spectators can follow the scorecard and commentary from the Match Center.
+
 #### Create and deploy the Cloudflare D1 database
 
 1. Install dependencies and authenticate the Wrangler CLI with `npx wrangler login`.

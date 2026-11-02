@@ -352,6 +352,7 @@ export const LiveScorerModal = ({ match: initialMatch, onClose }) => {
       const { wicketType, dismissedPlayerId, fielderName, runsBeforeRunOut, nextBatsmanId } = wicketForm;
       const isOutStriker = dismissedPlayerId === striker.id;
       const dismissedPlayerName = isOutStriker ? striker.name : nonStriker.name;
+      const incomingBatter = battingSquad.find((person) => person.id === nextBatsmanId);
 
       const batRuns = Number(runsBeforeRunOut || 0);
       const isLegal = wicketType !== 'WIDE_RUN_OUT';
@@ -373,7 +374,9 @@ export const LiveScorerModal = ({ match: initialMatch, onClose }) => {
         dismissedPlayerId: dismissedPlayerId || striker.id,
         dismissedPlayerName,
         fielderName: fielderName || null,
-        nextBatsmanId: nextBatsmanId || null
+        nextBatsmanId: nextBatsmanId || null,
+        incomingPlayerId: incomingBatter?.id || null,
+        incomingPlayerName: incomingBatter?.name || null
       };
 
       const res = await fetch(`/api/matches/${match.id}/ball`, {
@@ -1636,4 +1639,3 @@ export const LiveScorerModal = ({ match: initialMatch, onClose }) => {
     </div>
   );
 };
-
