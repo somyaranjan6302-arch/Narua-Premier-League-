@@ -309,6 +309,73 @@ export const AdminDashboardModal = ({ onClose }) => {
     if (!result.success) setLoginError(result.error);
   };
 
+  const launchScorerForMatch = async (fixture) => {
+    if (!fixture) return;
+    const teamA = teams.find((team) => team.id === fixture.team1?.id);
+    const teamB = teams.find((team) => team.id === fixture.team2?.id);
+    const scorerMatch = {
+      id: fixture.id,
+      season: selectedSeason,
+      matchNumber: fixture.matchNumber || 'Match 1',
+      tournamentPhase: fixture.tournamentPhase || 'LEAGUE MATCH',
+      teamAId: fixture.team1?.id || 'team-1',
+      teamBId: fixture.team2?.id || 'team-2',
+      teamAName: fixture.team1?.name || 'Team 1',
+      teamBName: fixture.team2?.name || 'Team 2',
+      teamAShort: fixture.team1?.shortName || 'T1',
+      teamBShort: fixture.team2?.shortName || 'T2',
+      matchDate: fixture.date || new Date().toISOString().slice(0, 10),
+      matchTime: fixture.time || '14:00',
+      venue: fixture.venue || 'Narua Cricket Ground',
+      oversLimit: 20
+    };
+
+    try {
+      const matchResponse = await fetch('/api/matches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(scorerMatch)
+      });
+      const matchResult = await matchResponse.json().catch(() => ({}));
+      if (!matchResponse.ok) {
+        throw new Error(matchResult.error || 'Could not prepare this match for scoring.');
+      }
+
+      const squadResponse = await fetch(`/api/matches/${encodeURIComponent(fixture.id)}/squad`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          squads: {
+            teamA: (teamA?.players || []).map((player, index) => ({
+              id: String(player.id || `team-a-player-${index + 1}`),
+              name: player.name || `Player ${index + 1}`,
+              isPlayingXi: true
+            })),
+            teamB: (teamB?.players || []).map((player, index) => ({
+              id: String(player.id || `team-b-player-${index + 1}`),
+              name: player.name || `Player ${index + 1}`,
+              isPlayingXi: true
+            }))
+          }
+        })
+      });
+      const squadResult = await squadResponse.json().catch(() => ({}));
+      if (!squadResponse.ok) {
+        throw new Error(squadResult.error || 'Could not load the match squads.');
+      }
+
+      onClose();
+      openModal('scorer-console', {
+        ...scorerMatch,
+        ...(matchResult.match || {}),
+        teamAName: scorerMatch.teamAName,
+        teamBName: scorerMatch.teamBName
+      });
+    } catch (error) {
+      showToast(error.message || 'Could not open the live scorer.', 'error');
+    }
+  };
+
   const loadAdminAccounts = async () => {
     const response = await fetch('/api/admin/users');
     if (response.ok) {
@@ -2638,64 +2705,8 @@ export const AdminDashboardModal = ({ onClose }) => {
                   {/* CricHeroes Scorer Launcher & Match Quick Controls */}
                   <div className="space-y-4 pt-2">
                     <button
-                      onClick={async () => {
-                        if (!liveMatch) return;
-                        try {
-                          await fetch('/api/matches', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              id: liveMatch.id,
-                              season: selectedSeason,
-                              matchNumber: liveMatch.matchNumber || 'Match 1',
-                              tournamentPhase: liveMatch.tournamentPhase || 'LEAGUE MATCH',
-                              teamAId: liveMatch.team1?.id || 'team-1',
-                              teamBId: liveMatch.team2?.id || 'team-2',
-                              teamAName: liveMatch.team1?.name || 'Team 1',
-                              teamBName: liveMatch.team2?.name || 'Team 2',
-                              teamAShort: liveMatch.team1?.shortName || 'T1',
-                              teamBShort: liveMatch.team2?.shortName || 'T2',
-                              matchDate: liveMatch.date || new Date().toISOString().slice(0, 10),
-                              matchTime: liveMatch.time || '14:00',
-                              venue: liveMatch.venue || 'Narua Cricket Ground',
-                              oversLimit: 20,
-                              status: liveMatch.status || 'LIVE'
-                            })
-                          });
-
-                          const t1Obj = teams.find(t => t.id === liveMatch.team1?.id);
-                          const t2Obj = teams.find(t => t.id === liveMatch.team2?.id);
-                          if (t1Obj?.players?.length || t2Obj?.players?.length) {
-                            await fetch(`/api/matches/${liveMatch.id}/squad`, {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({
-                                squads: {
-                                  teamA: (t1Obj?.players || []).map((p, i) => ({ id: p.id || `p1-${i}`, name: p.name, isPlayingXi: true })),
-                                  teamB: (t2Obj?.players || []).map((p, i) => ({ id: p.id || `p2-${i}`, name: p.name, isPlayingXi: true }))
-                                }
-                              })
-                            });
-                          }
-                        } catch (e) {
-                          console.error(e);
-                        }
-
-                        openModal('scorer-console', {
-                          id: liveMatch.id,
-                          season: selectedSeason,
-                          matchNumber: liveMatch.matchNumber || 'Match 1',
-                          tournamentPhase: liveMatch.tournamentPhase || 'LEAGUE MATCH',
-                          teamAId: liveMatch.team1?.id || 'team-1',
-                          teamBId: liveMatch.team2?.id || 'team-2',
-                          teamAName: liveMatch.team1?.name || 'Team 1',
-                          teamBName: liveMatch.team2?.name || 'Team 2',
-                          teamAShort: liveMatch.team1?.shortName || 'T1',
-                          teamBShort: liveMatch.team2?.shortName || 'T2',
-                          oversLimit: 20,
-                          status: liveMatch.status || 'LIVE'
-                        });
-                      }}
+                      type="button"
+                      onClick={() => launchScorerForMatch(liveMatch)}
                       disabled={!liveMatch}
                       className="w-full flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 px-6 py-4 font-sports text-lg tracking-wider text-slate-950 hover:brightness-110 shadow-xl transition disabled:opacity-40"
                     >
@@ -2724,48 +2735,8 @@ export const AdminDashboardModal = ({ onClose }) => {
                                 </span>
                               </div>
                               <button
-                                onClick={async () => {
-                                  try {
-                                    await fetch('/api/matches', {
-                                      method: 'POST',
-                                      headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({
-                                        id: m.id,
-                                        season: selectedSeason,
-                                        matchNumber: m.matchNumber || 'Match',
-                                        tournamentPhase: m.tournamentPhase || 'LEAGUE MATCH',
-                                        teamAId: m.team1?.id || 'team-1',
-                                        teamBId: m.team2?.id || 'team-2',
-                                        teamAName: m.team1?.name || 'Team 1',
-                                        teamBName: m.team2?.name || 'Team 2',
-                                        teamAShort: m.team1?.shortName || 'T1',
-                                        teamBShort: m.team2?.shortName || 'T2',
-                                        matchDate: m.date || new Date().toISOString().slice(0, 10),
-                                        matchTime: m.time || '14:00',
-                                        venue: m.venue || 'Narua Cricket Ground',
-                                        oversLimit: 20,
-                                        status: m.status || 'LIVE'
-                                      })
-                                    });
-                                  } catch (e) {
-                                    console.error(e);
-                                  }
-
-                                  openModal('scorer-console', {
-                                    id: m.id,
-                                    season: selectedSeason,
-                                    matchNumber: m.matchNumber,
-                                    tournamentPhase: m.tournamentPhase,
-                                    teamAId: m.team1?.id || 'team-1',
-                                    teamBId: m.team2?.id || 'team-2',
-                                    teamAName: m.team1?.name || 'Team 1',
-                                    teamBName: m.team2?.name || 'Team 2',
-                                    teamAShort: m.team1?.shortName || 'T1',
-                                    teamBShort: m.team2?.shortName || 'T2',
-                                    oversLimit: 20,
-                                    status: m.status || 'LIVE'
-                                  });
-                                }}
+                                type="button"
+                                onClick={() => launchScorerForMatch(m)}
                                 className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs"
                               >
                                 Score Match →
