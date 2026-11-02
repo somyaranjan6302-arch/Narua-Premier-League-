@@ -1,0 +1,9 @@
+name = "narua-premier-league"
+compatibility_date = "2025-03-01"
+pages_build_output_dir = "./dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "npl"
+database_id = "80ff3c08-d06a-49c5-a383-a5bae277d813"
+migrations_dir = "migrations"

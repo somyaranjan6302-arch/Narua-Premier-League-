@@ -7,6 +7,7 @@ node_modules/
 dist/
 dist-ssr/
 build/
+.wrangler/
 
 # Local-only standings preview data
 /public/local-demo-standings.json

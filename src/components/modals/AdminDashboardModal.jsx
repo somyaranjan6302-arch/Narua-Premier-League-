@@ -2635,67 +2635,144 @@ export const AdminDashboardModal = ({ onClose }) => {
                     </div>
                   </div>
 
-                  {/* Quick Score Increments */}
-                  <div className="space-y-2">
-                    <span className="text-xs font-bold text-slate-300 uppercase">
-                      Add to {liveMatch?.team1?.shortName} Score (Updates Site Header Live):
-                    </span>
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        onClick={() => {
-                          const [runs, wkts] = liveMatch.team1.score.split('/');
-                          const newRuns = parseInt(runs || 0) + 1;
-                          updateMatchLiveScore(liveMatch.id, {
-                            team1: { ...liveMatch.team1, score: `${newRuns}/${wkts || 0}` }
-                          }, selectedSeason);
-                        }}
-                        disabled={!liveMatch}
-                        className="px-4 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white font-sports text-lg hover:border-amber-500"
-                      >
-                        +1 Single
-                      </button>
+                  {/* CricHeroes Scorer Launcher & Match Quick Controls */}
+                  <div className="space-y-4 pt-2">
+                    <button
+                      onClick={async () => {
+                        if (!liveMatch) return;
+                        try {
+                          await fetch('/api/matches', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              id: liveMatch.id,
+                              season: selectedSeason,
+                              matchNumber: liveMatch.matchNumber || 'Match 1',
+                              tournamentPhase: liveMatch.tournamentPhase || 'LEAGUE MATCH',
+                              teamAId: liveMatch.team1?.id || 'team-1',
+                              teamBId: liveMatch.team2?.id || 'team-2',
+                              teamAName: liveMatch.team1?.name || 'Team 1',
+                              teamBName: liveMatch.team2?.name || 'Team 2',
+                              teamAShort: liveMatch.team1?.shortName || 'T1',
+                              teamBShort: liveMatch.team2?.shortName || 'T2',
+                              matchDate: liveMatch.date || new Date().toISOString().slice(0, 10),
+                              matchTime: liveMatch.time || '14:00',
+                              venue: liveMatch.venue || 'Narua Cricket Ground',
+                              oversLimit: 20,
+                              status: liveMatch.status || 'LIVE'
+                            })
+                          });
 
-                      <button
-                        onClick={() => {
-                          const [runs, wkts] = liveMatch.team1.score.split('/');
-                          const newRuns = parseInt(runs || 0) + 4;
-                          updateMatchLiveScore(liveMatch.id, {
-                            team1: { ...liveMatch.team1, score: `${newRuns}/${wkts || 0}` }
-                          }, selectedSeason);
-                        }}
-                        disabled={!liveMatch}
-                        className="px-4 py-2 rounded-xl bg-emerald-950 border border-emerald-700 text-emerald-400 font-sports text-lg hover:bg-emerald-900"
-                      >
-                        +4 FOUR!
-                      </button>
+                          const t1Obj = teams.find(t => t.id === liveMatch.team1?.id);
+                          const t2Obj = teams.find(t => t.id === liveMatch.team2?.id);
+                          if (t1Obj?.players?.length || t2Obj?.players?.length) {
+                            await fetch(`/api/matches/${liveMatch.id}/squad`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                squads: {
+                                  teamA: (t1Obj?.players || []).map((p, i) => ({ id: p.id || `p1-${i}`, name: p.name, isPlayingXi: true })),
+                                  teamB: (t2Obj?.players || []).map((p, i) => ({ id: p.id || `p2-${i}`, name: p.name, isPlayingXi: true }))
+                                }
+                              })
+                            });
+                          }
+                        } catch (e) {
+                          console.error(e);
+                        }
 
-                      <button
-                        onClick={() => {
-                          const [runs, wkts] = liveMatch.team1.score.split('/');
-                          const newRuns = parseInt(runs || 0) + 6;
-                          updateMatchLiveScore(liveMatch.id, {
-                            team1: { ...liveMatch.team1, score: `${newRuns}/${wkts || 0}` }
-                          }, selectedSeason);
-                        }}
-                        disabled={!liveMatch}
-                        className="px-4 py-2 rounded-xl bg-amber-950 border border-amber-700 text-amber-400 font-sports text-lg hover:bg-amber-900"
-                      >
-                        +6 SIX!
-                      </button>
+                        openModal('scorer-console', {
+                          id: liveMatch.id,
+                          season: selectedSeason,
+                          matchNumber: liveMatch.matchNumber || 'Match 1',
+                          tournamentPhase: liveMatch.tournamentPhase || 'LEAGUE MATCH',
+                          teamAId: liveMatch.team1?.id || 'team-1',
+                          teamBId: liveMatch.team2?.id || 'team-2',
+                          teamAName: liveMatch.team1?.name || 'Team 1',
+                          teamBName: liveMatch.team2?.name || 'Team 2',
+                          teamAShort: liveMatch.team1?.shortName || 'T1',
+                          teamBShort: liveMatch.team2?.shortName || 'T2',
+                          oversLimit: 20,
+                          status: liveMatch.status || 'LIVE'
+                        });
+                      }}
+                      disabled={!liveMatch}
+                      className="w-full flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 px-6 py-4 font-sports text-lg tracking-wider text-slate-950 hover:brightness-110 shadow-xl transition disabled:opacity-40"
+                    >
+                      <Award className="h-6 w-6 text-slate-950" />
+                      <span>LAUNCH CRICHEROES LIVE SCORER CONSOLE</span>
+                    </button>
 
-                      <button
-                        onClick={() => {
-                          const [runs, wkts] = liveMatch.team1.score.split('/');
-                          const newWkts = Math.min(10, parseInt(wkts || 0) + 1);
-                          updateMatchLiveScore(liveMatch.id, {
-                            team1: { ...liveMatch.team1, score: `${runs}/${newWkts}` }
-                          }, selectedSeason);
-                        }}
-                        disabled={!liveMatch}
-                        className="px-4 py-2 rounded-xl bg-rose-950 border border-rose-700 text-rose-400 font-sports text-lg hover:bg-rose-900"
-                      >
-                        ⚡ WICKET!
-                      </button>
+                    <div className="pt-2">
+                      <span className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-2">
+                        ALL FIXTURES IN {selectedSeason.toUpperCase()}:
+                      </span>
+                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {matches
+                          .filter((m) => (m.season || m.session) === selectedSeason)
+                          .map((m) => (
+                            <div
+                              key={m.id}
+                              className="flex items-center justify-between p-3 rounded-xl border border-slate-800 bg-slate-950 text-xs"
+                            >
+                              <div>
+                                <span className="font-sports text-sm text-white">
+                                  {m.team1?.name} vs {m.team2?.name}
+                                </span>
+                                <span className="text-[10px] text-slate-500 block">
+                                  {m.matchNumber} • {m.tournamentPhase} • Status: {m.status}
+                                </span>
+                              </div>
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    await fetch('/api/matches', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({
+                                        id: m.id,
+                                        season: selectedSeason,
+                                        matchNumber: m.matchNumber || 'Match',
+                                        tournamentPhase: m.tournamentPhase || 'LEAGUE MATCH',
+                                        teamAId: m.team1?.id || 'team-1',
+                                        teamBId: m.team2?.id || 'team-2',
+                                        teamAName: m.team1?.name || 'Team 1',
+                                        teamBName: m.team2?.name || 'Team 2',
+                                        teamAShort: m.team1?.shortName || 'T1',
+                                        teamBShort: m.team2?.shortName || 'T2',
+                                        matchDate: m.date || new Date().toISOString().slice(0, 10),
+                                        matchTime: m.time || '14:00',
+                                        venue: m.venue || 'Narua Cricket Ground',
+                                        oversLimit: 20,
+                                        status: m.status || 'LIVE'
+                                      })
+                                    });
+                                  } catch (e) {
+                                    console.error(e);
+                                  }
+
+                                  openModal('scorer-console', {
+                                    id: m.id,
+                                    season: selectedSeason,
+                                    matchNumber: m.matchNumber,
+                                    tournamentPhase: m.tournamentPhase,
+                                    teamAId: m.team1?.id || 'team-1',
+                                    teamBId: m.team2?.id || 'team-2',
+                                    teamAName: m.team1?.name || 'Team 1',
+                                    teamBName: m.team2?.name || 'Team 2',
+                                    teamAShort: m.team1?.shortName || 'T1',
+                                    teamBShort: m.team2?.shortName || 'T2',
+                                    oversLimit: 20,
+                                    status: m.status || 'LIVE'
+                                  });
+                                }}
+                                className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs"
+                              >
+                                Score Match →
+                              </button>
+                            </div>
+                          ))}
+                      </div>
                     </div>
                   </div>
                 </div>

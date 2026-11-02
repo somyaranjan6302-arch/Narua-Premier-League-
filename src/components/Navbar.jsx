@@ -48,7 +48,7 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
   };
 
   return (
-    <header className="fixed left-0 right-0 top-0 z-50 transition-all duration-300">
+    <header className="fixed left-0 top-0 z-50 w-screen transition-all duration-300">
       {/* Top Live Match Strip / Broadcast Ticker */}
       {liveMatch && (
         <div className="flex items-center justify-between gap-2 overflow-hidden whitespace-nowrap border-b border-indigo-400/20 bg-[#070744] px-2 py-1.5 text-[10px] font-medium text-slate-200 shadow-[inset_0_-1px_rgba(255,255,255,0.04)] sm:gap-4 sm:px-4 sm:text-xs">
@@ -96,9 +96,9 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
           <div className="absolute -left-8 top-0 h-full w-24 -skew-x-[28deg] bg-gradient-to-r from-[#ff8a00]/30 to-[#e52bd1]/20" />
           <div className="absolute -right-8 top-0 h-full w-24 skew-x-[28deg] bg-gradient-to-l from-[#ff8a00]/30 to-[#e52bd1]/20" />
         </div>
-        <div className="relative z-10 flex w-full max-w-none items-center justify-between px-4 sm:px-6 2xl:px-8">
+        <div className="relative z-10 flex w-full min-w-0 max-w-none items-center justify-between px-3 sm:px-6 2xl:px-8">
           {/* Left: NPL Brand Logo */}
-          <div onClick={() => handleNavClick('home')}>
+          <div className="min-w-0" onClick={() => handleNavClick('home')}>
             <NplLogo size="sm" imageSrc={siteMedia.logo} compactOnMobile compact />
           </div>
 
@@ -156,7 +156,7 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
           </div>
 
           {/* Right: High-impact Action Buttons */}
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-3">
             {/* Prominent Auction Registration Button */}
             <button
               onClick={() => openModal('auction-register')}
@@ -172,7 +172,7 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
             {/* Mobile Menu Hamburger Toggle */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="xl:hidden rounded-lg border border-white/20 bg-[#090858]/70 p-2 text-slate-100 hover:text-white"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/20 bg-[#090858]/70 p-2 text-slate-100 hover:text-white"
               aria-label="Toggle menu"
             >
               {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -188,7 +188,7 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
                 <button
                   key={item.target}
                   onClick={() => handleNavClick(item.target)}
-                  className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider text-left transition-colors ${
+                  className={`flex items-center gap-1.5 px-2.5 py-2.5 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider text-left transition-colors ${
                     activeSection === item.target
                       ? "text-[#ffdb19] bg-white/10"
                       : "text-slate-200 hover:bg-white/10"
@@ -200,12 +200,12 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
               ))}
             </div>
 
-            <div className="grid grid-cols-2 gap-2 pt-2 text-xs font-medium text-slate-300">
+            <div className="grid grid-cols-2 gap-1 pt-2 text-[10px] sm:text-xs font-medium text-slate-300">
               {moreItems.map((subItem) => (
                 <button
                   key={subItem.target}
                   onClick={() => handleNavClick(subItem.target)}
-                  className="px-3 py-1.5 text-left hover:text-[#ffdb19]"
+                  className="px-2 py-1.5 text-left hover:text-[#ffdb19]"
                 >
                   • {subItem.label}
                 </button>
@@ -218,7 +218,7 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
                   setIsMobileMenuOpen(false);
                   setIsAdminModalOpen(true);
                 }}
-                className="flex items-center gap-2 py-2 text-xs font-bold text-slate-200 hover:text-[#ffdb19]"
+                className="flex items-center gap-2 py-2 text-[10px] sm:text-xs font-bold text-slate-200 hover:text-[#ffdb19]"
               >
                 <Shield className="w-4 h-4 text-[#ff8a00]" />
                 <span>Tournament Admin Panel</span>
@@ -229,7 +229,7 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
                   setIsMobileMenuOpen(false);
                   openModal('auction-register');
                 }}
-                className="rounded-lg bg-gradient-to-r from-[#ff8a00] to-[#ffdb19] px-4 py-2 text-xs font-bold text-slate-950"
+                className="rounded-lg bg-gradient-to-r from-[#ff8a00] to-[#ffdb19] px-3 py-2 text-[10px] sm:px-4 sm:text-xs font-bold text-slate-950"
               >
                 Register Now
               </button>

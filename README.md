@@ -34,31 +34,55 @@ Both services use free plans. Supabase Free includes 500 MB of database space an
 
 The server refuses to start in production without `DATABASE_URL`. The database schema is created automatically at startup. If shared content has not been initialized yet, the first owner sign-in saves that browser's current public content as the initial shared snapshot. Browser storage is scoped to its origin, so edits made at `localhost` do not automatically appear on the Render URL. Public registrations are saved directly to Postgres; the owner portal loads those records privately. Tracked files already under `public/uploads/` remain available as static assets, while future Owner Media uploads are stored in Postgres so they survive deploys.
 
-### Deploy the website and API on Cloudflare Pages
+### Deploy the website and API on Cloudflare Pages with D1
 
-Cloudflare Pages serves the Vite website and `functions/api/[[path]].js` implements the existing `/api/*` routes directly. It connects to the existing Supabase project through its HTTPS Data API; it does not proxy to Render. The original Express backend in `server/` and `render.yaml` remain in the repository for local development or a future Render restart. Local development still runs `npm run dev` and uses that Express backend.
+Cloudflare Pages serves the Vite website, `functions/api/[[path]].js` implements the `/api/*` routes, and the `DB` binding stores shared site content, admin accounts, auction registrations, live auctions, and uploaded images in Cloudflare D1. Cloudflare Workers handle password hashing and signed admin sessions; no Supabase account or API keys are needed. The Express server and Render deployment remain available separately. `npm run dev` starts that local Express server; `npm run dev:cloudflare` runs the Pages Functions against a local D1 database.
 
-#### Static image-only deployment (no database)
+#### Run the Cloudflare version locally
 
-To preview the public site and repository-hosted images without Supabase, connect the repository to Cloudflare Pages and use `npm run build` with `dist` as the output directory. Leave the Supabase variables unset. The public site uses its bundled default content, `public/site-media.json`, and images under `public/uploads/`. The Admin Portal, registrations, shared edits, and live database features will not work in this mode. To publish local image uploads, commit and push both the image files and `public/site-media.json`.
+1. Install dependencies with `npm install`.
+2. Copy `.dev.vars.example` to `.dev.vars` and change `NPL_INITIAL_OWNER_PASSWORD` to a unique password of at least 16 characters. The ignored `.dev.vars` file is never committed.
+3. In a terminal at the project root, run `npm run dev:cloudflare` and open the local URL Wrangler prints. The script builds the site, applies D1 migrations to the local database, and starts the Pages Functions.
+4. Sign in to the Admin Portal using admin ID `developer` and the password from `.dev.vars`.
+
+The local Cloudflare database is separate from the Express server's local data and from the Cloudflare production database. Use `npm run dev` if you want to keep using the existing Express setup.
+
+#### Create and deploy the Cloudflare D1 database
+
+1. Install dependencies and authenticate the Wrangler CLI with `npx wrangler login`.
+2. Create the production database with `npx wrangler d1 create npl`. Copy the returned database ID into `database_id` in [`wrangler.toml`](./wrangler.toml), replacing the placeholder ID.
+3. Apply the database schema with `npm run db:migrate:remote`.
+4. Create a Cloudflare Pages project, if you do not already have one: `npx wrangler pages project create narua-premier-league`. Select your production Git branch when prompted.
+5. Add a unique owner password to Pages secrets: `npx wrangler pages secret put NPL_INITIAL_OWNER_PASSWORD`. Use at least 16 characters and keep the value private.
+6. Deploy with `npm run deploy:cloudflare`. Alternatively, connect the repository to Cloudflare Pages and set the root directory to the project root, build command to `npm run build`, and output directory to `dist`. Keep `wrangler.toml` in the root so Pages can bind the D1 database.
+
+The first successful sign-in with admin ID `developer` creates the owner account in D1 using the configured initial password. Admins created through **Admin Accounts** can sign in with their admin ID and password. Existing tracked images under `public/uploads/` remain static assets; new admin image uploads are stored in D1 in chunks to stay within database row limits. Keep an independent backup of tournament data and uploaded media.
 
 The build command also generates JavaScript modules from the bundled JSON data files so Cloudflare Pages Functions can bundle the static fallback and historical season data.
 
-Before deploying:
+The Render URL is not a secret and does not belong in `.gitignore`. Keep the existing Render API source tracked; the Cloudflare Pages Function is a separate implementation and does not alter local behavior.
 
-1. Keep the Supabase project and its existing database. In the Supabase SQL Editor, run [`supabase/cloudflare-api.sql`](./supabase/cloudflare-api.sql). The script is safe to rerun, preserves existing tournament data, grants the Cloudflare service role the needed table access, and adds database functions for atomic auction updates, image writes, registration writes, and rate limiting.
-2. In Supabase, copy the **Project URL** and the server-only **service_role** API key. Never use the `anon` key for this backend, and never put the service-role key in a `VITE_` variable or browser code.
-3. In Cloudflare, create a Pages project connected to this GitHub repository. Use the repository root, build command `npm run build`, and output directory `dist`.
-4. In the Pages project **Settings → Variables and Secrets**, add these runtime variables/secrets for Production (and Preview if you use preview deployments):
-   - `SUPABASE_URL` — the Supabase Project URL.
-   - `SUPABASE_SERVICE_ROLE_KEY` — the Supabase server-only service-role key; mark it as a secret.
-   - `NPL_OWNER_EMAIL` — the email address to use for the `developer` owner in Supabase Auth.
-   - `NPL_INITIAL_OWNER_PASSWORD` — choose a new unique password of at least 16 characters for the `developer` owner account; store it as a secret.
-5. Deploy the Pages project and verify the public site, `/api/site-data`, registration flow, admin login, live auction, and owner media uploads.
+### Build the Android APK
 
-The Cloudflare API preserves the database records and admin account IDs/roles, but uses Supabase Auth for password verification rather than doing password hashing in a Cloudflare Function. The owner signs in as `developer` using `NPL_INITIAL_OWNER_PASSWORD`; on first sign-in, the API links that account to `NPL_OWNER_EMAIL` in Supabase Auth. Existing admin accounts keep their IDs and roles, but the owner must assign each admin an email and a new password in **Admin Members** before that admin can sign in. The app's sign-in form still accepts the admin ID and password. Supabase Auth stores the active email/password credentials and the app database stores each admin's Supabase Auth user link. Existing legacy password hashes are left untouched so the Render backend can continue using them; the Cloudflare API does not verify those old hashes. Tournament data and registration records are not changed.
+The Android app uses Capacitor to open the live Cloudflare Pages website, so the existing D1-backed APIs and admin sign-in continue to use the website's origin. The APK contains only a small local connection screen; site pages and images load online, so the app requires an internet connection and is not an offline copy of the site.
 
-The Render URL is not a secret and does not belong in `.gitignore`. `.gitignore` excludes only local Cloudflare `.dev.vars` files so you can keep development credentials out of Git. Keep the existing Render API source tracked; the Cloudflare Pages Function is a separate implementation and does not alter local behavior.
+1. Install Android Studio and its Android SDK, plus a supported JDK (JDK 21).
+2. Install project dependencies with `npm install`.
+3. Generate the Android project once with `npx cap add android`.
+4. Build a debug APK with `npm run android:apk`. The APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`.
+5. To install it on a connected Android device with USB debugging enabled, run `cd android` then `gradlew installDebug`. You can also open the native project with `npm run android:open` and build it in Android Studio.
+
+The app's website address is configured in `capacitor.config.json`. Update `server.url` and its `allowNavigation` host if the production website moves to a different domain. A release APK for distribution must be signed with a release key; the debug APK is intended for testing.
+
+#### Preview and publish a new app logo yourself
+
+1. Make sure Node.js, the project dependencies, JDK 21, the Android SDK, and Wrangler login are set up as described above.
+2. From the project folder, run `npm run app-icon:studio` and open `http://127.0.0.1:4179` in your browser.
+3. Choose one or more logo photos. Click each thumbnail to preview it as an Android launcher icon. Adjust the logo size, background color, and optional dark-background removal until the previews look right.
+4. Only after approving a preview, click **Build APK and publish**. The local tool updates the icon assets, builds the Android APK outside OneDrive, and deploys the site with the new APK and favicon. Keep the tool's terminal open until it reports success.
+5. Download the updated APK from the link the tool displays and install it on Android to update the launcher icon. The installed icon changes only after installing the new APK.
+
+The studio binds only to `127.0.0.1`; selected images are processed on your computer and are not uploaded to a separate image service. Publishing is an explicit action because it deploys the selected icon and APK to production.
 
 ## Features
 

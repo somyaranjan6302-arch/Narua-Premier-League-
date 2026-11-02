@@ -7,6 +7,8 @@ import staticSiteMedia from '../staticSiteMedia.js';
 
 const SESSION_COOKIE = 'npl_admin_session';
 const SESSION_SECONDS = 8 * 60 * 60;
+const PASSWORD_ITERATIONS = 100000;
+const MEDIA_CHUNK_SIZE = 96 * 1024;
 const mediaTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 const mediaKeyPattern = /^(news|champion|team-logo|team|match-banner|gallery|memory-photo|highlight|performer|featured-performer|player-photo|section-photo|record):[A-Za-z0-9 ._-]{1,80}$/;
 const allowedMediaKeys = new Set(['logo', 'trophy', 'stadium']);
@@ -27,121 +29,33 @@ const json = (value, status = 200, headers = {}) => new Response(
 );
 
 const errorResponse = (message, status) => json({ error: message }, status);
-
-const db = async (env, resource, { method = 'GET', body, prefer } = {}) => {
-  const base = env.SUPABASE_URL?.replace(/\/+$/, '');
-  const key = env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!base || !key || new URL(base).protocol !== 'https:') {
-    throw new Error('Cloudflare API is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
-  }
-
-  const url = new URL(`${base}/rest/v1/${resource}`);
-  const headers = new Headers({
-    apikey: key,
-    Authorization: `Bearer ${key}`,
-    Accept: 'application/json'
-  });
-  if (body !== undefined) headers.set('Content-Type', 'application/json');
-  if (prefer) headers.set('Prefer', prefer);
-
-  const response = await fetch(url, {
-    method,
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body)
-  });
-  if (!response.ok) {
-    const details = await response.text();
-    throw new Error(`Supabase request failed (${response.status}): ${details.slice(0, 500)}`);
-  }
-  if (response.status === 204) return null;
-  const text = await response.text();
-  return text ? JSON.parse(text) : null;
+const database = (env) => {
+  if (!env.DB) throw new Error('The Cloudflare D1 binding "DB" is not configured.');
+  return env.DB;
 };
-
-const rpc = (env, name, parameters) => db(env, `rpc/${name}`, {
-  method: 'POST',
-  body: parameters
-});
-
-const supabaseAuthAdmin = async (env, endpoint, method, body) => {
-  const base = env.SUPABASE_URL?.replace(/\/+$/, '');
-  const key = env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!base || !key || new URL(base).protocol !== 'https:') {
-    throw new Error('Cloudflare API is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
-  }
-  const response = await fetch(`${base}/auth/v1/${endpoint}`, {
-    method,
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(body)
-  });
-  const text = await response.text();
-  const result = text ? JSON.parse(text) : null;
-  if (!response.ok) {
-    throw new Error(`Supabase Auth request failed (${response.status}): ${result?.msg || result?.message || result?.error_description || text}`);
-  }
-  return result;
+const first = (env, query, ...values) => database(env).prepare(query).bind(...values).first();
+const all = async (env, query, ...values) => {
+  const result = await database(env).prepare(query).bind(...values).all();
+  return result.results || [];
 };
-
-const createAuthUser = async (env, adminId, email, password) => {
-  const result = await supabaseAuthAdmin(env, 'admin/users', 'POST', {
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: { npl_admin_id: adminId }
-  });
-  const authUser = result?.user || result;
-  if (!authUser?.id) throw new Error('Supabase Auth did not return the new admin user ID.');
-  return authUser;
+const run = (env, query, ...values) => database(env).prepare(query).bind(...values).run();
+const readSiteValue = async (env, key) => {
+  const row = await first(env, 'SELECT value FROM npl_site_data WHERE data_key = ?', key);
+  return row ? JSON.parse(row.value) : null;
 };
-
-const updateAuthUser = (env, authUserId, body) => supabaseAuthAdmin(
+const setSiteValue = (env, key, value) => run(
   env,
-  `admin/users/${encodeURIComponent(authUserId)}`,
-  'PUT',
-  body
+  `INSERT INTO npl_site_data (data_key, value) VALUES (?, ?)
+   ON CONFLICT(data_key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP`,
+  key,
+  JSON.stringify(value)
 );
-
-const signInAuthUser = async (env, email, password) => {
-  const base = env.SUPABASE_URL?.replace(/\/+$/, '');
-  const key = env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!base || !key || new URL(base).protocol !== 'https:') {
-    throw new Error('Cloudflare API is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
-  }
-  const response = await fetch(`${base}/auth/v1/token?grant_type=password`, {
-    method: 'POST',
-    headers: { apikey: key, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password })
-  });
-  if (response.status === 400 || response.status === 401) return null;
-  const text = await response.text();
-  if (!response.ok) {
-    throw new Error(`Supabase sign-in failed (${response.status}): ${text.slice(0, 500)}`);
-  }
-  return text ? JSON.parse(text) : null;
-};
-
-const getSiteValue = async (env, key) => {
-  const rows = await db(env, `npl_site_data?data_key=eq.${encodeURIComponent(key)}&select=value&limit=1`);
-  return rows[0]?.value ?? null;
-};
-
-const setSiteValue = async (env, key, value) => {
-  await db(env, 'npl_site_data?on_conflict=data_key', {
-    method: 'POST',
-    body: { data_key: key, value },
-    prefer: 'resolution=merge-duplicates,return=minimal'
-  });
-};
 
 const randomBytes = (size) => crypto.getRandomValues(new Uint8Array(size));
 const toHex = (bytes) => [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 const fromHex = (hex) => {
   if (typeof hex !== 'string' || !/^(?:[0-9a-f]{2})+$/i.test(hex)) {
-    throw new Error('Supabase returned an invalid binary value.');
+    throw new Error('Stored binary data is invalid.');
   }
   return Uint8Array.from(hex.match(/.{2}/g), (byte) => Number.parseInt(byte, 16));
 };
@@ -153,22 +67,39 @@ const fromBase64Url = (value) => {
   return Uint8Array.from(binary, (character) => character.charCodeAt(0));
 };
 
-const loadSessionSecret = async (env) => {
-  const rows = await db(env, 'npl_app_secrets?secret_key=eq.session-signing&select=secret_value&limit=1');
-  if (rows[0]?.secret_value) {
-    const stored = rows[0].secret_value;
-    return fromHex(stored.startsWith('\\x') ? stored.slice(2) : stored);
-  }
+const passwordHash = async (password, salt = randomBytes(16)) => {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+  const hash = new Uint8Array(await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', hash: 'SHA-256', salt, iterations: PASSWORD_ITERATIONS },
+    key,
+    256
+  ));
+  return { salt: toHex(salt), hash: toHex(hash) };
+};
 
-  await db(env, 'npl_app_secrets?on_conflict=secret_key', {
-    method: 'POST',
-    body: { secret_key: 'session-signing', secret_value: `\\x${toHex(randomBytes(48))}` },
-    prefer: 'resolution=ignore-duplicates,return=minimal'
-  });
-  const persisted = await db(env, 'npl_app_secrets?secret_key=eq.session-signing&select=secret_value&limit=1');
-  if (!persisted[0]?.secret_value) throw new Error('Could not initialize the admin session signing key.');
-  const stored = persisted[0].secret_value;
-  return fromHex(stored.startsWith('\\x') ? stored.slice(2) : stored);
+const verifyPassword = async (password, user) => {
+  if (!user.salt || !user.password_hash || user.password_hash === 'supabase-auth') return false;
+  const { hash } = await passwordHash(password, fromHex(user.salt));
+  const actual = fromHex(hash);
+  const expected = fromHex(user.password_hash);
+  if (actual.length !== expected.length) return false;
+  let difference = 0;
+  for (let index = 0; index < actual.length; index += 1) difference |= actual[index] ^ expected[index];
+  return difference === 0;
+};
+
+const loadSessionSecret = async (env) => {
+  let row = await first(env, "SELECT secret_value FROM npl_app_secrets WHERE secret_key = 'session-signing'");
+  if (!row) {
+    await run(
+      env,
+      "INSERT OR IGNORE INTO npl_app_secrets (secret_key, secret_value) VALUES ('session-signing', ?)",
+      randomBytes(48)
+    );
+    row = await first(env, "SELECT secret_value FROM npl_app_secrets WHERE secret_key = 'session-signing'");
+  }
+  if (!row?.secret_value) throw new Error('Could not initialize the admin session signing key.');
+  return new Uint8Array(row.secret_value);
 };
 
 const signSession = async (user, secret) => {
@@ -199,17 +130,21 @@ const sessionPayload = async (request, secret) => {
   }
 };
 
-const currentUser = async (request, env, secret) => {
+const publicUser = (user) => ({ adminId: user.admin_id, role: user.role });
+const getUser = async (request, env, secret) => {
   const session = await sessionPayload(request, secret);
   if (!session || typeof session.adminId !== 'string') return null;
-  const rows = await db(env, `npl_admin_users?admin_id=eq.${encodeURIComponent(session.adminId)}&select=admin_id,role,email,auth_user_id,created_at,auth_version&limit=1`);
-  const user = rows[0];
+  const user = await first(
+    env,
+    'SELECT admin_id, role, email, created_at, salt, password_hash, auth_version FROM npl_admin_users WHERE admin_id = ?',
+    session.adminId
+  );
   return user && (user.auth_version || 0) === (session.authVersion || 0) ? user : null;
 };
-
-const createCookie = (token) => `${SESSION_COOKIE}=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${SESSION_SECONDS}; Secure`;
-const clearCookie = () => `${SESSION_COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0; Secure`;
-const publicUser = (user) => ({ adminId: user.admin_id, role: user.role });
+const createCookie = (token, secure) =>
+  `${SESSION_COOKIE}=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${SESSION_SECONDS}${secure ? '; Secure' : ''}`;
+const clearCookie = (secure) =>
+  `${SESSION_COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${secure ? '; Secure' : ''}`;
 const readJson = async (request) => {
   try {
     return await request.json();
@@ -221,91 +156,113 @@ const allowedMediaKey = (key) => allowedMediaKeys.has(key) || mediaKeyPattern.te
 const validAdminId = (adminId) => /^[a-z0-9._-]{3,32}$/.test(adminId);
 const validEmail = (email) => typeof email === 'string' && email.length <= 254 &&
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-const initializeOwner = async (env, password) => {
-  const rows = await db(env, 'npl_admin_users?admin_id=eq.developer&select=admin_id,role,email,auth_user_id,auth_version&limit=1');
-  const owner = rows[0];
-  const initialPassword = env.NPL_INITIAL_OWNER_PASSWORD;
-  if (!initialPassword || initialPassword.length < 16) {
-    throw new Error('Set NPL_INITIAL_OWNER_PASSWORD to a unique password of at least 16 characters in Cloudflare.');
-  }
-  if (password !== initialPassword) return owner;
-  const email = env.NPL_OWNER_EMAIL?.trim().toLowerCase();
-  if (!validEmail(email)) {
-    throw new Error('Set NPL_OWNER_EMAIL to a valid owner email address in Cloudflare.');
-  }
-  if (!owner) {
-    const authUser = await createAuthUser(env, 'developer', email, initialPassword);
-    try {
-      const created = await db(env, 'npl_admin_users', {
-        method: 'POST',
-        body: {
-          admin_id: 'developer',
-          role: 'owner',
-          email,
-          auth_user_id: authUser.id,
-          salt: '',
-          password_hash: 'supabase-auth',
-          auth_version: 0
-        },
-        prefer: 'return=representation'
-      });
-      return created[0];
-    } catch (error) {
-      await supabaseAuthAdmin(env, `admin/users/${encodeURIComponent(authUser.id)}`, 'DELETE');
-      throw error;
-    }
-  }
-  if (owner.role !== 'owner') throw new Error('The developer admin account does not have owner permissions.');
-  if (owner.auth_user_id) {
-    if (owner.email) return owner;
-    await updateAuthUser(env, owner.auth_user_id, { email, email_confirm: true });
-    const updated = await db(env, 'npl_admin_users?admin_id=eq.developer', {
-      method: 'PATCH',
-      body: { email, auth_version: (owner.auth_version || 0) + 1 },
-      prefer: 'return=representation'
-    });
-    return updated[0] || { ...owner, email };
-  }
 
-  const authUser = await createAuthUser(env, 'developer', email, initialPassword);
-  try {
-    const updated = await db(env, 'npl_admin_users?admin_id=eq.developer', {
-      method: 'PATCH',
-      body: { email, auth_user_id: authUser.id, auth_version: (owner.auth_version || 0) + 1 },
-      prefer: 'return=representation'
-    });
-    return updated[0] || { ...owner, email, auth_user_id: authUser.id };
-  } catch (error) {
-    await supabaseAuthAdmin(env, `admin/users/${encodeURIComponent(authUser.id)}`, 'DELETE');
-    throw error;
-  }
+const getRateKey = async (request, prefix) => {
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(ip)));
+  return `${prefix}:${toHex(digest)}`;
 };
 
-const listUsers = async (env) => db(
+const checkRateLimit = async (env, rateKey, limit, windowSeconds) => {
+  const now = Math.floor(Date.now() / 1000);
+  const row = await first(
+    env,
+    `INSERT INTO npl_api_rate_limits (rate_key, window_started_at, attempt_count)
+     VALUES (?, ?, 1)
+     ON CONFLICT(rate_key) DO UPDATE SET
+       attempt_count = CASE
+         WHEN ? - window_started_at >= ? THEN 1
+         ELSE attempt_count + 1
+       END,
+       window_started_at = CASE
+         WHEN ? - window_started_at >= ? THEN ?
+         ELSE window_started_at
+       END
+     RETURNING attempt_count`,
+    rateKey,
+    now,
+    now,
+    windowSeconds,
+    now,
+    windowSeconds,
+    now
+  );
+  return row.attempt_count <= limit;
+};
+
+const initializeOwner = async (env, password) => {
+  let owner = await first(env, 'SELECT * FROM npl_admin_users WHERE admin_id = ?', 'developer');
+  if (owner) return owner;
+  const initialPassword = env.NPL_INITIAL_OWNER_PASSWORD;
+  if (typeof initialPassword !== 'string' || initialPassword.length < 16) {
+    throw new Error('Set NPL_INITIAL_OWNER_PASSWORD to a unique password of at least 16 characters in .dev.vars or Cloudflare Pages secrets.');
+  }
+  if (password !== initialPassword) return null;
+  const credentials = await passwordHash(initialPassword);
+  await run(
+    env,
+    `INSERT OR IGNORE INTO npl_admin_users (admin_id, role, salt, password_hash)
+     VALUES ('developer', 'owner', ?, ?)`,
+    credentials.salt,
+    credentials.hash
+  );
+  owner = await first(env, 'SELECT * FROM npl_admin_users WHERE admin_id = ?', 'developer');
+  return owner;
+};
+
+const listRegistrations = (env) => all(
   env,
-  'npl_admin_users?select=admin_id,role,email,created_at&order=created_at.asc'
-);
+  'SELECT value FROM npl_auction_registrations ORDER BY created_at DESC, rowid DESC'
+).then((rows) => rows.map((row) => JSON.parse(row.value)));
+
+const saveMedia = async (env, mediaKey, image) => {
+  const bytes = new Uint8Array(await image.arrayBuffer());
+  const chunkCount = Math.ceil(bytes.length / MEDIA_CHUNK_SIZE);
+  const statements = [
+    database(env).prepare('DELETE FROM npl_media_chunks WHERE media_key = ?').bind(mediaKey),
+    database(env).prepare(
+      `INSERT INTO npl_media (media_key, content_type, chunk_count)
+       VALUES (?, ?, ?)
+       ON CONFLICT(media_key) DO UPDATE SET
+         content_type = excluded.content_type, chunk_count = excluded.chunk_count, updated_at = CURRENT_TIMESTAMP`
+    ).bind(mediaKey, image.type, chunkCount)
+  ];
+  for (let index = 0; index < chunkCount; index += 1) {
+    statements.push(database(env).prepare(
+      'INSERT INTO npl_media_chunks (media_key, chunk_index, content) VALUES (?, ?, ?)'
+    ).bind(mediaKey, index, bytes.slice(index * MEDIA_CHUNK_SIZE, (index + 1) * MEDIA_CHUNK_SIZE)));
+  }
+  await database(env).batch(statements);
+  const mediaUrl = `/api/media/${encodeURIComponent(mediaKey)}?v=${toBase64Url(randomBytes(8))}`;
+  await run(
+    env,
+    `INSERT INTO npl_site_data (data_key, value) VALUES ('site-media', ?)
+     ON CONFLICT(data_key) DO UPDATE SET
+       value = json_patch(npl_site_data.value, excluded.value), updated_at = CURRENT_TIMESTAMP`,
+    JSON.stringify({ [mediaKey]: mediaUrl })
+  );
+  return mediaUrl;
+};
 
 const apiRequest = async (request, env) => {
+  database(env);
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/+$/, '') || '/';
   const method = request.method.toUpperCase();
+  const secure = url.protocol === 'https:';
 
   if (method === 'GET' && path === '/api/admin/session') {
-    if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return json({ user: null });
     const secret = await loadSessionSecret(env);
-    const user = await currentUser(request, env, secret);
+    const user = await getUser(request, env, secret);
     return json({ user: user ? publicUser(user) : null });
   }
 
   if (method === 'GET' && path === '/api/site-media') {
-    if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return json(staticSiteMedia);
-    return json(await getSiteValue(env, 'site-media') || staticSiteMedia);
+    return json({ ...staticSiteMedia, ...(await readSiteValue(env, 'site-media') || {}) });
   }
 
   if (method === 'GET' && path === '/api/site-data') {
-    if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return json(null);
-    const stored = await getSiteValue(env, 'public-content');
+    const stored = await readSiteValue(env, 'public-content');
     return json(stored ? mergeOfficialSession5Content(
       mergeOfficialSession4Content(
         mergeOfficialSession3Content(
@@ -317,14 +274,26 @@ const apiRequest = async (request, env) => {
 
   if (method === 'GET' && path.startsWith('/api/media/')) {
     const mediaKey = decodeURIComponent(path.slice('/api/media/'.length));
-    const rows = await db(env, `npl_media?media_key=eq.${encodeURIComponent(mediaKey)}&select=content_type,content&limit=1`);
-    if (!rows[0]) return new Response(null, { status: 404 });
-    const stored = rows[0].content;
-    const binary = fromHex(stored.startsWith('\\x') ? stored.slice(2) : stored);
-    return new Response(binary, {
+    const media = await first(env, 'SELECT content_type, chunk_count FROM npl_media WHERE media_key = ?', mediaKey);
+    if (!media) return new Response(null, { status: 404 });
+    const bytes = new Uint8Array(media.chunk_count * MEDIA_CHUNK_SIZE);
+    let length = 0;
+    for (let index = 0; index < media.chunk_count; index += 1) {
+      const chunk = await first(
+        env,
+        'SELECT content FROM npl_media_chunks WHERE media_key = ? AND chunk_index = ?',
+        mediaKey,
+        index
+      );
+      if (!chunk?.content) throw new Error('Uploaded media is incomplete in D1.');
+      const data = new Uint8Array(chunk.content);
+      bytes.set(data, length);
+      length += data.length;
+    }
+    return new Response(bytes.slice(0, length), {
       headers: {
         'Cache-Control': 'no-store',
-        'Content-Type': rows[0].content_type,
+        'Content-Type': media.content_type,
         'X-Content-Type-Options': 'nosniff'
       }
     });
@@ -333,21 +302,12 @@ const apiRequest = async (request, env) => {
   if (method === 'GET' && path === '/api/auction/live') {
     const season = url.searchParams.get('season')?.trim() || '';
     if (!season || season.length > 60) return errorResponse('Choose a valid auction season.', 400);
-    if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return json({ state: null });
-    return json({ state: await getSiteValue(env, `auction-live:${season}`) });
+    return json({ state: await readSiteValue(env, `auction-live:${season}`) });
   }
 
   if (method === 'POST' && path === '/api/auction-registrations') {
-    if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
-      return errorResponse('Player registration storage is not configured.', 503);
-    }
-    const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
-    const ipDigest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(ip)));
-    if (!await rpc(env, 'npl_cf_check_rate_limit', {
-      p_rate_key: `registration:${toHex(ipDigest)}`,
-      p_limit: 5,
-      p_window_seconds: 3600
-    })) {
+    const rateKey = await getRateKey(request, 'registration');
+    if (!await checkRateLimit(env, rateKey, 5, 3600)) {
       return errorResponse('Too many registrations. Try again later.', 429);
     }
     const body = await readJson(request);
@@ -355,58 +315,49 @@ const apiRequest = async (request, env) => {
       typeof body.fullName !== 'string' || typeof body.phone !== 'string' || body.consent !== true) {
       return errorResponse('Registration details are incomplete.', 400);
     }
-    await rpc(env, 'npl_cf_register_player', { p_registration: body });
+    await run(
+      env,
+      `INSERT INTO npl_auction_registrations (registration_id, value, created_at)
+       VALUES (?, ?, ?)
+       ON CONFLICT(registration_id) DO UPDATE SET value = excluded.value, created_at = excluded.created_at`,
+      body.id,
+      JSON.stringify(body),
+      Date.now()
+    );
     return json({ id: body.id }, 201);
   }
 
   if (method === 'POST' && path === '/api/admin/login') {
-    const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
-    const ipDigest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(ip)));
-    const rateKey = `login:${toHex(ipDigest)}`;
-    if (!await rpc(env, 'npl_cf_check_rate_limit', {
-      p_rate_key: rateKey,
-      p_limit: 8,
-      p_window_seconds: 900
-    })) {
+    const rateKey = await getRateKey(request, 'login');
+    if (!await checkRateLimit(env, rateKey, 8, 900)) {
       return errorResponse('Too many sign-in attempts. Try again in 15 minutes.', 429);
     }
     const body = await readJson(request);
     const adminId = typeof body?.adminId === 'string' ? body.adminId.trim().toLowerCase() : '';
     const password = typeof body?.password === 'string' ? body.password : '';
     if (!adminId || !password) return errorResponse('Enter your admin ID and password.', 400);
-    let rows = await db(env, `npl_admin_users?admin_id=eq.${encodeURIComponent(adminId)}&select=admin_id,role,email,auth_user_id,auth_version&limit=1`);
-    let user = rows[0];
-    if (adminId === 'developer' && (!user?.auth_user_id || !user.email)) {
-      user = await initializeOwner(env, password);
-      rows = user ? [user] : [];
-    }
-    user = rows[0];
-    if (!user) return errorResponse('Invalid admin ID or password.', 401);
-    if (!user.auth_user_id || !user.email) {
-      return errorResponse('This account needs an email and new password from the developer owner before it can sign in on Cloudflare.', 401);
-    }
-    const authResult = await signInAuthUser(env, user.email, password);
-    if (!authResult?.user?.id || authResult.user.id !== user.auth_user_id) {
+    let user = await first(env, 'SELECT * FROM npl_admin_users WHERE admin_id = ?', adminId);
+    if (!user && adminId === 'developer') user = await initializeOwner(env, password);
+    if (!user || !await verifyPassword(password, user)) {
       return errorResponse('Invalid admin ID or password.', 401);
     }
-    await rpc(env, 'npl_cf_clear_rate_limit', { p_rate_key: rateKey });
+    await run(env, 'DELETE FROM npl_api_rate_limits WHERE rate_key = ?', rateKey);
+    const secret = await loadSessionSecret(env);
     return json({ user: publicUser(user) }, 200, {
-      'Set-Cookie': createCookie(await signSession(user, await loadSessionSecret(env)))
+      'Set-Cookie': createCookie(await signSession(user, secret), secure)
     });
   }
 
   if (method === 'POST' && path === '/api/admin/logout') {
     return new Response(null, {
       status: 204,
-      headers: { 'Cache-Control': 'no-store', 'Set-Cookie': clearCookie() }
+      headers: { 'Cache-Control': 'no-store', 'Set-Cookie': clearCookie(secure) }
     });
   }
 
   const secret = await loadSessionSecret(env);
-  const user = await currentUser(request, env, secret);
-  const requireAdmin = () => user
-    ? null
-    : errorResponse('Sign in required.', 401);
+  const user = await getUser(request, env, secret);
+  const requireAdmin = () => user ? null : errorResponse('Sign in required.', 401);
   const requireOwner = () => user?.role === 'owner'
     ? null
     : errorResponse(user ? 'Only the developer owner can manage admin accounts.' : 'Sign in required.', user ? 403 : 401);
@@ -417,25 +368,27 @@ const apiRequest = async (request, env) => {
     const body = await readJson(request);
     const newPassword = typeof body?.newPassword === 'string' ? body.newPassword : '';
     if (newPassword.length < 6) return errorResponse('New password must be at least 6 characters.', 400);
-    if (!user.auth_user_id) return errorResponse('This account is not linked to Supabase Auth yet.', 409);
-    await updateAuthUser(env, user.auth_user_id, { password: newPassword });
-    const userRows = await db(env, `npl_admin_users?admin_id=eq.${encodeURIComponent(user.admin_id)}&select=auth_version&limit=1`);
-    const authVersion = (userRows[0]?.auth_version || 0) + 1;
-    await db(env, `npl_admin_users?admin_id=eq.${encodeURIComponent(user.admin_id)}`, {
-      method: 'PATCH',
-      body: { auth_version: authVersion, password_changed_at: new Date().toISOString() },
-      prefer: 'return=minimal'
-    });
-    const updatedUser = { ...user, auth_version: authVersion };
+    const credentials = await passwordHash(newPassword);
+    const update = await run(
+      env,
+      `UPDATE npl_admin_users SET salt = ?, password_hash = ?,
+       auth_version = auth_version + 1, password_changed_at = CURRENT_TIMESTAMP
+       WHERE admin_id = ?`,
+      credentials.salt,
+      credentials.hash,
+      user.admin_id
+    );
+    if (!update.meta.changes) return errorResponse('Admin account not found.', 404);
+    const updatedUser = { ...user, ...credentials, auth_version: user.auth_version + 1 };
     return json({ user: publicUser(updatedUser) }, 200, {
-      'Set-Cookie': createCookie(await signSession(updatedUser, secret))
+      'Set-Cookie': createCookie(await signSession(updatedUser, secret), secure)
     });
   }
 
   if (method === 'GET' && path === '/api/admin/users') {
     const denied = requireOwner();
     if (denied) return denied;
-    const users = await listUsers(env);
+    const users = await all(env, 'SELECT admin_id, role, email, created_at FROM npl_admin_users ORDER BY created_at ASC');
     return json({ users: users.map((account) => ({
       ...publicUser(account),
       email: account.email,
@@ -455,28 +408,25 @@ const apiRequest = async (request, env) => {
     }
     if (!validEmail(email)) return errorResponse('Enter a valid email address for this admin.', 400);
     if (password.length < 6) return errorResponse('Password must be at least 6 characters.', 400);
-    const existing = await db(env, `npl_admin_users?admin_id=eq.${encodeURIComponent(adminId)}&select=admin_id&limit=1`);
-    if (existing.length) return errorResponse('That admin ID is already in use.', 409);
-    const authUser = await createAuthUser(env, adminId, email, password);
-    let created;
-    try {
-      created = await db(env, 'npl_admin_users', {
-        method: 'POST',
-        body: {
-          admin_id: adminId,
-          role: 'admin',
-          email,
-          auth_user_id: authUser.id,
-          salt: '',
-          password_hash: 'supabase-auth'
-        },
-        prefer: 'return=representation'
-      });
-    } catch (error) {
-      await supabaseAuthAdmin(env, `admin/users/${encodeURIComponent(authUser.id)}`, 'DELETE');
-      throw error;
-    }
-    return json({ user: publicUser(created[0]) }, 201);
+    const existing = await first(
+      env,
+      'SELECT admin_id FROM npl_admin_users WHERE admin_id = ? OR lower(email) = ?',
+      adminId,
+      email
+    );
+    if (existing) return errorResponse('That admin ID or email address is already in use.', 409);
+    const credentials = await passwordHash(password);
+    const created = await run(
+      env,
+      `INSERT OR IGNORE INTO npl_admin_users (admin_id, role, email, salt, password_hash)
+       VALUES (?, 'admin', ?, ?, ?)`,
+      adminId,
+      email,
+      credentials.salt,
+      credentials.hash
+    );
+    if (!created.meta.changes) return errorResponse('That admin ID or email address is already in use.', 409);
+    return json({ user: { adminId, role: 'admin' } }, 201);
   }
 
   const resetMatch = path.match(/^\/api\/admin\/users\/([^/]+)\/password$/);
@@ -489,36 +439,27 @@ const apiRequest = async (request, env) => {
     const newPassword = typeof body?.newPassword === 'string' ? body.newPassword : '';
     if (!validEmail(email)) return errorResponse('Enter a valid email address for this admin.', 400);
     if (newPassword.length < 6) return errorResponse('New password must be at least 6 characters.', 400);
-    const rows = await db(env, `npl_admin_users?admin_id=eq.${encodeURIComponent(adminId)}&select=admin_id,role,email,auth_user_id,auth_version&limit=1`);
-    if (!rows[0]) return errorResponse('Admin account not found.', 404);
-    if (rows[0].role === 'owner') return errorResponse('Use the owner password form to change the developer password.', 400);
-    let authUserId = rows[0].auth_user_id;
-    let createdAuthUserId;
-    if (authUserId) {
-      await updateAuthUser(env, authUserId, { email, email_confirm: true, password: newPassword });
-    } else {
-      const authUser = await createAuthUser(env, adminId, email, newPassword);
-      authUserId = authUser.id;
-      createdAuthUserId = authUser.id;
-    }
-    const authVersion = (rows[0].auth_version || 0) + 1;
-    try {
-      await db(env, `npl_admin_users?admin_id=eq.${encodeURIComponent(adminId)}`, {
-        method: 'PATCH',
-        body: {
-          email,
-          auth_user_id: authUserId,
-          auth_version: authVersion,
-          password_changed_at: new Date().toISOString()
-        },
-        prefer: 'return=minimal'
-      });
-    } catch (error) {
-      if (createdAuthUserId) {
-        await supabaseAuthAdmin(env, `admin/users/${encodeURIComponent(createdAuthUserId)}`, 'DELETE');
-      }
-      throw error;
-    }
+    const account = await first(env, 'SELECT admin_id, role FROM npl_admin_users WHERE admin_id = ?', adminId);
+    if (!account) return errorResponse('Admin account not found.', 404);
+    if (account.role === 'owner') return errorResponse('Use the owner password form to change the developer password.', 400);
+    const emailInUse = await first(
+      env,
+      'SELECT admin_id FROM npl_admin_users WHERE lower(email) = ? AND admin_id != ?',
+      email,
+      adminId
+    );
+    if (emailInUse) return errorResponse('That email address is already assigned to another admin.', 409);
+    const credentials = await passwordHash(newPassword);
+    await run(
+      env,
+      `UPDATE npl_admin_users SET email = ?, salt = ?, password_hash = ?,
+       auth_version = auth_version + 1, password_changed_at = CURRENT_TIMESTAMP
+       WHERE admin_id = ?`,
+      email,
+      credentials.salt,
+      credentials.hash,
+      adminId
+    );
     return json({ success: true });
   }
 
@@ -536,7 +477,7 @@ const apiRequest = async (request, env) => {
   if (method === 'GET' && path === '/api/admin/registrations') {
     const denied = requireAdmin();
     if (denied) return denied;
-    return json({ registrations: await getSiteValue(env, 'auction-registrations') });
+    return json({ registrations: await listRegistrations(env) });
   }
 
   if (method === 'PUT' && path === '/api/admin/registrations') {
@@ -544,7 +485,17 @@ const apiRequest = async (request, env) => {
     if (denied) return denied;
     const body = await readJson(request);
     if (!Array.isArray(body?.registrations)) return errorResponse('Registrations must be a list.', 400);
-    await setSiteValue(env, 'auction-registrations', body.registrations);
+    const registrations = JSON.stringify(body.registrations);
+    await database(env).batch([
+      database(env).prepare('DELETE FROM npl_auction_registrations'),
+      database(env).prepare(
+        `INSERT OR REPLACE INTO npl_auction_registrations (registration_id, value, created_at)
+         SELECT json_extract(value, '$.id'), value,
+           CAST(strftime('%s', 'now') AS INTEGER) * 1000 + json_array_length(?) - CAST(key AS INTEGER)
+         FROM json_each(?)
+         WHERE json_type(value, '$.id') = 'text'`
+      ).bind(registrations, registrations)
+    ]);
     return new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
   }
 
@@ -596,18 +547,25 @@ const apiRequest = async (request, env) => {
       unsoldPlayers: state.unsoldPlayers.slice(0, 500),
       teamPurses: state.teamPurses
     };
-    const result = await rpc(env, 'npl_cf_save_auction', {
-      p_season: season.trim(),
-      p_state: safeState,
-      p_expected_updated_at: expectedUpdatedAt || null
-    });
-    if (result?.conflict) {
+    const key = `auction-live:${season.trim()}`;
+    safeState.updatedAt = new Date().toISOString();
+    const saved = await first(
+      env,
+      `INSERT INTO npl_site_data (data_key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
+       ON CONFLICT(data_key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
+       WHERE json_extract(npl_site_data.value, '$.updatedAt') IS ?
+       RETURNING value`,
+      key,
+      JSON.stringify(safeState),
+      expectedUpdatedAt || null
+    );
+    if (!saved) {
       return json({
         error: 'The live auction changed in another session. Refreshing its latest state.',
-        state: result.state
+        state: await readSiteValue(env, key)
       }, 409);
     }
-    return json({ state: result.state });
+    return json({ state: JSON.parse(saved.value) });
   }
 
   if (method === 'POST' && path === '/api/admin/media') {
@@ -617,21 +575,12 @@ const apiRequest = async (request, env) => {
     const mediaKey = typeof form.get('key') === 'string' ? form.get('key') : '';
     const image = form.get('image');
     if (!allowedMediaKey(mediaKey)) return errorResponse('Choose a supported site image slot.', 400);
-    if (!(image instanceof File) || image.size === 0) return errorResponse('Choose an image to upload.', 400);
+    if (!(typeof File !== 'undefined' && image instanceof File) || image.size === 0) {
+      return errorResponse('Choose an image to upload.', 400);
+    }
     if (image.size > 8 * 1024 * 1024) return errorResponse('Images must be 8 MB or smaller.', 400);
     if (!mediaTypes.has(image.type)) return errorResponse('Choose a JPG, PNG, WebP, or GIF image.', 400);
-    const bytes = new Uint8Array(await image.arrayBuffer());
-    let binary = '';
-    for (let offset = 0; offset < bytes.length; offset += 0x8000) {
-      binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
-    }
-    const mediaUrl = `/api/media/${encodeURIComponent(mediaKey)}?v=${toBase64Url(randomBytes(8))}`;
-    await rpc(env, 'npl_cf_save_media', {
-      p_media_key: mediaKey,
-      p_content_type: image.type,
-      p_content_base64: btoa(binary),
-      p_media_url: mediaUrl
-    });
+    const mediaUrl = await saveMedia(env, mediaKey, image);
     return json({ key: mediaKey, url: mediaUrl }, 201);
   }
 
@@ -641,7 +590,13 @@ const apiRequest = async (request, env) => {
     if (denied) return denied;
     const mediaKey = decodeURIComponent(deleteMediaMatch[1]);
     if (!allowedMediaKey(mediaKey)) return errorResponse('Choose a supported site image slot.', 400);
-    await rpc(env, 'npl_cf_delete_media', { p_media_key: mediaKey });
+    await run(env, 'DELETE FROM npl_media WHERE media_key = ?', mediaKey);
+    await run(
+      env,
+      `UPDATE npl_site_data SET value = json_remove(value, ?), updated_at = CURRENT_TIMESTAMP
+       WHERE data_key = 'site-media'`,
+      `$."${mediaKey}"`
+    );
     return new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
   }
 
@@ -657,6 +612,7 @@ export async function onRequest({ request, env }) {
   } catch (error) {
     console.error('Cloudflare NPL API request failed:', error);
     const message = error instanceof Error ? error.message : 'Unexpected API error.';
-    return errorResponse(message, 500);
+    const status = message.includes('D1 binding "DB" is not configured') ? 503 : 500;
+    return errorResponse(status === 503 ? message : 'The API could not complete the request.', status);
   }
 }

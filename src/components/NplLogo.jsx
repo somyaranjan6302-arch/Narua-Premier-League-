@@ -93,14 +93,14 @@ export const NplLogo = ({ size = "md", showText = true, imageSrc, compactOnMobil
       {showText && (
         <div className={`flex min-w-0 flex-col text-left ${compactOnMobile ? 'max-w-full' : ''}`}>
           <div className={`flex items-center gap-x-1.5 gap-y-0.5 ${compact ? 'flex-nowrap whitespace-nowrap' : compactOnMobile ? 'flex-wrap' : ''}`}>
-            <span className={`font-sports ${compact ? 'text-base 2xl:text-xl' : compactOnMobile ? 'text-xl sm:text-2xl md:text-3xl' : 'text-2xl md:text-3xl'} leading-none tracking-wider text-white`}>
+            <span className={`font-sports ${compact ? compactOnMobile ? 'text-[10px] sm:text-base 2xl:text-xl' : 'text-base 2xl:text-xl' : compactOnMobile ? 'text-xl sm:text-2xl md:text-3xl' : 'text-2xl md:text-3xl'} leading-none tracking-wider text-white`}>
               NARUA
             </span>
-            <span className={`font-sports ${compact ? 'text-base 2xl:text-xl' : compactOnMobile ? 'text-xl sm:text-2xl md:text-3xl' : 'text-2xl md:text-3xl'} leading-none tracking-wider text-[#ffdb19]`}>
+            <span className={`font-sports ${compact ? compactOnMobile ? 'text-[10px] sm:text-base 2xl:text-xl' : 'text-base 2xl:text-xl' : compactOnMobile ? 'text-xl sm:text-2xl md:text-3xl' : 'text-2xl md:text-3xl'} leading-none tracking-wider text-[#ffdb19]`}>
               PREMIER LEAGUE
             </span>
           </div>
-          <div className={`flex items-center gap-x-2 gap-y-1 text-[10px] md:text-xs text-slate-400 uppercase tracking-widest font-semibold ${compact ? 'whitespace-nowrap text-[9px]' : 'flex-wrap'}`}>
+          <div className={`${compactOnMobile && compact ? 'hidden sm:flex' : 'flex'} items-center gap-x-2 gap-y-1 text-[10px] md:text-xs text-slate-400 uppercase tracking-widest font-semibold ${compact ? 'whitespace-nowrap text-[9px]' : 'flex-wrap'}`}>
             <span className="text-[#ff8a00]">EST. 2024</span>
             <span className="w-1 h-1 rounded-full bg-slate-600"></span>
             <span>OFFICIAL T20 LEAGUE</span>

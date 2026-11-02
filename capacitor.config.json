@@ -1,0 +1,11 @@
+{
+  "appId": "com.npl.naruapremierleague",
+  "appName": "NPL",
+  "webDir": "android-shell",
+  "server": {
+    "url": "https://narua-premier-league.pages.dev",
+    "allowNavigation": [
+      "narua-premier-league.pages.dev"
+    ]
+  }
+}

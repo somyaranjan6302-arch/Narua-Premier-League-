@@ -208,7 +208,39 @@ export const NplProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
+    fetch('/api/matches')
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (data?.matches && data.matches.length > 0) {
+          const backendMatches = data.matches.map((bm) => ({
+            id: bm.id,
+            season: bm.season,
+            matchNumber: bm.matchNumber,
+            tournamentPhase: bm.tournamentPhase,
+            date: bm.matchDate,
+            time: bm.matchTime,
+            venue: bm.venue,
+            status: bm.status,
+            result: bm.result,
+            winnerTeamId: bm.winnerTeamId,
+            oversLimit: bm.oversLimit,
+            team1: { id: bm.teamAId, name: bm.teamAName, shortName: bm.teamAShort, score: '0/0', overs: '0' },
+            team2: { id: bm.teamBId, name: bm.teamBName, shortName: bm.teamBShort, score: '0/0', overs: '0' }
+          }));
+
+          setMatches((prev) => {
+            const backendIds = new Set(backendMatches.map((m) => m.id));
+            const existing = prev.filter((m) => !backendIds.has(m.id));
+            return [...backendMatches, ...existing];
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
     let active = true;
+
     const refreshAuction = async () => {
       try {
         const headers = auctionStateEtags.current[selectedSeason]

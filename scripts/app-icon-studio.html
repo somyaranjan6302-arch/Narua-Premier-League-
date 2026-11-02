@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#071638">
+    <title>NPL App Icon Studio</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: "Segoe UI", Arial, sans-serif;
+        background: #07101f;
+        color: #eef4ff;
+        font-synthesis: none;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        min-width: 320px;
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 28px 18px 48px;
+      }
+
+      h1, h2, p { margin-top: 0; }
+      h1 { margin-bottom: 8px; font-size: clamp(24px, 5vw, 36px); }
+      h2 { margin-bottom: 12px; font-size: 17px; }
+      button, input { font: inherit; }
+      button { cursor: pointer; }
+
+      .intro, .panel {
+        border: 1px solid #263957;
+        border-radius: 18px;
+        background: #0c1930;
+        box-shadow: 0 16px 40px #0003;
+      }
+
+      .intro { padding: 22px; }
+      .intro p { margin-bottom: 0; color: #b6c4da; line-height: 1.55; }
+      .eyebrow { color: #fbbf24; font-size: 11px; font-weight: 800; letter-spacing: .16em; }
+      .layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, .9fr); gap: 16px; margin-top: 16px; }
+      .panel { padding: 20px; }
+      .picker {
+        display: block;
+        margin: 14px 0;
+        padding: 18px;
+        border: 1px dashed #557092;
+        border-radius: 14px;
+        background: #081426;
+        cursor: pointer;
+      }
+      .picker strong { display: block; margin-bottom: 5px; }
+      .picker span, .hint, .status { color: #a7b8d0; font-size: 13px; line-height: 1.5; }
+      .picker input { display: block; width: 100%; margin-top: 12px; }
+      .candidates { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 10px; }
+      .candidate {
+        min-width: 0;
+        padding: 8px;
+        border: 1px solid #30435f;
+        border-radius: 12px;
+        background: #081426;
+        color: #dce8f8;
+        text-align: left;
+      }
+      .candidate[aria-pressed="true"] { border-color: #fbbf24; box-shadow: 0 0 0 2px #fbbf2433; }
+      .candidate img { display: block; width: 100%; height: 92px; border-radius: 8px; background: #010000; object-fit: contain; }
+      .candidate span { display: block; overflow: hidden; margin-top: 7px; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+      .empty { padding: 18px 0; color: #8293ac; font-size: 13px; }
+      .controls { display: grid; gap: 16px; }
+      .control label { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; font-size: 13px; font-weight: 700; }
+      .control input[type="range"] { width: 100%; accent-color: #fbbf24; }
+      .control input[type="color"] { width: 52px; height: 36px; padding: 3px; border: 1px solid #40516b; border-radius: 8px; background: #091528; }
+      .check { display: flex; align-items: flex-start; gap: 10px; color: #d8e3f2; font-size: 13px; line-height: 1.45; }
+      .check input { margin-top: 3px; accent-color: #fbbf24; }
+      .previews { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+      .preview { min-width: 0; text-align: center; }
+      .preview canvas { display: block; width: 100%; max-width: 170px; aspect-ratio: 1; margin: 0 auto 8px; background: #050b16; }
+      .preview canvas.round { border-radius: 50%; }
+      .preview canvas.squircle { border-radius: 23%; }
+      .preview canvas.square { border-radius: 18px; }
+      .preview span { display: block; color: #b5c3d6; font-size: 11px; }
+      .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+      .button {
+        min-height: 44px;
+        padding: 10px 15px;
+        border: 1px solid #394d69;
+        border-radius: 11px;
+        background: #122541;
+        color: #f3f7ff;
+        font-weight: 750;
+      }
+      .button.primary { border-color: #fbbf24; background: #fbbf24; color: #17120a; }
+      .button:disabled { cursor: not-allowed; opacity: .48; }
+      .status { min-height: 23px; margin: 14px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+      .status.error { color: #fca5a5; }
+      .status.success { color: #86efac; }
+      .progress { max-height: 180px; overflow: auto; margin: 10px 0 0; padding: 12px; border: 1px solid #263957; border-radius: 10px; background: #050b16; color: #c3d2e6; font: 11px/1.5 Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+      .footnote { margin: 14px 0 0; color: #91a2ba; font-size: 12px; line-height: 1.5; }
+      @media (max-width: 720px) {
+        body { padding: 16px 12px 32px; }
+        .layout { grid-template-columns: 1fr; }
+        .panel { padding: 16px; }
+      }
+      @media (max-width: 380px) {
+        .previews { gap: 6px; }
+        .preview span { font-size: 10px; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="intro">
+      <div class="eyebrow">NARUA PREMIER LEAGUE</div>
+      <h1>App Icon Studio</h1>
+      <p>Try your logo photos and preview the finished NPL icon before publishing. Your photos stay on this computer. The app name stays <strong>NPL</strong>.</p>
+    </header>
+
+    <main class="layout">
+      <section class="panel" aria-labelledby="photos-title">
+        <h2 id="photos-title">1. Choose and preview your photos</h2>
+        <label class="picker">
+          <strong>Choose one or more logo photos</strong>
+          <span>PNG works best; JPG and WebP are supported too. Click a thumbnail to preview that photo.</span>
+          <input id="photo-files" type="file" accept="image/*" multiple>
+        </label>
+        <div id="candidates" class="candidates" aria-live="polite">
+          <p class="empty">Choose photos to see them here.</p>
+        </div>
+        <p id="photo-name" class="hint">No photo selected.</p>
+      </section>
+
+      <section class="panel" aria-labelledby="preview-title">
+        <h2 id="preview-title">2. Adjust and check the icon preview</h2>
+        <div class="controls">
+          <div class="control">
+            <label for="logo-size"><span>Logo size</span><output id="logo-size-value">100%</output></label>
+            <input id="logo-size" type="range" min="60" max="100" value="100">
+          </div>
+          <div class="control">
+            <label for="background-color"><span>Icon background color</span><input id="background-color" type="color" value="#071638"></label>
+          </div>
+          <label class="check">
+            <input id="remove-dark" type="checkbox">
+            <span>Remove a dark/black background from the photo (off by default to preserve the original artwork).</span>
+          </label>
+          <div id="previews" class="previews" aria-label="Android app icon shape previews">
+            <div class="preview"><canvas id="preview-round" class="round" width="256" height="256"></canvas><span>Circle with matching orange edge</span></div>
+            <div class="preview"><canvas id="preview-squircle" class="squircle" width="256" height="256"></canvas><span>Squircle with matching orange edge</span></div>
+            <div class="preview"><canvas id="preview-square" class="square" width="256" height="256"></canvas><span>Original rounded-square artwork</span></div>
+          </div>
+          <p id="status" class="status" role="status">Choose a photo to start previewing.</p>
+          <pre id="progress" class="progress" hidden></pre>
+          <div class="actions">
+            <button id="download-preview" class="button" type="button" disabled>Save preview image</button>
+            <button id="publish" class="button primary" type="button" disabled>Build APK and publish</button>
+            <a id="download-apk" class="button primary" href="https://narua-premier-league.pages.dev/downloads/npl-android.apk" target="_blank" rel="noreferrer" hidden>Download updated APK</a>
+          </div>
+          <p class="footnote">Publishing replaces the app icon and website favicon, builds a new APK, and deploys it to the live website. Your phone gets the new launcher icon after you install the updated APK.</p>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const fileInput = document.querySelector('#photo-files');
+      const candidates = document.querySelector('#candidates');
+      const photoName = document.querySelector('#photo-name');
+      const sizeInput = document.querySelector('#logo-size');
+      const sizeValue = document.querySelector('#logo-size-value');
+      const backgroundInput = document.querySelector('#background-color');
+      const removeDarkInput = document.querySelector('#remove-dark');
+      const status = document.querySelector('#status');
+      const progress = document.querySelector('#progress');
+      const publishButton = document.querySelector('#publish');
+      const downloadButton = document.querySelector('#download-preview');
+      const apkDownload = document.querySelector('#download-apk');
+      const densityFolders = [['mdpi', 1], ['hdpi', 1.5], ['xhdpi', 2], ['xxhdpi', 3], ['xxxhdpi', 4]];
+      let photos = [];
+      let selectedPhoto = null;
+      let selectedLogo = null;
+      let isPublishing = false;
+      let previewUrl = null;
+
+      function setStatus(message, kind = '') {
+        status.textContent = message;
+        status.className = `status ${kind}`;
+      }
+
+      function readImage(file) {
+        return new Promise((resolve, reject) => {
+          const image = new Image();
+          image.onload = () => resolve(image);
+          image.onerror = () => reject(new Error(`Could not read "${file.name}". Try another image.`));
+          image.src = URL.createObjectURL(file);
+          image.addEventListener('load', () => URL.revokeObjectURL(image.src), { once: true });
+        });
+      }
+
+      async function prepareLogo(file) {
+        const image = await readImage(file);
+        const scale = Math.min(1, 1200 / Math.max(image.naturalWidth, image.naturalHeight));
+        const source = document.createElement('canvas');
+        source.width = Math.max(1, Math.round(image.naturalWidth * scale));
+        source.height = Math.max(1, Math.round(image.naturalHeight * scale));
+        const sourceContext = source.getContext('2d', { willReadFrequently: true });
+        sourceContext.drawImage(image, 0, 0, source.width, source.height);
+
+        if (removeDarkInput.checked) {
+          const frame = sourceContext.getImageData(0, 0, source.width, source.height);
+          const { data } = frame;
+          const total = source.width * source.height;
+          const visited = new Uint8Array(total);
+          const queue = new Int32Array(total);
+          const threshold = 38;
+          let head = 0;
+          let tail = 0;
+          const isBackground = (index) => {
+            const offset = index * 4;
+            return Math.max(data[offset], data[offset + 1], data[offset + 2]) <= threshold;
+          };
+          const addIfBackground = (index) => {
+            if (index >= 0 && index < total && !visited[index] && isBackground(index)) {
+              visited[index] = 1;
+              queue[tail++] = index;
+            }
+          };
+          for (let x = 0; x < source.width; x += 1) {
+            addIfBackground(x);
+            addIfBackground((source.height - 1) * source.width + x);
+          }
+          for (let y = 0; y < source.height; y += 1) {
+            addIfBackground(y * source.width);
+            addIfBackground(y * source.width + source.width - 1);
+          }
+          while (head < tail) {
+            const index = queue[head++];
+            const x = index % source.width;
+            if (x > 0) addIfBackground(index - 1);
+            if (x + 1 < source.width) addIfBackground(index + 1);
+            if (index >= source.width) addIfBackground(index - source.width);
+            if (index + source.width < total) addIfBackground(index + source.width);
+          }
+          for (let index = 0; index < total; index += 1) {
+            if (visited[index]) data[index * 4 + 3] = 0;
+          }
+          sourceContext.putImageData(frame, 0, 0);
+        }
+
+        const pixels = sourceContext.getImageData(0, 0, source.width, source.height).data;
+        let minX = source.width;
+        let minY = source.height;
+        let maxX = -1;
+        let maxY = -1;
+        for (let y = 0; y < source.height; y += 1) {
+          for (let x = 0; x < source.width; x += 1) {
+            if (pixels[(y * source.width + x) * 4 + 3] > 8) {
+              minX = Math.min(minX, x);
+              minY = Math.min(minY, y);
+              maxX = Math.max(maxX, x);
+              maxY = Math.max(maxY, y);
+            }
+          }
+        }
+        if (maxX < minX || maxY < minY) {
+          throw new Error('No visible logo remains. Turn off dark-background removal and try again.');
+        }
+
+        const logo = document.createElement('canvas');
+        logo.width = maxX - minX + 1;
+        logo.height = maxY - minY + 1;
+        logo.getContext('2d').drawImage(source, minX, minY, logo.width, logo.height, 0, 0, logo.width, logo.height);
+        return logo;
+      }
+
+      function logoRect(size, logo, scale, shape = 'square') {
+        const shapeScale = shape === 'square' ? 1.3 : shape === 'round' ? 1.1 : 1.12;
+        const maxSize = size * shapeScale * scale;
+        const ratio = Math.min(maxSize / logo.width, maxSize / logo.height);
+        const width = Math.max(1, Math.round(logo.width * ratio));
+        const height = Math.max(1, Math.round(logo.height * ratio));
+        return { x: (size - width) / 2, y: (size - height) / 2, width, height };
+      }
+
+      function drawMaskOutline(context, size, shape) {
+        if (shape === 'square') return;
+        const inset = size * 0.018;
+        context.save();
+        context.strokeStyle = '#FF8A24';
+        context.lineWidth = Math.max(1, size * 0.01);
+        if (shape === 'round') {
+          context.beginPath();
+          context.arc(size / 2, size / 2, size / 2 - inset, 0, Math.PI * 2);
+          context.stroke();
+        } else {
+          context.beginPath();
+          context.roundRect(inset, inset, size - inset * 2, size - inset * 2, size * 0.24 - inset);
+          context.stroke();
+        }
+        context.restore();
+      }
+
+      function drawForeground(size, logo, scale, shape = 'squircle') {
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        if (logo) {
+          const rect = logoRect(size, logo, scale, shape);
+          canvas.getContext('2d').drawImage(logo, rect.x, rect.y, rect.width, rect.height);
+        }
+        drawMaskOutline(canvas.getContext('2d'), size, shape);
+        return canvas;
+      }
+
+      function drawIcon(size, logo, scale, background, shape = 'square') {
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const context = canvas.getContext('2d');
+        context.fillStyle = background;
+        context.fillRect(0, 0, size, size);
+        if (logo) {
+          const rect = logoRect(size, logo, scale, shape);
+          context.drawImage(logo, rect.x, rect.y, rect.width, rect.height);
+        }
+        drawMaskOutline(context, size, shape);
+        return canvas;
+      }
+
+      function renderPreviews() {
+        const scale = Number(sizeInput.value) / 100;
+        const background = backgroundInput.value;
+        for (const [selector, clip] of [['#preview-round', 'round'], ['#preview-squircle', 'squircle'], ['#preview-square', 'square']]) {
+          const canvas = document.querySelector(selector);
+          const context = canvas.getContext('2d');
+          const size = canvas.width;
+          context.clearRect(0, 0, size, size);
+          context.save();
+          if (clip === 'round') {
+            context.beginPath();
+            context.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+            context.clip();
+          } else if (clip === 'squircle') {
+            const radius = size * 0.24;
+            context.beginPath();
+            context.roundRect(0, 0, size, size, radius);
+            context.clip();
+          } else {
+            const radius = size * 0.1;
+            context.beginPath();
+            context.roundRect(0, 0, size, size, radius);
+            context.clip();
+          }
+          context.fillStyle = background;
+          context.fillRect(0, 0, size, size);
+          context.drawImage(drawIcon(size, selectedLogo, scale, background, clip), 0, 0);
+          context.restore();
+        }
+        sizeValue.value = `${sizeInput.value}%`;
+      }
+
+      function selectPhoto(photo) {
+        if (isPublishing) return;
+        selectedPhoto = photo;
+        photoName.textContent = photo.file.name;
+        for (const button of candidates.querySelectorAll('button[data-photo-id]')) {
+          button.setAttribute('aria-pressed', String(button.dataset.photoId === photo.id));
+        }
+        selectedLogo = null;
+        renderPreviews();
+        setStatus('Preparing selected image…');
+        prepareLogo(photo.file).then((logo) => {
+          if (selectedPhoto !== photo) return;
+          selectedLogo = logo;
+          renderPreviews();
+          downloadButton.disabled = false;
+          publishButton.disabled = isPublishing;
+          setStatus('Preview ready. Review all three icon shapes before publishing.', 'success');
+        }).catch((error) => {
+          if (selectedPhoto !== photo) return;
+          downloadButton.disabled = true;
+          publishButton.disabled = true;
+          setStatus(error.message, 'error');
+        });
+      }
+
+      function updateCandidates() {
+        candidates.replaceChildren();
+        if (photos.length === 0) {
+          const empty = document.createElement('p');
+          empty.className = 'empty';
+          empty.textContent = 'Choose photos to see them here.';
+          candidates.append(empty);
+          return;
+        }
+        for (const photo of photos) {
+          const button = document.createElement('button');
+          button.className = 'candidate';
+          button.type = 'button';
+          button.dataset.photoId = photo.id;
+          button.setAttribute('aria-pressed', String(selectedPhoto === photo));
+          const image = document.createElement('img');
+          image.src = photo.url;
+          image.alt = '';
+          const label = document.createElement('span');
+          label.textContent = photo.file.name;
+          button.append(image, label);
+          button.addEventListener('click', () => selectPhoto(photo));
+          candidates.append(button);
+        }
+      }
+
+      function canvasDataUrl(canvas) {
+        return canvas.toDataURL('image/png');
+      }
+
+      function renderAssetPack() {
+        const scale = Number(sizeInput.value) / 100;
+        const background = backgroundInput.value;
+        const result = {};
+        result['android/app/src/main/res/drawable-nodpi/npl_crest_source.png'] = canvasDataUrl(selectedLogo);
+        result['public/npl-favicon.png'] = canvasDataUrl(drawIcon(512, selectedLogo, scale, background, 'square'));
+        for (const [density, multiplier] of densityFolders) {
+          const foregroundSize = Math.round(108 * multiplier);
+          const iconSize = Math.round(48 * multiplier);
+          const folder = `android/app/src/main/res/mipmap-${density}`;
+          result[`${folder}/ic_launcher_foreground.png`] = canvasDataUrl(drawForeground(foregroundSize, selectedLogo, scale, 'squircle'));
+          result[`${folder}/ic_launcher_round_foreground.png`] = canvasDataUrl(drawForeground(foregroundSize, selectedLogo, scale, 'round'));
+          result[`${folder}/ic_launcher.png`] = canvasDataUrl(drawIcon(iconSize, selectedLogo, scale, background, 'square'));
+          const roundIcon = drawIcon(iconSize, selectedLogo, scale, background, 'round');
+          const roundContext = roundIcon.getContext('2d');
+          const pixels = roundContext.getImageData(0, 0, iconSize, iconSize);
+          for (let y = 0; y < iconSize; y += 1) {
+            for (let x = 0; x < iconSize; x += 1) {
+              const distance = Math.hypot(x + 0.5 - iconSize / 2, y + 0.5 - iconSize / 2);
+              if (distance > iconSize / 2) pixels.data[(y * iconSize + x) * 4 + 3] = 0;
+            }
+          }
+          roundContext.putImageData(pixels, 0, 0);
+          result[`${folder}/ic_launcher_round.png`] = canvasDataUrl(roundIcon);
+        }
+        return result;
+      }
+
+      function downloadPreview() {
+        if (!selectedLogo) return;
+        const canvas = drawIcon(512, selectedLogo, Number(sizeInput.value) / 100, backgroundInput.value, 'square');
+        const anchor = document.createElement('a');
+        anchor.download = 'npl-app-icon-preview.png';
+        anchor.href = canvas.toDataURL('image/png');
+        anchor.click();
+      }
+
+      async function waitForJob(jobId) {
+        progress.hidden = false;
+        while (true) {
+          const response = await fetch(`/api/jobs/${encodeURIComponent(jobId)}`);
+          const job = await response.json();
+          if (!response.ok) throw new Error(job.error || 'Could not read deployment progress.');
+          progress.textContent = job.logs || 'Starting…';
+          progress.scrollTop = progress.scrollHeight;
+          if (job.status === 'succeeded') {
+            setStatus('Published successfully. Install the updated APK to see your new app icon.', 'success');
+            apkDownload.hidden = false;
+            return;
+          }
+          if (job.status === 'failed') {
+            throw new Error(job.error || 'Build or deployment failed. Read the log below and fix the reported issue before retrying.');
+          }
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        }
+      }
+
+      async function publishSelected() {
+        if (!selectedLogo || !selectedPhoto || isPublishing) return;
+        const approved = window.confirm(
+          `Publish "${selectedPhoto.file.name}" as the NPL app icon?\n\nThis will build a new APK and deploy it to the live website.`
+        );
+        if (!approved) return;
+        isPublishing = true;
+        publishButton.disabled = true;
+        downloadButton.disabled = true;
+        fileInput.disabled = true;
+        sizeInput.disabled = true;
+        backgroundInput.disabled = true;
+        removeDarkInput.disabled = true;
+        progress.hidden = false;
+        progress.textContent = 'Sending the approved icon to the local build tool…';
+        setStatus('Publishing approved icon. Keep this page and its terminal open.', '');
+        try {
+          const response = await fetch('/api/publish', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              background: backgroundInput.value,
+              assets: renderAssetPack()
+            })
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || 'The selected icon could not be applied.');
+          await waitForJob(result.jobId);
+        } catch (error) {
+          setStatus(error.message, 'error');
+        } finally {
+          isPublishing = false;
+          fileInput.disabled = false;
+          sizeInput.disabled = false;
+          backgroundInput.disabled = false;
+          removeDarkInput.disabled = false;
+          publishButton.disabled = !selectedLogo;
+          downloadButton.disabled = !selectedLogo;
+        }
+      }
+
+      fileInput.addEventListener('change', () => {
+        for (const photo of photos) URL.revokeObjectURL(photo.url);
+        photos = Array.from(fileInput.files || []).map((file) => ({
+          id: crypto.randomUUID(),
+          file,
+          url: URL.createObjectURL(file)
+        }));
+        selectedPhoto = null;
+        selectedLogo = null;
+        photoName.textContent = 'No photo selected.';
+        publishButton.disabled = true;
+        downloadButton.disabled = true;
+        renderPreviews();
+        updateCandidates();
+        if (photos.length > 0) selectPhoto(photos[0]);
+        else setStatus('Choose a photo to start previewing.');
+      });
+
+      sizeInput.addEventListener('input', () => {
+        renderPreviews();
+        if (selectedLogo && !isPublishing) setStatus('Preview updated. Check the icon shapes before publishing.');
+      });
+      backgroundInput.addEventListener('input', () => {
+        renderPreviews();
+        if (selectedLogo && !isPublishing) setStatus('Preview updated. Check the icon shapes before publishing.');
+      });
+      removeDarkInput.addEventListener('change', () => {
+        if (selectedPhoto && !isPublishing) selectPhoto(selectedPhoto);
+      });
+      downloadButton.addEventListener('click', downloadPreview);
+      publishButton.addEventListener('click', publishSelected);
+
+      fetch('/api/status')
+        .then((response) => response.json())
+        .then((result) => {
+          if (result.appName !== 'NPL') {
+            setStatus('The Android app is not named NPL. Fix its app-name setting before publishing.', 'error');
+            publishButton.disabled = true;
+          }
+        })
+        .catch(() => setStatus('The local icon service is unavailable. Restart it with npm run app-icon:studio.', 'error'));
+
+      renderPreviews();
+    </script>
+  </body>
+</html>

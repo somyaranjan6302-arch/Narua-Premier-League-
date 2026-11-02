@@ -9,12 +9,26 @@ export const PointsTable = () => {
   const { pointsTable, seasonStandings, seasons, selectedSeason, setSelectedSeason, teams } = useNpl();
   const [demoStandings, setDemoStandings] = useState(null);
   const [demoStandingsError, setDemoStandingsError] = useState('');
+  const [liveEngineTable, setLiveEngineTable] = useState(null);
   const showDemoStandings = import.meta.env.DEV
     && new URLSearchParams(window.location.search).get('demoStandings') === '1';
   const seasonInfo = seasons.find((season) => season.edition === selectedSeason) || seasons[0];
   const visiblePointsTable = showDemoStandings
     ? demoStandings || []
-    : seasonStandings[selectedSeason] || (selectedSeason === seasons[0]?.edition ? pointsTable : []);
+    : liveEngineTable || seasonStandings[selectedSeason] || (selectedSeason === seasons[0]?.edition ? pointsTable : []);
+
+  useEffect(() => {
+    fetch(`/api/tournaments/${encodeURIComponent(selectedSeason)}/points-table`)
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (data?.pointsTable && data.pointsTable.some((r) => r.played > 0)) {
+          setLiveEngineTable(data.pointsTable);
+        } else {
+          setLiveEngineTable(null);
+        }
+      })
+      .catch(() => {});
+  }, [selectedSeason]);
 
   useEffect(() => {
     if (!showDemoStandings) return undefined;

@@ -128,9 +128,9 @@ export const PlayerSection = () => {
           </div>
 
           {/* Search and Team Filter */}
-          <div className="flex items-center gap-3 w-full lg:w-auto">
+          <div className="flex min-w-0 w-full flex-col gap-3 sm:flex-row lg:w-auto">
             {/* Search Box */}
-            <div className="relative flex-grow sm:w-64">
+            <div className="relative min-w-0 w-full flex-1 sm:w-64">
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
@@ -146,7 +146,7 @@ export const PlayerSection = () => {
               value={activeSelectedTeam}
               onChange={(e) => setSelectedTeam(e.target.value)}
               aria-label="Filter by franchise team"
-              className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-slate-300 focus:outline-none focus:border-amber-500"
+              className="w-full min-w-0 rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-300 focus:border-amber-500 focus:outline-none sm:w-auto sm:max-w-[45%]"
             >
               <option value="ALL">All Teams</option>
               {sessionTeams.map(t => (

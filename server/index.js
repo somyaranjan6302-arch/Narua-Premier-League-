@@ -11,6 +11,8 @@ import { mergeOfficialSession4Content } from '../src/data/session4Data.js';
 import { mergeOfficialSession5Content } from '../src/data/session5Data.js';
 import { mergeOfficialSession2Content } from '../src/data/session2Data.js';
 import { mergeOfficialSession1Content } from '../src/data/session1Performers.js';
+import { ScoringStore, registerMatchListener } from './scoringStore.js';
+import { calculateTournamentNetRunRate } from './cricketEngine.js';
 
 const scrypt = promisify(scryptCallback);
 const serverDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -127,7 +129,7 @@ const initializeAuth = async () => {
     await database.query(`
       CREATE TABLE IF NOT EXISTS npl_admin_users (
         admin_id TEXT PRIMARY KEY,
-        role TEXT NOT NULL CHECK (role IN ('owner', 'admin')),
+        role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'scorer')),
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         salt TEXT NOT NULL,
         password_hash TEXT NOT NULL,
@@ -279,6 +281,8 @@ const start = async () => {
   }
   const auth = await initializeAuth();
   if (!database) auth.media = await migrateLegacyMediaToRepository(auth.media);
+  const scoringStore = new ScoringStore(database);
+  await scoringStore.initSchema();
   const app = express();
   app.disable('x-powered-by');
   app.use(express.json({ limit: '12mb' }));
@@ -308,7 +312,27 @@ const start = async () => {
   const requireAdmin = (req, res, next) => {
     const user = getSessionUser(req, auth.users, auth.sessionSecret);
     if (!user) return res.status(401).json({ error: 'Sign in required.' });
+    if (user.role !== 'owner' && user.role !== 'admin') {
+      return res.status(403).json({ error: 'Administrator permission required.' });
+    }
     req.adminUser = user;
+    next();
+  };
+
+  const requireScorerOrAdmin = async (req, res, next) => {
+    const user = getSessionUser(req, auth.users, auth.sessionSecret);
+    if (!user) return res.status(401).json({ error: 'Sign in required.' });
+    req.adminUser = user;
+    if (user.role === 'owner' || user.role === 'admin') {
+      return next();
+    }
+    if (req.params.id) {
+      const match = await scoringStore.getMatchById(req.params.id);
+      if (!match) return res.status(404).json({ error: 'Match not found.' });
+      if (match.assignedScorerId && match.assignedScorerId !== user.adminId) {
+        return res.status(403).json({ error: 'You are not assigned to score this match.' });
+      }
+    }
     next();
   };
 
@@ -604,7 +628,7 @@ const start = async () => {
     const passwordHash = await createPasswordHash(password);
     const user = {
       adminId,
-      role: 'admin',
+      role: req.body.role === 'scorer' ? 'scorer' : 'admin',
       createdAt: new Date().toISOString(),
       ...passwordHash
     };
@@ -695,6 +719,200 @@ const start = async () => {
     }
 
     return res.status(204).end();
+  });
+
+  // Live Tournament & Cricket Scoring APIs
+  app.get('/api/matches', async (req, res) => {
+    try {
+      const { season, status } = req.query;
+      const matches = await scoringStore.getAllMatches({ season, status });
+      res.json({ matches });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/matches', requireAdmin, async (req, res) => {
+    try {
+      const match = await scoringStore.createMatch(req.body, req.adminUser);
+      res.status(201).json({ match });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.get('/api/matches/:id', async (req, res) => {
+    try {
+      const match = await scoringStore.getMatchById(req.params.id);
+      if (!match) return res.status(404).json({ error: 'Match not found.' });
+      res.json({ match });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.put('/api/matches/:id', requireScorerOrAdmin, async (req, res) => {
+    try {
+      const updated = await scoringStore.updateMatch(req.params.id, req.body);
+      res.json({ match: updated });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.delete('/api/matches/:id', requireAdmin, async (req, res) => {
+    try {
+      await scoringStore.deleteMatch(req.params.id);
+      res.status(204).end();
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/matches/:id/assign-scorer', requireAdmin, async (req, res) => {
+    try {
+      const { scorerId } = req.body;
+      const updated = await scoringStore.updateMatch(req.params.id, { assignedScorerId: scorerId || null });
+      res.json({ match: updated });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.get('/api/matches/:id/squad', async (req, res) => {
+    try {
+      const squads = await scoringStore.getSquads(req.params.id);
+      res.json({ squads });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/matches/:id/squad', requireScorerOrAdmin, async (req, res) => {
+    try {
+      await scoringStore.saveSquads(req.params.id, req.body.squads || req.body);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/matches/:id/toss', requireScorerOrAdmin, async (req, res) => {
+    try {
+      const updated = await scoringStore.recordToss(req.params.id, req.body);
+      res.json({ match: updated });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/matches/:id/start-innings', requireScorerOrAdmin, async (req, res) => {
+    try {
+      const updated = await scoringStore.startInnings(req.params.id, req.body);
+      res.json({ match: updated });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/matches/:id/ball', requireScorerOrAdmin, async (req, res) => {
+    try {
+      const result = await scoringStore.recordDelivery(req.params.id, req.body, req.adminUser);
+      res.json(result);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/matches/:id/undo', requireScorerOrAdmin, async (req, res) => {
+    try {
+      const result = await scoringStore.undoDelivery(req.params.id, req.adminUser);
+      res.json(result);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.get('/api/matches/:id/scorecard', async (req, res) => {
+    try {
+      const scorecard = await scoringStore.getScorecard(req.params.id);
+      if (!scorecard) return res.status(404).json({ error: 'Match scorecard not found.' });
+      res.json(scorecard);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get('/api/matches/:id/stream', async (req, res) => {
+    const matchId = req.params.id;
+    try {
+      const match = await scoringStore.getMatchById(matchId);
+      if (!match) return res.status(404).end();
+
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no'
+      });
+
+      const scorecard = await scoringStore.getScorecard(matchId);
+      res.write(`event: score:initial\ndata: ${JSON.stringify(scorecard)}\n\n`);
+
+      const unregister = registerMatchListener(matchId, res);
+
+      const heartbeat = setInterval(() => {
+        try {
+          res.write(': heartbeat\n\n');
+        } catch {
+          clearInterval(heartbeat);
+          unregister();
+        }
+      }, 15000);
+
+      req.on('close', () => {
+        clearInterval(heartbeat);
+        unregister();
+      });
+    } catch {
+      res.status(500).end();
+    }
+  });
+
+  app.post('/api/matches/:id/end-innings', requireScorerOrAdmin, async (req, res) => {
+    try {
+      const updated = await scoringStore.endInnings(req.params.id);
+      res.json({ match: updated });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/matches/:id/end-match', requireScorerOrAdmin, async (req, res) => {
+    try {
+      const updated = await scoringStore.endMatch(req.params.id, req.body);
+      res.json({ match: updated });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.get('/api/tournaments/:season/points-table', async (req, res) => {
+    try {
+      const pointsTable = await scoringStore.getPointsTable(req.params.season);
+      res.json({ pointsTable });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get('/api/tournaments/:season/leaderboard', async (req, res) => {
+    try {
+      const leaderboard = await scoringStore.getLeaderboard(req.params.season);
+      res.json(leaderboard);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   app.use('/api', (_req, res) => res.status(404).json({ error: 'API endpoint not found.' }));

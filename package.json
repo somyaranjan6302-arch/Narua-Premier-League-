@@ -8,12 +8,23 @@
   },
   "scripts": {
     "dev": "node server/index.js",
+    "dev:cloudflare": "npm run build && wrangler d1 migrations apply npl --local && wrangler pages dev dist",
     "build": "node scripts/generate-static-site-media.mjs && vite build",
     "lint": "oxlint",
+    "android:sync": "cap sync android",
+    "android:open": "cap open android",
+    "android:apk": "npm run android:sync && cd android && gradlew assembleDebug",
+    "app-icon:studio": "node scripts/app-icon-studio.mjs",
     "preview": "vite preview",
-    "start": "node server/index.js"
+    "start": "node server/index.js",
+    "deploy:cloudflare": "npm run build && wrangler pages deploy dist",
+    "db:migrate:local": "wrangler d1 migrations apply npl --local",
+    "db:migrate:remote": "wrangler d1 migrations apply npl --remote"
   },
   "dependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/core": "^8.6.0",
+    "@capacitor/splash-screen": "^8.0.2",
     "@tailwindcss/vite": "^4.3.3",
     "canvas-confetti": "^1.9.4",
     "express": "^5.2.1",
@@ -24,6 +35,8 @@
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
+    "@capacitor/assets": "^4.0.0",
+    "@capacitor/cli": "^8.6.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
@@ -31,6 +44,7 @@
     "oxlint": "^1.81.0",
     "postcss": "^8.5.28",
     "tailwindcss": "^4.3.3",
-    "vite": "^8.3.0"
+    "vite": "^8.3.0",
+    "wrangler": "^4.13.2"
   }
 }

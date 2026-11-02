@@ -29,6 +29,7 @@ import { NewsModal } from './components/modals/NewsModal';
 import { LightboxModal } from './components/modals/LightboxModal';
 import { VideoPlayerModal } from './components/modals/VideoPlayerModal';
 import { AdminDashboardModal } from './components/modals/AdminDashboardModal';
+import { LiveScorerModal } from './components/modals/LiveScorerModal';
 
 export const App = () => {
   const [activeSection, setActiveSection] = useState(() => (
@@ -157,6 +158,10 @@ export const App = () => {
 
       {activeModal.type === 'lightbox' && (
         <LightboxModal data={activeModal.data} onClose={closeModal} />
+      )}
+
+      {activeModal.type === 'scorer-console' && (
+        <LiveScorerModal match={activeModal.data} onClose={closeModal} />
       )}
 
       {activeModal.type === 'video-player' && (
