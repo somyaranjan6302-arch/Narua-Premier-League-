@@ -199,6 +199,32 @@ export const LiveAuctionArenaModal = ({ onClose, isAdminControl = false, standal
               )}
             </div>
 
+            {canControlAuction && (
+              <fieldset className="rounded-2xl border border-amber-500/40 bg-slate-950/90 p-3">
+                <legend className="px-2 text-xs font-black uppercase tracking-wider text-amber-300">
+                  Choose bid increment
+                </legend>
+                <div className="grid grid-cols-4 gap-2">
+                  {bidIncrementOptions.map((increment) => (
+                    <button
+                      key={increment}
+                      type="button"
+                      disabled={isSaving}
+                      onClick={() => setSelectedIncrement(increment)}
+                      aria-pressed={selectedIncrement === increment}
+                      className={`min-h-11 rounded-lg border px-2 py-2 text-sm font-black transition ${
+                        selectedIncrement === increment
+                          ? 'border-amber-400 bg-amber-500 text-slate-950'
+                          : 'border-amber-700/60 bg-amber-950/50 text-amber-200 hover:bg-amber-900'
+                      }`}
+                    >
+                      +₹{increment.toLocaleString('en-IN')}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+            )}
+
             {/* Main Stage Spotlight Card */}
             {currentPlayer ? (
               <div className="glass-panel-gold relative overflow-hidden rounded-3xl border-2 border-amber-500/50 p-4 shadow-2xl sm:p-6">
@@ -267,24 +293,6 @@ export const LiveAuctionArenaModal = ({ onClose, isAdminControl = false, standal
 
                 {canControlAuction && (
                   <div className="mt-6 space-y-3 border-t border-slate-800 pt-4">
-                    <div className="flex flex-wrap gap-2">
-                      {bidIncrementOptions.map((increment) => (
-                        <button
-                          key={increment}
-                          type="button"
-                          disabled={isSaving}
-                          onClick={() => setSelectedIncrement(increment)}
-                          aria-pressed={selectedIncrement === increment}
-                          className={`min-h-10 rounded-lg border px-3 py-2 text-xs font-black transition ${
-                            selectedIncrement === increment
-                              ? 'border-amber-400 bg-amber-500 text-slate-950'
-                              : 'border-amber-700/60 bg-amber-950/50 text-amber-200 hover:bg-amber-900'
-                          }`}
-                        >
-                          +₹{increment.toLocaleString('en-IN')}
-                        </button>
-                      ))}
-                    </div>
                     <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
                       Custom bid increment (₹)
                       <input
