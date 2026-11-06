@@ -7,3 +7,8 @@ binding = "DB"
 database_name = "npl"
 database_id = "80ff3c08-d06a-49c5-a383-a5bae277d813"
 migrations_dir = "migrations"
+
+[[durable_objects.bindings]]
+name = "AUCTION_ROOMS"
+class_name = "AuctionRoom"
+script_name = "npl-auction-realtime"

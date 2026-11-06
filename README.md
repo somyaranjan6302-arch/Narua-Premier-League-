@@ -36,18 +36,18 @@ The server refuses to start in production without `DATABASE_URL`. The database s
 
 ### Deploy the website and API on Cloudflare Pages with D1
 
-Cloudflare Pages serves the Vite website, `functions/api/[[path]].js` implements the `/api/*` routes, and the `DB` binding stores shared site content, admin accounts, auction registrations, live auctions, and uploaded images in Cloudflare D1. Cloudflare Workers handle password hashing and signed admin sessions; no Supabase account or API keys are needed. The Express server and Render deployment remain available separately. `npm run dev` starts that local Express server; `npm run dev:cloudflare` runs the Pages Functions against a local D1 database.
+Cloudflare Pages serves the Vite website, `functions/api/[[path]].js` implements the `/api/*` routes, and the `DB` binding stores shared site content, admin accounts, auction registrations, live auctions, and uploaded images in Cloudflare D1. A separate Durable Object Worker broadcasts persisted auction updates over native WebSockets to spectators in the same season; the existing authenticated HTTP API remains authoritative. The Express server uses the same WebSocket protocol locally. Cloudflare Workers handle password hashing and signed admin sessions; no Supabase account or API keys are needed. The Express server and Render deployment remain available separately. `npm run dev` starts the local Express server; `npm run dev:cloudflare` runs the Pages Functions against a local D1 database.
 
 #### Run the Cloudflare version locally
 
 1. Install dependencies with `npm install`.
 2. Copy `.dev.vars.example` to `.dev.vars` and change `NPL_INITIAL_OWNER_PASSWORD` to a unique password of at least 16 characters. The ignored `.dev.vars` file is never committed.
-3. In a terminal at the project root, run `npm run dev:cloudflare` and open the local URL Wrangler prints. The script builds the site, applies D1 migrations to the local database, and starts the Pages Functions.
+3. Open two terminals at the project root. In the first, run `npm run dev:auction-realtime` to start the local auction Durable Object Worker. In the second, run `npm run dev:cloudflare` and open the local URL Wrangler prints. The Pages command builds the site, applies D1 migrations to the shared local Wrangler state directory, and starts the Pages Functions with the local Durable Object binding.
 4. Sign in to the Admin Portal using admin ID `developer` and the password from `.dev.vars`.
 
-The local Cloudflare database is separate from the Express server's local data and from the Cloudflare production database. Use `npm run dev` if you want to keep using the existing Express setup.
+The local Cloudflare database is separate from the Express server's local data and from the Cloudflare production database. Use `npm run dev` if you want to use the Express setup, including local WebSocket auction updates, without Wrangler.
 
-The Cloudflare Pages API also supports match setup, squads, tosses, innings, ball-by-ball scoring, undo, scorecards, live score streams, points tables, and player leaderboards. Scoring changes are stored in the D1 database. Sign in as an admin, open the Admin Portal, and launch the live scorer for a fixture. Spectators can follow the scorecard and commentary from the Match Center.
+The Cloudflare Pages API also supports match setup, squads, tosses, innings, ball-by-ball scoring, undo, scorecards, live score streams, points tables, and player leaderboards. Scoring changes are stored in the D1 database. Open `/scorer` (also linked from website navigation) for the standalone Online Scoring Portal. Admins can configure teams, Playing XIs, captains, wicketkeepers, match officials, ball and pitch settings; scorer accounts can access their assigned matches. Official phone numbers are shown only to administrators and the assigned scorer. The workspace reuses the live scoring console for toss, innings, ball-by-ball scoring, undo, and resume. Spectators can follow the scorecard and commentary from the Match Center.
 
 #### Create and deploy the Cloudflare D1 database
 
@@ -56,7 +56,7 @@ The Cloudflare Pages API also supports match setup, squads, tosses, innings, bal
 3. Apply the database schema with `npm run db:migrate:remote`.
 4. Create a Cloudflare Pages project, if you do not already have one: `npx wrangler pages project create narua-premier-league`. Select your production Git branch when prompted.
 5. Add a unique owner password to Pages secrets: `npx wrangler pages secret put NPL_INITIAL_OWNER_PASSWORD`. Use at least 16 characters and keep the value private.
-6. Deploy with `npm run deploy:cloudflare`. Alternatively, connect the repository to Cloudflare Pages and set the root directory to the project root, build command to `npm run build`, and output directory to `dist`. Keep `wrangler.toml` in the root so Pages can bind the D1 database.
+6. Deploy both the Durable Object Worker and Pages site with `npm run deploy:cloudflare`. The command deploys `workers/auction-realtime` first and then Pages. The `AUCTION_ROOMS` binding in `wrangler.toml` points to that Worker. If using a Git-connected Pages build instead, deploy the Worker separately with `npx wrangler deploy --config workers/auction-realtime/wrangler.toml`, then configure the Pages project to build with `npm run build` and publish `dist`. Keep `wrangler.toml` in the root so Pages can bind both D1 and the Durable Object Worker.
 
 The first successful sign-in with admin ID `developer` creates the owner account in D1 using the configured initial password. Admins created through **Admin Accounts** can sign in with their admin ID and password. Existing tracked images under `public/uploads/` remain static assets; new admin image uploads are stored in D1 in chunks to stay within database row limits. Keep an independent backup of tournament data and uploaded media.
 

@@ -34,7 +34,10 @@ import { LiveScorerModal } from './components/modals/LiveScorerModal';
 export const App = () => {
   const [activeSection, setActiveSection] = useState(() => (
     import.meta.env.DEV &&
-    new URLSearchParams(window.location.search).get('demoStandings') === '1'
+    new URLSearchParams(window.location.search).get('demoAuction') === '1'
+      ? 'teams'
+      : import.meta.env.DEV &&
+        new URLSearchParams(window.location.search).get('demoStandings') === '1'
       ? 'standings'
       : import.meta.env.DEV &&
         new URLSearchParams(window.location.search).get('demoMatches') === '1'
@@ -51,7 +54,8 @@ export const App = () => {
     setSelectedSeason,
     isAdminModalOpen,
     setIsAdminModalOpen,
-    toastMessage
+    toastMessage,
+    isAuctionDemo
   } = useNpl();
   const openedTeamProfile = useRef(false);
 
@@ -106,6 +110,14 @@ export const App = () => {
       )}
 
       {/* 1. STICKY NAVBAR */}
+      {isAuctionDemo && (
+        <div className="flex flex-wrap items-center justify-center gap-2 border-b border-amber-400/40 bg-amber-950 px-3 py-2 text-center text-xs text-amber-100 sm:gap-4">
+          <strong className="font-black uppercase tracking-wider">Session 6 demo • sample data only • not saved</strong>
+          <button type="button" onClick={() => scrollToSection('teams')} className="rounded-full border border-amber-300/40 px-3 py-1 font-bold hover:bg-amber-900">Teams</button>
+          <button type="button" onClick={() => scrollToSection('players')} className="rounded-full border border-amber-300/40 px-3 py-1 font-bold hover:bg-amber-900">Players</button>
+          <a href="/auction-live?season=Session%206&demoAuction=1" target="_blank" rel="noreferrer" className="rounded-full bg-amber-400 px-3 py-1 font-black text-slate-950 hover:bg-amber-300">Watch sample auction</a>
+        </div>
+      )}
       <Navbar activeSection={activeSection} setActiveSection={setActiveSection} />
 
       {/* Show one destination at a time instead of stacking every section. */}
@@ -137,7 +149,10 @@ export const App = () => {
       )}
 
       {activeModal.type === 'live-auction-arena' && (
-        <LiveAuctionArenaModal onClose={closeModal} />
+        <LiveAuctionArenaModal
+          onClose={closeModal}
+          isAdminControl={activeModal.data?.isAdminControl === true}
+        />
       )}
 
       {activeModal.type === 'match-details' && (

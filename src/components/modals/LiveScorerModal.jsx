@@ -40,7 +40,7 @@ const WICKET_TYPES = [
 ];
 
 export const LiveScorerModal = ({ match: initialMatch, onClose }) => {
-  const { teams, adminUser, showToast, refreshSiteMedia } = useNpl();
+  const { teams, adminUser, showToast, refreshSiteMedia, syncScoredMatch, setSeasonStandings } = useNpl();
   const [match, setMatch] = useState(initialMatch);
   const [scorecard, setScorecard] = useState(null);
   const [squads, setSquads] = useState({ teamA: [], teamB: [] });
@@ -90,6 +90,10 @@ export const LiveScorerModal = ({ match: initialMatch, onClose }) => {
   });
 
   const eventSourceRef = useRef(null);
+
+  useEffect(() => {
+    if (match) syncScoredMatch(match, scorecard);
+  }, [match, scorecard, syncScoredMatch]);
 
   // Fetch full scorecard and squads on mount
   const refreshMatchData = async () => {
@@ -433,19 +437,32 @@ export const LiveScorerModal = ({ match: initialMatch, onClose }) => {
   // Swap Strike manually
   const handleSwapStrike = async () => {
     if (!striker || !nonStriker) return;
-    // We swap the opening references in memory or send strike rotation update
-    setScorecard((prev) => {
-      if (!prev || !prev.liveSummary) return prev;
-      return {
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`/api/matches/${match.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentPlayers: {
+            striker: { id: nonStriker.id, name: nonStriker.name },
+            nonStriker: { id: striker.id, name: striker.name },
+            bowler: bowler ? { id: bowler.id, name: bowler.name } : null
+          }
+        })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not save the strike change.');
+      setMatch(result.match);
+      setScorecard((prev) => prev?.liveSummary ? ({
         ...prev,
-        liveSummary: {
-          ...prev.liveSummary,
-          currentStriker: nonStriker,
-          currentNonStriker: striker
-        }
-      };
-    });
-    showToast('Strike swapped between batters.');
+        liveSummary: { ...prev.liveSummary, currentStriker: nonStriker, currentNonStriker: striker }
+      }) : prev);
+      showToast('Strike swapped and saved.', 'success');
+    } catch (error) {
+      showToast(error.message || 'Could not save the strike change.', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Change Bowler
@@ -461,10 +478,30 @@ export const LiveScorerModal = ({ match: initialMatch, onClose }) => {
       showToast('The same bowler cannot bowl consecutive overs as per official cricket rules.', 'error');
       return;
     }
+    const bowlerStats = currentInningsData?.bowling?.find((figure) => figure.id === candidate.id);
+    const bowlerQuota = Number(match.oversPerBowler || Math.ceil(match.oversLimit / 5));
+    if (bowlerStats?.legalBalls >= bowlerQuota * 6) {
+      showToast(`${candidate.name} has reached the ${bowlerQuota}-over bowling quota.`, 'error');
+      return;
+    }
 
-    setScorecard((prev) => {
-      if (!prev || !prev.liveSummary) return prev;
-      return {
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`/api/matches/${match.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentPlayers: {
+            striker: striker ? { id: striker.id, name: striker.name } : null,
+            nonStriker: nonStriker ? { id: nonStriker.id, name: nonStriker.name } : null,
+            bowler: { id: candidate.id, name: candidate.name }
+          }
+        })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not save the bowler change.');
+      setMatch(result.match);
+      setScorecard((prev) => prev?.liveSummary ? ({
         ...prev,
         liveSummary: {
           ...prev.liveSummary,
@@ -478,12 +515,15 @@ export const LiveScorerModal = ({ match: initialMatch, onClose }) => {
             economy: '0.00'
           }
         }
-      };
-    });
-
-    setIsBowlerModalOpen(false);
-    setSelectedBowlerId('');
-    showToast(`New bowler: ${candidate.name}`);
+      }) : prev);
+      setIsBowlerModalOpen(false);
+      setSelectedBowlerId('');
+      showToast(`New bowler saved: ${candidate.name}`, 'success');
+    } catch (error) {
+      showToast(error.message || 'Could not save the bowler change.', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Start Innings / Toss Submission
@@ -593,7 +633,36 @@ export const LiveScorerModal = ({ match: initialMatch, onClose }) => {
       if (!res.ok) throw new Error('Failed to complete match');
       setIsEndMatchConfirmOpen(false);
       await refreshMatchData();
-      showToast('Match marked as COMPLETED! Points table updated.', 'success');
+
+      try {
+        const standingsResponse = await fetch(`/api/tournaments/${encodeURIComponent(match.season)}/points-table`);
+        const standingsResult = await standingsResponse.json();
+        if (!standingsResponse.ok) {
+          throw new Error(standingsResult.error || 'Could not refresh the points table.');
+        }
+        const standings = Array.isArray(standingsResult.pointsTable) ? standingsResult.pointsTable : [];
+        setSeasonStandings((previousStandings) => ({
+          ...previousStandings,
+          [match.season]: standings.map((row) => ({
+            pos: row.rank,
+            teamId: row.id,
+            team: row.team,
+            short: row.shortName,
+            p: row.played,
+            w: row.won,
+            l: row.lost,
+            nr: row.noResult,
+            nrr: row.nrr,
+            pts: row.points,
+            form: row.form || [],
+            qualified: row.rank <= 4,
+            color: teams.find((team) => team.id === row.id)?.primaryColor || '#1d4ed8'
+          }))
+        }));
+        showToast('Match completed and points table updated.', 'success');
+      } catch (standingsError) {
+        showToast(`Match completed, but the points table could not refresh: ${standingsError.message}`, 'error');
+      }
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
@@ -1469,21 +1538,31 @@ export const LiveScorerModal = ({ match: initialMatch, onClose }) => {
             <div className="space-y-2 max-h-60 overflow-y-auto">
               {bowlingSquad
                 .filter((p) => p.id !== bowler?.id)
-                .map((b) => (
-                  <button
-                    key={b.id}
-                    type="button"
-                    onClick={() => setSelectedBowlerId(b.id)}
-                    className={`w-full text-left p-3 rounded-xl border flex items-center justify-between text-xs transition ${
-                      selectedBowlerId === b.id
-                        ? 'border-purple-500 bg-purple-950/60 text-white font-bold'
-                        : 'border-slate-800 bg-slate-900 text-slate-300 hover:border-slate-700'
-                    }`}
-                  >
-                    <span>{b.name}</span>
-                    {selectedBowlerId === b.id && <Check className="h-4 w-4 text-purple-400" />}
-                  </button>
-                ))}
+                .map((b) => {
+                  const figures = currentInningsData?.bowling?.find((item) => item.id === b.id);
+                  const quota = Number(match.oversPerBowler || Math.ceil(match.oversLimit / 5));
+                  const quotaReached = figures?.legalBalls >= quota * 6;
+                  return (
+                    <button
+                      key={b.id}
+                      type="button"
+                      disabled={quotaReached}
+                      onClick={() => setSelectedBowlerId(b.id)}
+                      className={`w-full text-left p-3 rounded-xl border flex items-center justify-between text-xs transition ${
+                        quotaReached
+                          ? 'cursor-not-allowed border-slate-900 bg-slate-950 text-slate-600'
+                          : selectedBowlerId === b.id
+                            ? 'border-purple-500 bg-purple-950/60 text-white font-bold'
+                            : 'border-slate-800 bg-slate-900 text-slate-300 hover:border-slate-700'
+                      }`}
+                    >
+                      <span>{b.name}</span>
+                      {quotaReached
+                        ? <span className="text-[10px] uppercase tracking-wide">Quota reached</span>
+                        : selectedBowlerId === b.id && <Check className="h-4 w-4 text-purple-400" />}
+                    </button>
+                  );
+                })}
             </div>
 
             <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">

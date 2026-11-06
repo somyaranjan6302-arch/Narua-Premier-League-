@@ -737,8 +737,11 @@ export const initialAuctionRegistrations = [
 
 ];
 
+export const DEFAULT_AUCTION_PURSE_CAP = 5000000;
+
 export const initialAuctionLiveState = {
   status: 'waiting',
+  purseCap: DEFAULT_AUCTION_PURSE_CAP,
   currentPlayer: null,
   currentBid: 0,
   currentBiddingTeam: null,

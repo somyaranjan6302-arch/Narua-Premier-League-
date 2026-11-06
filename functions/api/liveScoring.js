@@ -55,6 +55,22 @@ const readBody = async (request) => {
 const text = (value, fallback = '', maxLength = 200) =>
   typeof value === 'string' ? value.trim().slice(0, maxLength) : fallback;
 
+const matchForViewer = (match, user) => {
+  if (!match) return match;
+  const canViewContacts = user?.role === 'owner' || user?.role === 'admin' ||
+    (user?.role === 'scorer' && match.assignedScorerId === user.admin_id);
+  if (canViewContacts) return match;
+  return {
+    ...match,
+    umpires: (match.umpires || []).map(({ name }) => ({ name })),
+    secondaryScorers: (match.secondaryScorers || []).map(({ name }) => ({ name }))
+  };
+};
+const scorecardForViewer = (scorecard, user) => ({
+  ...scorecard,
+  match: matchForViewer(scorecard.match, user)
+});
+
 const player = (value, label) => {
   if (!value || typeof value !== 'object' ||
     typeof value.id !== 'string' || !value.id.trim() ||
@@ -99,6 +115,12 @@ const getScorecard = (record) => {
     }
   ];
   const currentState = match.currentInningsNumber === 2 ? innings2State : innings1State;
+  const savedPlayers = match.currentPlayers || {};
+  const currentBowler = savedPlayers.bowler
+    ? savedPlayers.bowler.id === currentState.currentBowler?.id
+      ? { ...currentState.currentBowler, ...savedPlayers.bowler }
+      : { ...savedPlayers.bowler, overs: '0.0', maidens: 0, runsConceded: 0, wickets: 0, economy: '0.00' }
+    : currentState.currentBowler;
 
   return {
     match,
@@ -111,9 +133,9 @@ const getScorecard = (record) => {
       target: match.currentInningsNumber === 2 ? target : null,
       remainingRuns: currentState.remainingRuns,
       remainingBalls: currentState.remainingBalls,
-      currentStriker: currentState.currentStriker,
-      currentNonStriker: currentState.currentNonStriker,
-      currentBowler: currentState.currentBowler,
+      currentStriker: savedPlayers.striker || currentState.currentStriker,
+      currentNonStriker: savedPlayers.nonStriker || currentState.currentNonStriker,
+      currentBowler,
       recentDeliveries: currentState.recentDeliveries,
       currentOverDeliveries: currentState.currentOverDeliveries
     },
@@ -127,11 +149,15 @@ const matchFromBody = (body, id, user) => {
   const teamAName = text(body.teamAName || body.team1Name, '', 120);
   const teamBName = text(body.teamBName || body.team2Name, '', 120);
   const oversLimit = Number(body.oversLimit || 20);
+  const oversPerBowler = Number(body.oversPerBowler || Math.ceil(oversLimit / 5));
   if (!teamAId || !teamBId || teamAId === teamBId || !teamAName || !teamBName) {
     throw new Error('Choose two different teams with names before creating the match.');
   }
   if (!Number.isFinite(oversLimit) || oversLimit < 1 || oversLimit > 50) {
     throw new Error('Overs must be between 1 and 50.');
+  }
+  if (!Number.isInteger(oversPerBowler) || oversPerBowler < 1 || oversPerBowler > oversLimit) {
+    throw new Error('Each bowler quota must be a whole number within the match length.');
   }
   const now = new Date().toISOString();
   return {
@@ -149,11 +175,15 @@ const matchFromBody = (body, id, user) => {
       teamBShort: text(body.teamBShort || body.team2Short, 'TMB', 20),
       matchType: text(body.matchType, 'Limited Overs', 40),
       oversLimit,
-      oversPerBowler: Number(body.oversPerBowler || Math.ceil(oversLimit / 5)),
+      oversPerBowler,
       powerplayOvers: Number(body.powerplayOvers || 6),
       city: text(body.city, 'Jajpur', 80),
       ground: text(body.ground || body.venue, 'Narua Cricket Ground', 120),
       venue: text(body.venue || body.ground, 'Narua Cricket Ground', 120),
+      ballType: text(body.ballType, 'Tennis', 30),
+      pitchType: text(body.pitchType, 'Matting', 40),
+      umpires: Array.isArray(body.umpires) ? body.umpires : [],
+      secondaryScorers: Array.isArray(body.secondaryScorers) ? body.secondaryScorers : [],
       matchDate: text(body.matchDate || body.date, now.slice(0, 10), 30),
       matchTime: text(body.matchTime || body.time, '10:00 AM', 30),
       tossWinnerId: null,
@@ -163,6 +193,7 @@ const matchFromBody = (body, id, user) => {
       currentInningsNumber: 1,
       currentBattingTeamId: null,
       currentBowlingTeamId: null,
+      currentPlayers: null,
       result: null,
       winnerTeamId: null,
       winMargin: null,
@@ -189,11 +220,11 @@ const updateRecord = async (env, found, change) => {
   return found.record;
 };
 
-const getAllMatches = async (env, url) => {
+const getAllMatches = async (env, url, user = null) => {
   const rows = await database(env).prepare(
     'SELECT value FROM npl_live_scoring_matches ORDER BY updated_at DESC'
   ).all();
-  let matches = (rows.results || []).map((row) => JSON.parse(row.value).match);
+  let matches = (rows.results || []).map((row) => matchForViewer(JSON.parse(row.value).match, user));
   const season = url.searchParams.get('season');
   const status = url.searchParams.get('status');
   if (season) matches = matches.filter((match) => match.season === season);
@@ -340,7 +371,7 @@ const getLeaderboard = async (env, season) => {
   return { topBatters, topBowlers };
 };
 
-const streamResponse = (request, env, id, initialCard) => {
+const streamResponse = (request, env, id, initialCard, user) => {
   const encoder = new TextEncoder();
   let timer;
   let stopped = false;
@@ -350,7 +381,7 @@ const streamResponse = (request, env, id, initialCard) => {
       const send = (name, value) => controller.enqueue(encoder.encode(
         `event: ${name}\ndata: ${JSON.stringify(value)}\n\n`
       ));
-      send('score:initial', initialCard);
+      send('score:initial', scorecardForViewer(initialCard, user));
       const stop = () => {
         if (stopped) return;
         stopped = true;
@@ -369,7 +400,7 @@ const streamResponse = (request, env, id, initialCard) => {
           const card = getScorecard(found.record);
           if (card.match.updatedAt !== updatedAt) {
             updatedAt = card.match.updatedAt;
-            send('score:initial', card);
+            send('score:initial', scorecardForViewer(card, user));
           } else {
             controller.enqueue(encoder.encode(': heartbeat\n\n'));
           }
@@ -409,9 +440,12 @@ export const handleLiveScoringApi = async ({ request, env, url, path, method, us
   const tail = matchesPath[2] || '';
   if (id && !matchIdPattern.test(id)) return errorResponse('Match ID is invalid.', 400);
 
-  if (!id && method === 'GET' && tail === '') return json(await getAllMatches(env, url));
+  if (!id && method === 'GET' && tail === '') return json(await getAllMatches(env, url, user));
   if (!id && method === 'POST' && tail === '') {
     if (!user) return errorResponse('Sign in required.', 401);
+    if (user.role !== 'owner' && user.role !== 'admin') {
+      return errorResponse('Administrator permission required to create a match.', 403);
+    }
     const body = await readBody(request);
     if (!body) return errorResponse('Match details are invalid.', 400);
     const matchId = text(body.id, `match_${crypto.randomUUID()}`, 120);
@@ -433,15 +467,15 @@ export const handleLiveScoringApi = async ({ request, env, url, path, method, us
 
   const found = id ? await checkedRecord(env, id) : null;
   if (id && method === 'GET' && tail === '') {
-    return found ? json({ match: found.record.match }) : errorResponse('Match not found.', 404);
+    return found ? json({ match: matchForViewer(found.record.match, user) }) : errorResponse('Match not found.', 404);
   }
   if (id && method === 'GET' && tail === '/scorecard') {
     const card = getScorecard(found?.record);
-    return card ? json(card) : errorResponse('Match scorecard not found.', 404);
+    return card ? json(scorecardForViewer(card, user)) : errorResponse('Match scorecard not found.', 404);
   }
   if (id && method === 'GET' && tail === '/stream') {
     const card = getScorecard(found?.record);
-    return card ? streamResponse(request, env, id, card) : errorResponse('Match not found.', 404);
+    return card ? streamResponse(request, env, id, card, user) : errorResponse('Match not found.', 404);
   }
   if (id && method === 'GET' && tail === '/squad') {
     return found ? json({ squads: found.record.squads }) : errorResponse('Match not found.', 404);
@@ -450,8 +484,15 @@ export const handleLiveScoringApi = async ({ request, env, url, path, method, us
   const mutation = method === 'POST' || method === 'PUT' || method === 'DELETE';
   if (id && mutation && !user) return errorResponse('Sign in required.', 401);
   if (!found && id && mutation) return errorResponse('Match not found.', 404);
+  if (id && mutation && user.role === 'scorer' &&
+    found.record.match.assignedScorerId !== user.admin_id) {
+    return errorResponse('You are not assigned to score this match.', 403);
+  }
 
   if (id && method === 'DELETE' && tail === '') {
+    if (user.role !== 'owner' && user.role !== 'admin') {
+      return errorResponse('Administrator permission required to delete a match.', 403);
+    }
     const result = await database(env).prepare(
       'DELETE FROM npl_live_scoring_matches WHERE match_id = ? AND value = ?'
     ).bind(id, found.value).run();
@@ -464,9 +505,10 @@ export const handleLiveScoringApi = async ({ request, env, url, path, method, us
     if (!body) return errorResponse('Match updates are invalid.', 400);
     const allowed = [
       'matchNumber', 'tournamentPhase', 'oversLimit', 'oversPerBowler', 'powerplayOvers',
-      'city', 'ground', 'venue', 'matchDate', 'matchTime', 'assignedScorerId',
+      'city', 'ground', 'venue', 'ballType', 'pitchType', 'umpires', 'secondaryScorers',
+      'matchDate', 'matchTime', 'assignedScorerId',
       'status', 'tossWinnerId', 'tossDecision', 'currentInningsNumber',
-      'currentBattingTeamId', 'currentBowlingTeamId', 'result', 'winnerTeamId',
+      'currentBattingTeamId', 'currentBowlingTeamId', 'currentPlayers', 'result', 'winnerTeamId',
       'winMargin', 'playerOfMatch'
     ];
     try {
@@ -480,6 +522,9 @@ export const handleLiveScoringApi = async ({ request, env, url, path, method, us
   }
 
   if (id && method === 'POST' && tail === '/assign-scorer') {
+    if (user.role !== 'owner' && user.role !== 'admin') {
+      return errorResponse('Administrator permission required to assign a scorer.', 403);
+    }
     const body = await readBody(request);
     if (!body) return errorResponse('Scorer assignment is invalid.', 400);
     try {
@@ -565,6 +610,7 @@ export const handleLiveScoringApi = async ({ request, env, url, path, method, us
         state.match.currentInningsNumber = inningsNumber;
         state.match.currentBattingTeamId = battingTeamId;
         state.match.currentBowlingTeamId = bowlingTeamId;
+        state.match.currentPlayers = openers;
         state.match.status = 'LIVE';
       });
       return json({ match: record.match });
@@ -589,6 +635,12 @@ export const handleLiveScoringApi = async ({ request, env, url, path, method, us
       innings,
       inningsNumber === 2 ? getInningsState(current, found.record.inningsByNumber['1']).totalRuns + 1 : null
     );
+    const selectedBowlerId = body.bowlerId || previousState.currentBowler.id;
+    const selectedBowler = previousState.bowling.find((figure) => figure.id === selectedBowlerId);
+    const bowlerQuota = Number(current.oversPerBowler || Math.ceil(current.oversLimit / 5));
+    if (selectedBowler && selectedBowler.legalBalls >= bowlerQuota * 6) {
+      return errorResponse(`${selectedBowler.name} has reached the ${bowlerQuota}-over bowling quota.`, 400);
+    }
     if (previousState.isInningsComplete) return errorResponse('This innings is already complete.', 409);
     const extraType = body.extraType || null;
     const wicketType = body.wicketType || null;
@@ -692,6 +744,11 @@ export const handleLiveScoringApi = async ({ request, env, url, path, method, us
         record.match.result = result;
         record.match.winnerTeamId = winnerTeamId;
         record.match.winMargin = winMargin;
+        record.match.currentPlayers = {
+          striker: scoreState.currentStriker,
+          nonStriker: scoreState.currentNonStriker,
+          bowler: scoreState.currentBowler
+        };
       });
     } catch (error) {
       return errorResponse(error.message, 409);
@@ -712,6 +769,11 @@ export const handleLiveScoringApi = async ({ request, env, url, path, method, us
     try {
       await updateRecord(env, found, (record) => {
         record.inningsByNumber[String(inningsNumber)].deliveries = deliveries;
+        record.match.currentPlayers = {
+          striker: scoreState.currentStriker,
+          nonStriker: scoreState.currentNonStriker,
+          bowler: scoreState.currentBowler
+        };
         if (record.match.status === 'COMPLETED') {
           record.match.status = 'LIVE';
           record.match.result = null;

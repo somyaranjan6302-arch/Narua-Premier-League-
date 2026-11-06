@@ -306,6 +306,19 @@ const apiRequest = async (request, env) => {
     return json({ state: await readSiteValue(env, `auction-live:${season}`) });
   }
 
+  if (method === 'GET' && path === '/api/auction/live/ws') {
+    const season = url.searchParams.get('season')?.trim() || '';
+    if (!season || season.length > 60) return errorResponse('Choose a valid auction season.', 400);
+    if (request.headers.get('Upgrade')?.toLowerCase() !== 'websocket') {
+      return errorResponse('A WebSocket connection is required.', 426);
+    }
+    if (!env.AUCTION_ROOMS) throw new Error('The Cloudflare Durable Object binding "AUCTION_ROOMS" is not configured.');
+    const roomId = env.AUCTION_ROOMS.idFromName(season);
+    return env.AUCTION_ROOMS.get(roomId).fetch(
+      new Request(`https://auction-room/connect?season=${encodeURIComponent(season)}`, request)
+    );
+  }
+
   if (method === 'POST' && path === '/api/auction-registrations') {
     const rateKey = await getRateKey(request, 'registration');
     if (!await checkRateLimit(env, rateKey, 5, 3600)) {
@@ -358,7 +371,11 @@ const apiRequest = async (request, env) => {
 
   const secret = await loadSessionSecret(env);
   const user = await getUser(request, env, secret);
-  const requireAdmin = () => user ? null : errorResponse('Sign in required.', 401);
+  const requireAdmin = () => !user
+    ? errorResponse('Sign in required.', 401)
+    : user.role === 'owner' || user.role === 'admin'
+      ? null
+      : errorResponse('Administrator permission required.', 403);
   const requireOwner = () => user?.role === 'owner'
     ? null
     : errorResponse(user ? 'Only the developer owner can manage admin accounts.' : 'Sign in required.', user ? 403 : 401);
@@ -522,6 +539,7 @@ const apiRequest = async (request, env) => {
       !Array.isArray(state.soldPlayers) || state.soldPlayers.length > 500 ||
       !Array.isArray(state.unsoldPlayers) || state.unsoldPlayers.length > 500 ||
       !state.teamPurses || typeof state.teamPurses !== 'object' || Array.isArray(state.teamPurses) ||
+      (state.purseCap !== undefined && (!Number.isSafeInteger(state.purseCap) || state.purseCap <= 0)) ||
       Object.values(state.teamPurses).some((purse) => !Number.isSafeInteger(purse) || purse < 0)) {
       return errorResponse('Auction state is invalid.', 400);
     }
@@ -539,6 +557,7 @@ const apiRequest = async (request, env) => {
     }
     const safeState = {
       status: state.status,
+      purseCap: state.purseCap ?? 5000000,
       currentPlayer,
       currentBid: state.currentBid,
       currentBiddingTeam: state.currentBiddingTeam,
@@ -552,6 +571,8 @@ const apiRequest = async (request, env) => {
       teamPurses: state.teamPurses
     };
     const key = `auction-live:${season.trim()}`;
+    const currentState = await readSiteValue(env, key);
+    safeState.version = (Number.isSafeInteger(currentState?.version) ? currentState.version : 0) + 1;
     safeState.updatedAt = new Date().toISOString();
     const saved = await first(
       env,
@@ -569,7 +590,24 @@ const apiRequest = async (request, env) => {
         state: await readSiteValue(env, key)
       }, 409);
     }
-    return json({ state: JSON.parse(saved.value) });
+    const persistedState = JSON.parse(saved.value);
+    try {
+      if (!env.AUCTION_ROOMS) throw new Error('The Cloudflare Durable Object binding "AUCTION_ROOMS" is not configured.');
+      const roomId = env.AUCTION_ROOMS.idFromName(season.trim());
+      const response = await env.AUCTION_ROOMS.get(roomId).fetch('https://auction-room/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ season: season.trim(), state: persistedState })
+      });
+      if (!response.ok) throw new Error(`Auction room returned HTTP ${response.status}.`);
+    } catch (error) {
+      console.error('Auction state was saved, but its WebSocket broadcast failed:', error);
+      return json({
+        error: 'The auction was saved, but live broadcast failed. Viewers will receive the saved state after reconnecting.',
+        state: persistedState
+      }, 503);
+    }
+    return json({ state: persistedState });
   }
 
   if (method === 'POST' && path === '/api/admin/media') {

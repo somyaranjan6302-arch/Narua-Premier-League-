@@ -20,6 +20,10 @@ test('ScoringStore Full Lifecycle: Match setup -> Innings 1 -> Innings 2 Chase -
     teamBShort: 'TBT',
     oversLimit: 5.0,
     oversPerBowler: 2,
+    ballType: 'Leather',
+    pitchType: 'Turf',
+    umpires: [{ name: 'Test Umpire', phone: '1234567890' }],
+    secondaryScorers: [{ name: 'Test Scorer', phone: '0987654321' }],
     city: 'Narua',
     ground: 'Narua Stadium',
     matchDate: '2026-11-02',
@@ -29,6 +33,10 @@ test('ScoringStore Full Lifecycle: Match setup -> Innings 1 -> Innings 2 Chase -
 
   assert.ok(match.id, 'Match should have an ID');
   assert.equal(match.status, 'UPCOMING');
+  assert.equal(match.ballType, 'Leather');
+  assert.equal(match.pitchType, 'Turf');
+  assert.equal(match.umpires[0].name, 'Test Umpire');
+  assert.equal(match.secondaryScorers[0].name, 'Test Scorer');
 
   // 2. Save Squads
   const squadAlpha = [
@@ -79,6 +87,19 @@ test('ScoringStore Full Lifecycle: Match setup -> Innings 1 -> Innings 2 Chase -
   });
   assert.equal(b1.scoreState.totalRuns, 4);
   assert.equal(b1.scoreState.overs, '0.1');
+  const savedMatch = await store.getMatchById(match.id);
+  assert.equal(savedMatch.currentPlayers.striker.id, b1.scoreState.currentStriker.id);
+  assert.equal(savedMatch.currentPlayers.bowler.id, 'b1');
+  await store.updateMatch(match.id, {
+    currentPlayers: {
+      striker: { id: 'a2', name: 'Alpha Striker 2' },
+      nonStriker: { id: 'a1', name: 'Alpha Striker 1' },
+      bowler: { id: 'b1', name: 'Beta Bowler 1' }
+    }
+  });
+  const resumedScorecard = await store.getScorecard(match.id);
+  assert.equal(resumedScorecard.liveSummary.currentStriker.id, 'a2');
+  assert.equal(resumedScorecard.liveSummary.currentNonStriker.id, 'a1');
 
   // 6. Ball 2: Wide (+1 extra)
   const b2 = await store.recordDelivery(match.id, {
@@ -203,4 +224,69 @@ test('ScoringStore Full Lifecycle: Match setup -> Innings 1 -> Innings 2 Chase -
 
   // Clean up test match
   await store.deleteMatch(match.id);
+});
+
+test('ScoringStore enforces each bowler quota', async () => {
+  const store = new ScoringStore(null);
+  const match = await store.createMatch({
+    season: `Quota Test ${Date.now()}`,
+    teamAId: 'quota-alpha',
+    teamBId: 'quota-beta',
+    teamAName: 'Quota Alpha',
+    teamBName: 'Quota Beta',
+    oversLimit: 2,
+    oversPerBowler: 1
+  }, { adminId: 'developer' });
+
+  try {
+    await store.saveSquads(match.id, {
+      teamA: [
+        { id: 'qa1', name: 'Alpha Batter' },
+        { id: 'qa2', name: 'Alpha Partner' }
+      ],
+      teamB: [
+        { id: 'qb1', name: 'Beta Bowler' },
+        { id: 'qb2', name: 'Beta Reserve' }
+      ]
+    });
+    await store.recordToss(match.id, { tossWinnerId: 'quota-alpha', tossDecision: 'BAT' });
+    await store.startInnings(match.id, {
+      inningsNumber: 1,
+      striker: { id: 'qa1', name: 'Alpha Batter' },
+      nonStriker: { id: 'qa2', name: 'Alpha Partner' },
+      bowler: { id: 'qb1', name: 'Beta Bowler' }
+    });
+
+    for (let ball = 0; ball < 6; ball += 1) {
+      await store.recordDelivery(match.id, {
+        strikerId: 'qa1',
+        strikerName: 'Alpha Batter',
+        nonStrikerId: 'qa2',
+        nonStrikerName: 'Alpha Partner',
+        bowlerId: 'qb1',
+        bowlerName: 'Beta Bowler',
+        batRuns: 0,
+        totalRuns: 0,
+        isLegal: true
+      });
+    }
+
+    await assert.rejects(
+      store.recordDelivery(match.id, {
+        strikerId: 'qa1',
+        strikerName: 'Alpha Batter',
+        nonStrikerId: 'qa2',
+        nonStrikerName: 'Alpha Partner',
+        bowlerId: 'qb1',
+        bowlerName: 'Beta Bowler',
+        batRuns: 0,
+        totalRuns: 0,
+        isLegal: true
+      }),
+      /reached the 1-over bowling quota/
+    );
+  } finally {
+    await store.deleteMatch(match.id);
+  }
+  assert.deepEqual(await store.getSquads(match.id), { teamA: [], teamB: [] });
 });

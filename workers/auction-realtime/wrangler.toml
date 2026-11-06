@@ -1,0 +1,18 @@
+name = "npl-auction-realtime"
+main = "src/index.js"
+compatibility_date = "2025-03-01"
+workers_dev = false
+preview_urls = false
+
+[[durable_objects.bindings]]
+name = "AUCTION_ROOMS"
+class_name = "AuctionRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["AuctionRoom"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "npl"
+database_id = "80ff3c08-d06a-49c5-a383-a5bae277d813"

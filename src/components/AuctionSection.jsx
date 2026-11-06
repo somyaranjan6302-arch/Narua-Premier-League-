@@ -9,10 +9,10 @@ export const AuctionSection = () => {
     auctionRegistrations,
     auctionLiveState,
     openModal,
-    isAdminLoggedIn,
     seasons,
     selectedSeason,
-    setSelectedSeason
+    setSelectedSeason,
+    isAuctionDemo
   } = useNpl();
 
   const sessionRegistrations = auctionRegistrations.filter((registration) => registration.season === selectedSeason);
@@ -96,14 +96,16 @@ export const AuctionSection = () => {
                   <span>REGISTER FOR AUCTION</span>
                 </button>
 
-                {/* Enter Live Auction Arena Simulator */}
-                <button
-                  onClick={() => openModal('live-auction-arena')}
+                {/* Public auction broadcast */}
+                <a
+                  href={`/auction-live?season=${encodeURIComponent(selectedSeason)}${isAuctionDemo ? '&demoAuction=1' : ''}`}
+                  target="_blank"
+                  rel="noreferrer"
                   className="px-6 py-4 rounded-2xl font-sports text-xl tracking-wider uppercase bg-slate-900/90 text-white border-2 border-amber-500/60 hover:bg-slate-800 hover:border-amber-400 transition-all flex items-center gap-2.5 shadow-lg group"
                 >
                   <Gavel className="w-5 h-5 text-amber-400 group-hover:rotate-12 transition-transform" />
-                  <span>{isAdminLoggedIn ? 'OPEN AUCTION CONTROL' : 'WATCH LIVE AUCTION'}</span>
-                </button>
+                  <span>WATCH LIVE AUCTION</span>
+                </a>
               </div>
             </div>
 

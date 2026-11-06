@@ -81,7 +81,14 @@ export const registerMatchListener = (matchId, clientRes) => {
 export const broadcastMatchUpdate = (matchId, eventName, payload) => {
   const set = matchListeners.get(matchId);
   if (!set || set.size === 0) return;
-  const data = `event: ${eventName}\ndata: ${JSON.stringify(payload)}\n\n`;
+  const eventPayload = eventName === 'match:updated' && payload && typeof payload === 'object'
+    ? {
+      ...payload,
+      umpires: (payload.umpires || []).map(({ name }) => ({ name })),
+      secondaryScorers: (payload.secondaryScorers || []).map(({ name }) => ({ name }))
+    }
+    : payload;
+  const data = `event: ${eventName}\ndata: ${JSON.stringify(eventPayload)}\n\n`;
   for (const client of set) {
     try {
       client.write(data);
@@ -134,6 +141,10 @@ export class ScoringStore {
             match_date TEXT NOT NULL,
             match_time TEXT NOT NULL,
             venue TEXT NOT NULL DEFAULT 'Narua Cricket Ground',
+            ball_type TEXT NOT NULL DEFAULT 'Tennis',
+            pitch_type TEXT NOT NULL DEFAULT 'Matting',
+            umpires JSONB NOT NULL DEFAULT '[]'::jsonb,
+            secondary_scorers JSONB NOT NULL DEFAULT '[]'::jsonb,
             toss_winner_id TEXT,
             toss_decision TEXT,
             assigned_scorer_id TEXT,
@@ -141,6 +152,7 @@ export class ScoringStore {
             current_innings_number INTEGER DEFAULT 1,
             current_batting_team_id TEXT,
             current_bowling_team_id TEXT,
+            current_players JSONB,
             result TEXT,
             winner_team_id TEXT,
             win_margin TEXT,
@@ -149,6 +161,13 @@ export class ScoringStore {
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
           );
+
+          ALTER TABLE public.npl_matches
+            ADD COLUMN IF NOT EXISTS ball_type TEXT NOT NULL DEFAULT 'Tennis',
+            ADD COLUMN IF NOT EXISTS pitch_type TEXT NOT NULL DEFAULT 'Matting',
+            ADD COLUMN IF NOT EXISTS umpires JSONB NOT NULL DEFAULT '[]'::jsonb,
+            ADD COLUMN IF NOT EXISTS secondary_scorers JSONB NOT NULL DEFAULT '[]'::jsonb,
+            ADD COLUMN IF NOT EXISTS current_players JSONB;
 
           CREATE TABLE IF NOT EXISTS public.npl_match_squads (
             id TEXT PRIMARY KEY,
@@ -255,6 +274,12 @@ export class ScoringStore {
 
   async createMatch(matchData, user) {
     const id = `match_${Date.now()}_${randomBytes(4).toString('hex')}`;
+    const oversLimit = Number(matchData.oversLimit || 20);
+    const oversPerBowler = Number(matchData.oversPerBowler || Math.ceil(oversLimit / 5));
+    if (!Number.isFinite(oversLimit) || oversLimit < 1 || oversLimit > 50 ||
+      !Number.isInteger(oversPerBowler) || oversPerBowler < 1 || oversPerBowler > oversLimit) {
+      throw new Error('Match overs must be 1–50, and each bowler quota must be a whole number within the match length.');
+    }
     const newMatch = {
       id,
       tournamentId: matchData.tournamentId || 'npl-tournament',
@@ -268,12 +293,16 @@ export class ScoringStore {
       teamAShort: matchData.teamAShort || matchData.team1Short || 'TMA',
       teamBShort: matchData.teamBShort || matchData.team2Short || 'TMB',
       matchType: matchData.matchType || 'Limited Overs',
-      oversLimit: Number(matchData.oversLimit || 20),
-      oversPerBowler: Number(matchData.oversPerBowler || Math.ceil((matchData.oversLimit || 20) / 5)),
+      oversLimit,
+      oversPerBowler,
       powerplayOvers: Number(matchData.powerplayOvers || 6),
       city: matchData.city || 'Jajpur',
       ground: matchData.ground || 'Narua Cricket Ground',
       venue: matchData.venue || matchData.ground || 'Narua Cricket Ground',
+      ballType: matchData.ballType || 'Tennis',
+      pitchType: matchData.pitchType || 'Matting',
+      umpires: Array.isArray(matchData.umpires) ? matchData.umpires : [],
+      secondaryScorers: Array.isArray(matchData.secondaryScorers) ? matchData.secondaryScorers : [],
       matchDate: matchData.matchDate || matchData.date || new Date().toISOString().split('T')[0],
       matchTime: matchData.matchTime || matchData.time || '10:00 AM',
       tossWinnerId: null,
@@ -283,6 +312,7 @@ export class ScoringStore {
       currentInningsNumber: 1,
       currentBattingTeamId: null,
       currentBowlingTeamId: null,
+      currentPlayers: null,
       result: null,
       winnerTeamId: null,
       winMargin: null,
@@ -299,16 +329,18 @@ export class ScoringStore {
           team_a_id, team_b_id, team_a_name, team_b_name, team_a_short, team_b_short,
           match_type, overs_limit, overs_per_bowler, powerplay_overs,
           city, ground, venue, match_date, match_time,
+          ball_type, pitch_type, umpires, secondary_scorers,
           assigned_scorer_id, status, created_by, created_at, updated_at
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
-          $16, $17, $18, $19, $20, $21, $22, $23, $24, $25
+          $16, $17, $18, $19, $20, $21, $22::jsonb, $23::jsonb, $24, $25, $26, $27, $28, $29
         )`,
         [
           newMatch.id, newMatch.tournamentId, newMatch.season, newMatch.matchNumber, newMatch.tournamentPhase,
           newMatch.teamAId, newMatch.teamBId, newMatch.teamAName, newMatch.teamBName, newMatch.teamAShort, newMatch.teamBShort,
           newMatch.matchType, newMatch.oversLimit, newMatch.oversPerBowler, newMatch.powerplayOvers,
           newMatch.city, newMatch.ground, newMatch.venue, newMatch.matchDate, newMatch.matchTime,
+          newMatch.ballType, newMatch.pitchType, JSON.stringify(newMatch.umpires), JSON.stringify(newMatch.secondaryScorers),
           newMatch.assignedScorerId, newMatch.status, newMatch.createdBy, newMatch.createdAt, newMatch.updatedAt
         ]
       );
@@ -331,19 +363,24 @@ export class ScoringStore {
           match_number = $2, tournament_phase = $3,
           overs_limit = $4, overs_per_bowler = $5, powerplay_overs = $6,
           city = $7, ground = $8, venue = $9, match_date = $10, match_time = $11,
-          assigned_scorer_id = $12, status = $13,
-          toss_winner_id = $14, toss_decision = $15,
-          current_innings_number = $16, current_batting_team_id = $17, current_bowling_team_id = $18,
-          result = $19, winner_team_id = $20, win_margin = $21, player_of_match = $22,
+          ball_type = $12, pitch_type = $13, umpires = $14::jsonb, secondary_scorers = $15::jsonb,
+          assigned_scorer_id = $16, status = $17,
+          toss_winner_id = $18, toss_decision = $19,
+          current_innings_number = $20, current_batting_team_id = $21, current_bowling_team_id = $22,
+          current_players = $23::jsonb, result = $24, winner_team_id = $25,
+          win_margin = $26, player_of_match = $27,
           updated_at = NOW()
         WHERE id = $1
       `, [
         matchId, updated.matchNumber, updated.tournamentPhase,
         updated.oversLimit, updated.oversPerBowler, updated.powerplayOvers,
         updated.city, updated.ground, updated.venue, updated.matchDate, updated.matchTime,
+        updated.ballType || 'Tennis', updated.pitchType || 'Matting',
+        JSON.stringify(updated.umpires || []), JSON.stringify(updated.secondaryScorers || []),
         updated.assignedScorerId, updated.status,
         updated.tossWinnerId, updated.tossDecision,
         updated.currentInningsNumber, updated.currentBattingTeamId, updated.currentBowlingTeamId,
+        updated.currentPlayers ? JSON.stringify(updated.currentPlayers) : null,
         updated.result, updated.winnerTeamId, updated.winMargin, updated.playerOfMatch ? JSON.stringify(updated.playerOfMatch) : null
       ]);
       return updated;
@@ -366,6 +403,9 @@ export class ScoringStore {
       const deliveries = await readJson(deliveriesFile, {});
       delete deliveries[matchId];
       await writeJson(deliveriesFile, deliveries);
+      const squads = await readJson(squadsFile, {});
+      delete squads[matchId];
+      await writeJson(squadsFile, squads);
     }
   }
 
@@ -452,7 +492,8 @@ export class ScoringStore {
       status: 'LIVE',
       currentInningsNumber: inningsNumber,
       currentBattingTeamId: battingTeamId,
-      currentBowlingTeamId: bowlingTeamId
+      currentBowlingTeamId: bowlingTeamId,
+      currentPlayers: { striker, nonStriker, bowler }
     });
 
     // Save opening players
@@ -555,6 +596,12 @@ export class ScoringStore {
         openingBowler: openers.bowler,
         deliveries: inningsDeliveries
       });
+      const selectedBowlerId = deliveryInput.bowlerId || currentState.currentBowler.id;
+      const selectedBowler = currentState.bowling.find((figure) => figure.id === selectedBowlerId);
+      const bowlerQuota = Number(match.oversPerBowler || Math.ceil(match.oversLimit / 5));
+      if (selectedBowler && selectedBowler.legalBalls >= bowlerQuota * 6) {
+        throw new Error(`${selectedBowler.name} has reached the ${bowlerQuota}-over bowling quota.`);
+      }
 
       // Prepare ball record
       const isLegal = deliveryInput.extraType !== EXTRA_TYPES.WIDE && deliveryInput.extraType !== EXTRA_TYPES.NO_BALL;
@@ -633,7 +680,6 @@ export class ScoringStore {
       if (stateAfter.isInningsComplete) {
         if (inningsNum === 1) {
           match.status = 'INNINGS_BREAK';
-          await this.updateMatch(matchId, { status: 'INNINGS_BREAK' });
         } else if (inningsNum === 2) {
           let resultText = '';
           let winnerId = null;
@@ -660,14 +706,20 @@ export class ScoringStore {
           match.result = resultText;
           match.winnerTeamId = winnerId;
           match.winMargin = margin;
-          await this.updateMatch(matchId, {
-            status: 'COMPLETED',
-            result: resultText,
-            winnerTeamId: winnerId,
-            winMargin: margin
-          });
         }
       }
+
+      await this.updateMatch(matchId, {
+        status: match.status,
+        result: match.result,
+        winnerTeamId: match.winnerTeamId,
+        winMargin: match.winMargin,
+        currentPlayers: {
+          striker: stateAfter.currentStriker,
+          nonStriker: stateAfter.currentNonStriker,
+          bowler: stateAfter.currentBowler
+        }
+      });
 
       if (this.database) {
         await this.database.query(`
@@ -768,8 +820,18 @@ export class ScoringStore {
       if (match.status === 'COMPLETED') {
         match.status = 'LIVE';
         match.result = null;
-        await this.updateMatch(matchId, { status: 'LIVE', result: null, winnerTeamId: null, winMargin: null });
       }
+      await this.updateMatch(matchId, {
+        status: match.status,
+        result: match.result,
+        winnerTeamId: match.status === 'LIVE' ? null : match.winnerTeamId,
+        winMargin: match.status === 'LIVE' ? null : match.winMargin,
+        currentPlayers: {
+          striker: stateAfterUndo.currentStriker,
+          nonStriker: stateAfterUndo.currentNonStriker,
+          bowler: stateAfterUndo.currentBowler
+        }
+      });
 
       const payload = {
         matchId,
@@ -826,6 +888,12 @@ export class ScoringStore {
     });
 
     const currentInningsState = match.currentInningsNumber === 2 ? inn2State : inn1State;
+    const savedPlayers = match.currentPlayers || {};
+    const currentBowler = savedPlayers.bowler
+      ? savedPlayers.bowler.id === currentInningsState.currentBowler?.id
+        ? { ...currentInningsState.currentBowler, ...savedPlayers.bowler }
+        : { ...savedPlayers.bowler, overs: '0.0', maidens: 0, runsConceded: 0, wickets: 0, economy: '0.00' }
+      : currentInningsState.currentBowler;
 
     const firstBattingTeamId = match.tossDecision === 'BAT'
       ? match.tossWinnerId
@@ -844,9 +912,9 @@ export class ScoringStore {
         target: inn2State.target,
         remainingRuns: currentInningsState.remainingRuns,
         remainingBalls: currentInningsState.remainingBalls,
-        currentStriker: currentInningsState.currentStriker,
-        currentNonStriker: currentInningsState.currentNonStriker,
-        currentBowler: currentInningsState.currentBowler,
+        currentStriker: savedPlayers.striker || currentInningsState.currentStriker,
+        currentNonStriker: savedPlayers.nonStriker || currentInningsState.currentNonStriker,
+        currentBowler,
         recentDeliveries: currentInningsState.recentDeliveries,
         currentOverDeliveries: currentInningsState.currentOverDeliveries
       },
@@ -889,6 +957,10 @@ export class ScoringStore {
       city: row.city,
       ground: row.ground,
       venue: row.venue,
+      ballType: row.ball_type || 'Tennis',
+      pitchType: row.pitch_type || 'Matting',
+      umpires: row.umpires || [],
+      secondaryScorers: row.secondary_scorers || [],
       matchDate: row.match_date,
       matchTime: row.match_time,
       tossWinnerId: row.toss_winner_id,
@@ -898,6 +970,7 @@ export class ScoringStore {
       currentInningsNumber: Number(row.current_innings_number || 1),
       currentBattingTeamId: row.current_batting_team_id,
       currentBowlingTeamId: row.current_bowling_team_id,
+      currentPlayers: row.current_players || null,
       result: row.result,
       winnerTeamId: row.winner_team_id,
       winMargin: row.win_margin,

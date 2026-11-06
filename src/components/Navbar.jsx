@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NplLogo } from './NplLogo';
 import { useNpl } from '../context/NplContext';
-import { Menu, X, Shield, Award, Calendar, Users, Trophy, Image, Play, Flame, Newspaper, ChevronDown } from 'lucide-react';
+import { Menu, X, Shield, Award, Calendar, Users, Trophy, Image, Play, Flame, Newspaper, ChevronDown, UserPlus } from 'lucide-react';
 
 export const Navbar = ({ activeSection, setActiveSection }) => {
   const { matches, openModal, setIsAdminModalOpen, isAdminLoggedIn, siteMedia } = useNpl();
@@ -131,13 +131,27 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
               {isMoreOpen && (
                 <div className="absolute right-0 z-50 mt-2 w-52 rounded-xl border border-indigo-300/20 bg-[#090858] py-2 shadow-2xl backdrop-blur-lg">
                   {moreItems.map((subItem) => (
-                    <button
-                      key={subItem.target}
-                      onClick={() => handleNavClick(subItem.target)}
-                      className="w-full px-4 py-2 text-left text-xs font-semibold text-slate-200 transition-colors hover:bg-white/10 hover:text-[#ffdb19]"
-                    >
-                      {subItem.label}
-                    </button>
+                    subItem.external ? (
+                      <a
+                        key={subItem.target}
+                        href="/scorer"
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={() => setIsMoreOpen(false)}
+                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-xs font-semibold text-amber-300 transition-colors hover:bg-white/10 hover:text-[#ffdb19]"
+                      >
+                        <Trophy className="h-3.5 w-3.5" />
+                        <span>{subItem.label}</span>
+                      </a>
+                    ) : (
+                      <button
+                        key={subItem.target}
+                        onClick={() => handleNavClick(subItem.target)}
+                        className="w-full px-4 py-2 text-left text-xs font-semibold text-slate-200 transition-colors hover:bg-white/10 hover:text-[#ffdb19]"
+                      >
+                        {subItem.label}
+                      </button>
+                    )
                   ))}
                   <div className="my-1 border-t border-indigo-300/20"></div>
                   <button
@@ -185,18 +199,18 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
           <div className="relative z-20 mt-2 space-y-2 border-t border-indigo-300/20 bg-[#090858] px-4 pb-6 pt-4 shadow-2xl animate-in slide-in-from-top duration-200 xl:hidden">
             <div className="grid grid-cols-2 gap-2 border-b border-indigo-300/20 pb-3">
               {navItems.map((item) => (
-                <button
-                  key={item.target}
-                  onClick={() => handleNavClick(item.target)}
-                  className={`flex items-center gap-1.5 px-2.5 py-2.5 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider text-left transition-colors ${
-                    activeSection === item.target
-                      ? "text-[#ffdb19] bg-white/10"
-                      : "text-slate-200 hover:bg-white/10"
-                  }`}
-                >
-                  {item.icon && <item.icon className="w-4 h-4 text-[#ff8a00]" />}
-                  <span>{item.label}</span>
-                </button>
+                  <button
+                    key={item.target}
+                    onClick={() => handleNavClick(item.target)}
+                    className={`flex items-center gap-1.5 px-2.5 py-2.5 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider text-left transition-colors ${
+                      activeSection === item.target
+                        ? "text-[#ffdb19] bg-white/10"
+                        : "text-slate-200 hover:bg-white/10"
+                    }`}
+                  >
+                    {item.icon && <item.icon className="w-4 h-4 text-[#ff8a00]" />}
+                    <span>{item.label}</span>
+                  </button>
               ))}
             </div>
 
@@ -212,27 +226,46 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
               ))}
             </div>
 
-            <div className="flex items-center justify-between border-t border-indigo-300/20 pt-3">
-              <button
-                onClick={() => {
-                  setIsMobileMenuOpen(false);
-                  setIsAdminModalOpen(true);
-                }}
-                className="flex items-center gap-2 py-2 text-[10px] sm:text-xs font-bold text-slate-200 hover:text-[#ffdb19]"
-              >
-                <Shield className="w-4 h-4 text-[#ff8a00]" />
-                <span>Tournament Admin Panel</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setIsMobileMenuOpen(false);
-                  openModal('auction-register');
-                }}
-                className="rounded-lg bg-gradient-to-r from-[#ff8a00] to-[#ffdb19] px-3 py-2 text-[10px] sm:px-4 sm:text-xs font-bold text-slate-950"
-              >
-                Register Now
-              </button>
+            <div className="border-t border-indigo-300/20 pt-3">
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    setIsAdminModalOpen(true);
+                  }}
+                  className="inline-flex min-w-0 items-center justify-center gap-1.5 rounded-lg border border-white/15 bg-white/5 px-2 py-2 text-[10px] font-bold text-slate-100 transition hover:border-[#ffdb19]/50 hover:bg-white/10 hover:text-[#ffdb19] sm:text-xs"
+                >
+                  <Shield className="h-3.5 w-3.5 shrink-0 text-[#ff8a00]" />
+                  <span className="truncate">Admin Control</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    openModal('auction-register');
+                  }}
+                  className="inline-flex min-w-0 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-[#ff8a00] to-[#ffdb19] px-2 py-2 text-[10px] font-extrabold text-slate-950 transition hover:brightness-110 active:scale-[0.98] sm:text-xs"
+                >
+                  <UserPlus className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">Register Now</span>
+                </button>
+                <button
+                  onClick={() => handleNavClick('auction')}
+                  className="inline-flex min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[#ff8a00]/40 bg-[#ff8a00]/10 px-2 py-2 text-[10px] font-bold text-amber-200 transition hover:bg-[#ff8a00]/20 sm:text-xs"
+                >
+                  <Flame className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">Auction</span>
+                </button>
+                <a
+                  href="/scorer"
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="inline-flex min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[#ffdb19]/40 bg-[#ffdb19]/10 px-2 py-2 text-[10px] font-bold text-[#ffdb19] transition hover:bg-[#ffdb19]/20 sm:text-xs"
+                >
+                  <Trophy className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">Scoring</span>
+                </a>
+              </div>
             </div>
           </div>
         )}

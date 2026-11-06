@@ -1,23 +1,27 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNpl } from '../../context/NplContext';
+import { DEFAULT_AUCTION_PURSE_CAP } from '../../data/nplData';
 import { TeamBadge } from '../TeamBadge';
 import { PlayerPortrait } from '../PlayerPortrait';
 import { X, Gavel, Radio, Activity, CircleDollarSign, CheckCircle2 } from 'lucide-react';
 
-export const LiveAuctionArenaModal = ({ onClose }) => {
+export const LiveAuctionArenaModal = ({ onClose, isAdminControl = false, standalone = false }) => {
   const {
     teams,
     auctionRegistrations,
     auctionLiveState,
     auctionSyncStatus,
     selectedSeason,
+    isAuctionDemo,
     isAdminLoggedIn,
     callLiveAuctionPlayer,
+    setLiveAuctionPurseCap,
     setLiveAuctionStatus,
     placeLiveBid,
     sellLivePlayer,
     markLivePlayerUnsold
   } = useNpl();
+  const canControlAuction = isAdminControl && isAdminLoggedIn;
 
   const eligiblePlayers = auctionRegistrations.filter((player) =>
     player.season === selectedSeason && ['VERIFIED', 'SHORTLISTED'].includes(player.status)
@@ -32,12 +36,23 @@ export const LiveAuctionArenaModal = ({ onClose }) => {
         : team.session ? [team.session] : [selectedSeason];
     return sessions.includes(selectedSeason);
   }), [selectedSeason, teams]);
+  const purseCap = auctionLiveState.purseCap ?? DEFAULT_AUCTION_PURSE_CAP;
+  const bidIncrementOptions = [50, 100, 200, 500];
   const [selectedPlayerId, setSelectedPlayerId] = useState('');
-  const [selectedIncrement, setSelectedIncrement] = useState(25000);
+  const [selectedIncrement, setSelectedIncrement] = useState(100);
+  const [customIncrement, setCustomIncrement] = useState('');
+  const [purseCapDraft, setPurseCapDraft] = useState(String(auctionLiveState.purseCap ?? DEFAULT_AUCTION_PURSE_CAP));
   const [isSaving, setIsSaving] = useState(false);
   const [auctionError, setAuctionError] = useState('');
   const selectedPlayer = eligiblePlayers.find((player) => player.id === selectedPlayerId);
   const liveStatus = auctionLiveState.status || 'waiting';
+  const bidIncrement = selectedIncrement === 'custom'
+    ? Number(customIncrement)
+    : selectedIncrement;
+
+  useEffect(() => {
+    setPurseCapDraft(String(purseCap));
+  }, [purseCap, selectedSeason]);
 
   const performAction = async (action) => {
     setAuctionError('');
@@ -61,35 +76,50 @@ export const LiveAuctionArenaModal = ({ onClose }) => {
     performAction(() => sellLivePlayer(currentPlayer, currentBiddingTeamId, currentBid, selectedSeason));
   };
 
+  const handleSavePurseCap = () => {
+    const nextPurseCap = Number(purseCapDraft);
+    if (!Number.isSafeInteger(nextPurseCap) || nextPurseCap <= 0) {
+      setAuctionError('Enter a purse cap greater than zero rupees.');
+      return;
+    }
+    performAction(() => setLiveAuctionPurseCap(nextPurseCap, selectedSeason));
+  };
+
   const handleUnsold = () => {
     if (currentPlayer) performAction(() => markLivePlayerUnsold(currentPlayer, selectedSeason));
   };
 
   return (
     <div
-      role="dialog"
-      aria-modal="true"
+      role={standalone ? undefined : 'dialog'}
+      aria-modal={standalone ? undefined : 'true'}
       aria-labelledby="live-auction-title"
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/90 p-3 backdrop-blur-lg sm:p-4"
+      className={standalone
+        ? 'flex min-h-[100dvh] w-full items-stretch justify-center bg-[#070E20]'
+        : 'fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/90 p-3 backdrop-blur-lg sm:p-4'}
     >
-      <div className="relative w-full max-w-6xl bg-[#070E20] border-2 border-amber-500/50 rounded-3xl shadow-[0_0_60px_rgba(245,158,11,0.25)] overflow-hidden my-6 max-h-[92vh] flex flex-col">
+      <div className={standalone
+        ? 'relative flex h-[100dvh] min-h-0 w-full flex-col overflow-hidden bg-[#070E20]'
+        : 'relative my-6 flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border-2 border-amber-500/50 bg-[#070E20] shadow-[0_0_60px_rgba(245,158,11,0.25)]'}>
         {/* Header */}
-        <div className="bg-gradient-to-r from-slate-950 via-[#0C1733] to-slate-950 p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-slate-950 font-bold shadow-lg">
-              <Gavel className="w-5 h-5" />
+        <div className="flex flex-shrink-0 items-center justify-between gap-2 border-b border-slate-800 bg-gradient-to-r from-slate-950 via-[#0C1733] to-slate-950 px-3 py-3 sm:gap-3 sm:p-5">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 font-bold text-slate-950 shadow-lg sm:h-10 sm:w-10">
+              <Gavel className="h-4 w-4 sm:h-5 sm:w-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block">
-                {isAdminLoggedIn ? 'AUCTION CONTROL ROOM' : 'LIVE AUCTION BROADCAST'}
+                {isAuctionDemo
+                  ? 'SESSION 6 DEMO • SAMPLE ONLY • NOT SAVED'
+                  : canControlAuction ? 'AUCTION CONTROL ROOM' : 'LIVE AUCTION BROADCAST'}
               </span>
-              <h3 id="live-auction-title" className="font-sports text-2xl sm:text-3xl text-white tracking-wide leading-none">
+              <h3 id="live-auction-title" className="break-words font-sports text-base leading-tight tracking-wide text-white sm:text-3xl sm:leading-none">
                 NPL MEGA AUCTION ARENA • {selectedSeason.toUpperCase()}
               </h3>
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <span className={`hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase sm:inline-flex ${
               auctionSyncStatus === 'online'
                 ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
@@ -98,18 +128,28 @@ export const LiveAuctionArenaModal = ({ onClose }) => {
               <span className={`h-1.5 w-1.5 rounded-full ${auctionSyncStatus === 'online' ? 'bg-emerald-400' : 'bg-rose-400'}`} />
               {auctionSyncStatus === 'online' ? 'Live updates connected' : 'Reconnecting'}
             </span>
-            <button
-              onClick={onClose}
-              aria-label="Close live auction"
-              className="rounded-xl border border-slate-700 bg-slate-900 p-2 text-slate-400 hover:text-white"
-            >
-              <X className="h-5 w-5" />
-            </button>
+            {standalone ? (
+              <a
+                href={isAuctionDemo ? '/?demoAuction=1' : '/'}
+                aria-label="Back to NPL"
+                className="rounded-xl border border-slate-700 bg-slate-900 p-2 text-slate-400 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </a>
+            ) : (
+              <button
+                onClick={onClose}
+                aria-label="Close live auction"
+                className="rounded-xl border border-slate-700 bg-slate-900 p-2 text-slate-400 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            )}
           </div>
         </div>
 
         {/* Body Grid: Left Hammer Stage (7 cols) + Right Teams Purse & History (5 cols) */}
-        <div className="p-4 sm:p-6 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className={`min-h-0 flex-1 p-4 sm:p-6 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 gap-6 ${standalone ? 'content-start' : ''}`}>
           {/* Left Column: Player on the Hammer */}
           <div className="lg:col-span-7 space-y-6">
             {/* Player Selector Strip */}
@@ -126,12 +166,12 @@ export const LiveAuctionArenaModal = ({ onClose }) => {
                 <span className="text-xs font-semibold text-slate-400">
                   {currentPlayer
                     ? 'Player on the auction stage'
-                    : isAdminLoggedIn
+                    : canControlAuction
                       ? `${eligiblePlayers.length} approved players ready for auction`
                       : 'Watching for the next player announcement'}
                 </span>
               </div>
-              {isAdminLoggedIn && (
+              {canControlAuction && (
                 <div className="flex min-w-0 flex-1 flex-col gap-2 sm:ml-4 sm:max-w-xl sm:flex-row">
                   <select
                     value={selectedPlayerId}
@@ -189,7 +229,7 @@ export const LiveAuctionArenaModal = ({ onClose }) => {
                         Base Price
                       </span>
                       <span className="mt-0.5 block font-sports text-xl text-white">
-                        {currentPlayer.basePrice || '₹30,000'}
+                        {currentPlayer.basePrice || '₹100'}
                       </span>
                     </div>
                   </div>
@@ -225,10 +265,10 @@ export const LiveAuctionArenaModal = ({ onClose }) => {
                   </div>
                 </div>
 
-                {isAdminLoggedIn && (
+                {canControlAuction && (
                   <div className="mt-6 space-y-3 border-t border-slate-800 pt-4">
                     <div className="flex flex-wrap gap-2">
-                      {[1000, 5000, 10000, 25000].map((increment) => (
+                      {bidIncrementOptions.map((increment) => (
                         <button
                           key={increment}
                           type="button"
@@ -241,20 +281,41 @@ export const LiveAuctionArenaModal = ({ onClose }) => {
                               : 'border-amber-700/60 bg-amber-950/50 text-amber-200 hover:bg-amber-900'
                           }`}
                         >
-                          +₹{increment.toLocaleString('en-IN')} per bid
+                          +₹{increment.toLocaleString('en-IN')}
                         </button>
                       ))}
                     </div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Custom bid increment (₹)
+                      <input
+                        type="number"
+                        min="1"
+                        step="1000"
+                        value={customIncrement}
+                        onFocus={() => setSelectedIncrement('custom')}
+                        onChange={(event) => {
+                          setCustomIncrement(event.target.value);
+                          setSelectedIncrement('custom');
+                        }}
+                        disabled={isSaving}
+                        aria-label="Custom bid increment in rupees"
+                        className="mt-1 min-h-10 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm font-bold text-white"
+                      />
+                    </label>
                     <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-300">
-                      Register the bidding franchise
+                      Bid increment: ₹{bidIncrement.toLocaleString('en-IN')} • Register the bidding franchise
                     </span>
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                      {sessionTeams.map((team) => (
+                      {sessionTeams.map((team) => {
+                        const remainingPurse = auctionLiveState.teamPurses?.[team.id] ?? purseCap;
+                        const nextBid = currentBid + bidIncrement;
+                        const exceedsPurse = nextBid > remainingPurse;
+                        return (
                         <button
                           key={team.id}
                           type="button"
-                          disabled={isSaving || liveStatus !== 'live' || !currentPlayer}
-                          onClick={() => handleRaiseBid(team.id, selectedIncrement)}
+                          disabled={isSaving || liveStatus !== 'live' || !currentPlayer || bidIncrement <= 0 || exceedsPurse}
+                          onClick={() => handleRaiseBid(team.id, bidIncrement)}
                           className={`flex min-h-12 items-center gap-2 rounded-xl border p-2 text-left transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
                             currentBiddingTeamId === team.id
                               ? 'border-amber-400 bg-amber-500/15'
@@ -262,9 +323,12 @@ export const LiveAuctionArenaModal = ({ onClose }) => {
                           }`}
                         >
                           <TeamBadge team={team} size="xs" />
-                          <span className="min-w-0 truncate text-xs font-bold text-white">{team.shortName || team.name}</span>
+                          <span className="min-w-0 truncate text-xs font-bold text-white">
+                            {team.shortName || team.name}{exceedsPurse ? ' • Budget limit' : ''}
+                          </span>
                         </button>
-                      ))}
+                      );
+                      })}
                     </div>
                     <div className="flex flex-col gap-2 border-t border-slate-800 pt-3 sm:flex-row">
                       {liveStatus !== 'completed' && (
@@ -315,7 +379,7 @@ export const LiveAuctionArenaModal = ({ onClose }) => {
                   {liveStatus === 'completed' ? 'AUCTION CLOSED' : 'WAITING FOR THE NEXT PLAYER'}
                 </p>
                 <p className="mt-2 text-sm text-slate-400">
-                  {isAdminLoggedIn
+                  {canControlAuction
                     ? 'Select an eligible player above and call them to the auction stage.'
                     : 'The auctioneer will announce the next player here. Live updates refresh automatically.'}
                 </p>
@@ -333,12 +397,38 @@ export const LiveAuctionArenaModal = ({ onClose }) => {
                   <CircleDollarSign className="h-4 w-4 text-amber-300" />
                   FRANCHISE REMAINING PURSES
                 </h4>
-                <span className="text-[10px] text-slate-400 font-bold">CAP: ₹50 LAKHS</span>
+                <span className="text-[10px] text-slate-400 font-bold">CAP: ₹{purseCap.toLocaleString('en-IN')}</span>
               </div>
+
+              {canControlAuction && (
+                <div className="flex flex-col gap-2 rounded-xl border border-amber-500/30 bg-slate-950/70 p-3 sm:flex-row sm:items-end">
+                  <label className="min-w-0 flex-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Set budget per team (₹)
+                    <input
+                      type="number"
+                      min="1"
+                      step="10000"
+                      value={purseCapDraft}
+                      onChange={(event) => setPurseCapDraft(event.target.value)}
+                      disabled={isSaving}
+                      aria-label="Budget per team in rupees"
+                      className="mt-1 min-h-10 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm font-bold text-white"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    disabled={isSaving}
+                    onClick={handleSavePurseCap}
+                    className="min-h-10 shrink-0 rounded-lg bg-amber-500 px-4 py-2 text-xs font-black uppercase text-slate-950 disabled:cursor-wait disabled:opacity-50"
+                  >
+                    {isSaving ? 'Saving...' : 'Save budget'}
+                  </button>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-2 text-xs">
                 {sessionTeams.map(t => {
-                  const purse = auctionLiveState.teamPurses[t.id] ?? 5000000;
+                  const purse = auctionLiveState.teamPurses[t.id] ?? purseCap;
                   return (
                     <div key={t.id} className="min-w-0 rounded-xl border border-slate-800/80 bg-slate-950/80 p-2">
                       <div className="flex min-w-0 items-center gap-1.5">
@@ -348,7 +438,7 @@ export const LiveAuctionArenaModal = ({ onClose }) => {
                         </span>
                       </div>
                       <span className="mt-1 block text-right font-mono text-xs font-bold text-amber-400">
-                        ₹{(purse / 100000).toFixed(1)}L
+                        ₹{purse.toLocaleString('en-IN')}
                       </span>
                     </div>
                   );

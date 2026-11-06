@@ -29,7 +29,6 @@ import {
   Edit,
   Save,
   Activity,
-  Award,
   UserPlus,
   Upload,
   UserRound
@@ -41,6 +40,21 @@ const getTeamSessions = (team, seasonEditions) => {
   if (team.session) return [team.session];
   return seasonEditions;
 };
+
+const createEmptyStanding = (team) => ({
+  teamId: team.id,
+  team: team.name,
+  short: team.shortName || team.name,
+  p: 0,
+  w: 0,
+  l: 0,
+  nr: 0,
+  nrr: '0.000',
+  pts: 0,
+  form: [],
+  qualified: false,
+  color: team.primaryColor || '#1d4ed8'
+});
 
 const getMediaSessionId = (session) => getSessionMediaKey('session', session);
 
@@ -150,11 +164,7 @@ export const AdminDashboardModal = ({ onClose }) => {
     setSeasons,
     selectedSeason,
     setSelectedSeason,
-    matches,
-    setMatches,
-    updateMatchLiveScore,
     pointsTable,
-    setPointsTable,
     seasonStandings,
     setSeasonStandings,
     topPerformers,
@@ -169,7 +179,9 @@ export const AdminDashboardModal = ({ onClose }) => {
     highlights,
     setHighlights,
     auctionRegistrations,
+    addDemoAuctionPlayers,
     updateRegistrationStatus,
+    updateAuctionPlayerBasePrice,
     champions,
     setChampions,
     news,
@@ -184,7 +196,6 @@ export const AdminDashboardModal = ({ onClose }) => {
     loginAdmin,
     logoutAdmin,
     resetToFactoryDefaults,
-    openModal
   } = useNpl();
 
   const [adminIdInput, setAdminIdInput] = useState('');
@@ -256,17 +267,6 @@ export const AdminDashboardModal = ({ onClose }) => {
     mediaPreviewUrls.current.clear();
   }, []);
   const [teamError, setTeamError] = useState('');
-  const [matchError, setMatchError] = useState('');
-  const [matchDraft, setMatchDraft] = useState({
-    team1Id: '',
-    team2Id: '',
-    matchNumber: '',
-    tournamentPhase: 'League',
-    date: '',
-    time: '',
-    venue: 'Narua Bada Padia',
-    status: 'UPCOMING'
-  });
   const [galleryDraft, setGalleryDraft] = useState({
     title: '',
     category: 'MATCH DAY',
@@ -297,7 +297,7 @@ export const AdminDashboardModal = ({ onClose }) => {
     setTeamSessionFocus((current) => current || selectedSeason || seasons[0]?.edition || 'Season 5');
     setTeamDraft((current) => ({ ...current, sessions: current.sessions?.length ? current.sessions : [selectedSeason || seasons[0]?.edition || 'Season 5'] }));
   }, [selectedSeason, seasons]);
-  const [activeTab, setActiveTab] = useState('registrations'); // 'registrations' | 'livescore' | 'teams' | 'tournament' | 'news'
+  const [activeTab, setActiveTab] = useState('registrations');
   const [regSearch, setRegSearch] = useState('');
   const [regStatusFilter, setRegStatusFilter] = useState('ALL');
 
@@ -307,73 +307,6 @@ export const AdminDashboardModal = ({ onClose }) => {
     setLoginError('');
     const result = await loginAdmin(adminIdInput, passwordInput);
     if (!result.success) setLoginError(result.error);
-  };
-
-  const launchScorerForMatch = async (fixture) => {
-    if (!fixture) return;
-    const teamA = teams.find((team) => team.id === fixture.team1?.id);
-    const teamB = teams.find((team) => team.id === fixture.team2?.id);
-    const scorerMatch = {
-      id: fixture.id,
-      season: selectedSeason,
-      matchNumber: fixture.matchNumber || 'Match 1',
-      tournamentPhase: fixture.tournamentPhase || 'LEAGUE MATCH',
-      teamAId: fixture.team1?.id || 'team-1',
-      teamBId: fixture.team2?.id || 'team-2',
-      teamAName: fixture.team1?.name || 'Team 1',
-      teamBName: fixture.team2?.name || 'Team 2',
-      teamAShort: fixture.team1?.shortName || 'T1',
-      teamBShort: fixture.team2?.shortName || 'T2',
-      matchDate: fixture.date || new Date().toISOString().slice(0, 10),
-      matchTime: fixture.time || '14:00',
-      venue: fixture.venue || 'Narua Cricket Ground',
-      oversLimit: 20
-    };
-
-    try {
-      const matchResponse = await fetch('/api/matches', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(scorerMatch)
-      });
-      const matchResult = await matchResponse.json().catch(() => ({}));
-      if (!matchResponse.ok) {
-        throw new Error(matchResult.error || 'Could not prepare this match for scoring.');
-      }
-
-      const squadResponse = await fetch(`/api/matches/${encodeURIComponent(fixture.id)}/squad`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          squads: {
-            teamA: (teamA?.players || []).map((player, index) => ({
-              id: String(player.id || `team-a-player-${index + 1}`),
-              name: player.name || `Player ${index + 1}`,
-              isPlayingXi: true
-            })),
-            teamB: (teamB?.players || []).map((player, index) => ({
-              id: String(player.id || `team-b-player-${index + 1}`),
-              name: player.name || `Player ${index + 1}`,
-              isPlayingXi: true
-            }))
-          }
-        })
-      });
-      const squadResult = await squadResponse.json().catch(() => ({}));
-      if (!squadResponse.ok) {
-        throw new Error(squadResult.error || 'Could not load the match squads.');
-      }
-
-      onClose();
-      openModal('scorer-console', {
-        ...scorerMatch,
-        ...(matchResult.match || {}),
-        teamAName: scorerMatch.teamAName,
-        teamBName: scorerMatch.teamBName
-      });
-    } catch (error) {
-      showToast(error.message || 'Could not open the live scorer.', 'error');
-    }
   };
 
   const loadAdminAccounts = async () => {
@@ -463,40 +396,6 @@ export const AdminDashboardModal = ({ onClose }) => {
     }
   };
 
-  const handleAddSessionMatch = (event) => {
-    event.preventDefault();
-    if (adminUser?.role !== 'owner') {
-      setMatchError('Only the developer can add fixtures.');
-      return;
-    }
-
-    const sessionTeams = teams.filter((team) => getTeamSessions(team, seasons.map((season) => season.edition)).includes(selectedSeason));
-    const team1 = sessionTeams.find((team) => team.id === matchDraft.team1Id);
-    const team2 = sessionTeams.find((team) => team.id === matchDraft.team2Id);
-    if (!team1 || !team2 || team1.id === team2.id) {
-      setMatchError('Choose two different teams assigned to this session.');
-      return;
-    }
-
-    const match = {
-      id: `match-${Date.now()}`,
-      season: selectedSeason,
-      matchNumber: matchDraft.matchNumber.trim() || `Match ${matches.filter((item) => item.season === selectedSeason).length + 1}`,
-      tournamentPhase: matchDraft.tournamentPhase,
-      date: matchDraft.date,
-      time: matchDraft.time,
-      venue: matchDraft.venue.trim() || 'Narua Bada Padia',
-      status: matchDraft.status,
-      team1: { id: team1.id, name: team1.name, shortName: team1.shortName, score: '0/0', overs: '0' },
-      team2: { id: team2.id, name: team2.name, shortName: team2.shortName, score: '0/0', overs: '0' }
-    };
-
-    setMatches((previousMatches) => [match, ...previousMatches]);
-    setMatchDraft((current) => ({ ...current, team1Id: '', team2Id: '', matchNumber: '' }));
-    setMatchError('');
-    showToast(`${match.matchNumber} was added to ${selectedSeason}.`);
-  };
-
   const handleAddSession = (event) => {
     event.preventDefault();
     if (adminUser?.role !== 'owner') return;
@@ -535,6 +434,8 @@ export const AdminDashboardModal = ({ onClose }) => {
     setTeamSessionFocus(edition);
     setTeamDraft((current) => ({ ...current, sessions: [edition] }));
     setNewsDraft((current) => ({ ...current, season: edition }));
+    setActiveTab('teams');
+    setIsSessionWorkspaceOpen(true);
     setSessionDraft({ edition: '', year: String(new Date().getFullYear()) });
     setSessionError('');
     showToast(`${edition} was added and is now available in session selectors.`);
@@ -649,12 +550,6 @@ export const AdminDashboardModal = ({ onClose }) => {
     } catch (error) {
       showToast(error.message || 'The news item could not be deleted.', 'error');
     }
-  };
-
-  const handleRemoveSessionMatch = () => {
-    if (adminUser?.role !== 'owner' || !liveMatch) return;
-    setMatches((previousMatches) => previousMatches.filter((match) => match.id !== liveMatch.id));
-    showToast(`${liveMatch.matchNumber} was removed from ${selectedSeason}.`);
   };
 
   const handleAddSessionGalleryItem = (event) => {
@@ -830,6 +725,18 @@ export const AdminDashboardModal = ({ onClose }) => {
     if (alsoAddNextSeason) ensureTeamSessionExists(nextTeamSession);
 
     setTeams((previousTeams) => [...newTeams, ...previousTeams]);
+    setSeasonStandings((previousStandings) => {
+      const nextStandings = { ...previousStandings };
+      targetSessions.forEach((session) => {
+        const rows = nextStandings[session] || [];
+        const additions = newTeams
+          .filter((team) => team.sessions.includes(session) && !rows.some((row) => row.teamId === team.id))
+          .map(createEmptyStanding);
+        nextStandings[session] = [...rows, ...additions]
+          .map((row, index) => ({ ...row, pos: index + 1 }));
+      });
+      return nextStandings;
+    });
     setTeamDraft({
       name: '',
       shortName: '',
@@ -868,10 +775,23 @@ export const AdminDashboardModal = ({ onClose }) => {
       ...team,
       id: `${teamSlug}-${nextSessionSlug}`,
       sessions: [nextTeamSession],
-      squad: Array.isArray(team.squad) ? team.squad.map((player) => ({ ...player })) : []
+      squad: [],
+      matches: 0,
+      wins: 0,
+      losses: 0,
+      winPercentage: 0
     };
 
     setTeams((previousTeams) => [nextSeasonCopy, ...previousTeams]);
+    setSeasonStandings((previousStandings) => {
+      const rows = previousStandings[nextTeamSession] || [];
+      if (rows.some((row) => row.teamId === nextSeasonCopy.id)) return previousStandings;
+      return {
+        ...previousStandings,
+        [nextTeamSession]: [...rows, createEmptyStanding(nextSeasonCopy)]
+          .map((row, index) => ({ ...row, pos: index + 1 }))
+      };
+    });
     showToast(`${team.name} has been added to ${nextTeamSession}.`);
   };
 
@@ -1160,8 +1080,8 @@ export const AdminDashboardModal = ({ onClose }) => {
     const pendingMedia = pendingMediaFiles[mediaKey];
     const cropFile = mediaCropFiles[mediaKey];
     return (
-    <div key={item.rowKey || baseMediaKey} className={`grid ${previewWide ? 'grid-cols-[12rem_minmax(0,1fr)] xl:grid-cols-[12rem_minmax(0,1fr)_auto]' : 'grid-cols-[5rem_minmax(0,1fr)] xl:grid-cols-[5rem_minmax(0,1fr)_auto]'} items-center gap-3 border-b border-slate-800 py-4 last:border-0 xl:gap-4`}>
-      <label title={`Click to change ${title}`} className={`group relative flex-shrink-0 cursor-pointer overflow-hidden rounded-lg border border-slate-700 bg-slate-950 focus-within:border-amber-400 ${previewWide ? 'w-44' : 'w-20'}`} style={{ aspectRatio }}>
+    <div key={item.rowKey || baseMediaKey} className={`grid min-w-0 ${previewWide ? 'grid-cols-[minmax(0,8rem)_minmax(0,1fr)] sm:grid-cols-[12rem_minmax(0,1fr)] xl:grid-cols-[12rem_minmax(0,1fr)_auto]' : 'grid-cols-[4rem_minmax(0,1fr)] sm:grid-cols-[5rem_minmax(0,1fr)] xl:grid-cols-[5rem_minmax(0,1fr)_auto]'} items-center gap-3 border-b border-slate-800 py-4 last:border-0 xl:gap-4`}>
+      <label title={`Click to change ${title}`} className={`group relative flex-shrink-0 cursor-pointer overflow-hidden rounded-lg border border-slate-700 bg-slate-950 focus-within:border-amber-400 ${previewWide ? 'w-32 sm:w-44' : 'w-16 sm:w-20'}`} style={{ aspectRatio }}>
         {(pendingMedia?.previewUrl || cropFile?.previewUrl || siteMedia[mediaKey] || siteMedia[baseMediaKey] || fallbackImage) ? (
           <img src={pendingMedia?.previewUrl || cropFile?.previewUrl || siteMedia[mediaKey] || siteMedia[baseMediaKey] || fallbackImage} alt={`${title} preview`} className={`h-full w-full ${fit ? 'object-contain' : 'object-cover'}`} />
         ) : showPhotoGuide ? (
@@ -1266,7 +1186,7 @@ export const AdminDashboardModal = ({ onClose }) => {
           </span>
         )}
       </div>
-      <div className="col-span-2 flex items-center justify-start gap-2 xl:col-span-1 xl:justify-end">
+      <div className="col-span-2 flex min-w-0 flex-wrap items-center justify-start gap-2 xl:col-span-1 xl:justify-end">
         <button
           type="button"
           onClick={() => handleMediaUpload(mediaKey)}
@@ -1774,9 +1694,6 @@ export const AdminDashboardModal = ({ onClose }) => {
     return true;
   });
 
-  // Live match for quick scoreboard adjuster
-  const liveSessionMatches = matches.filter((match) => (match.season || match.session) === selectedSeason);
-  const liveMatch = liveSessionMatches.find(m => m.status === 'LIVE') || liveSessionMatches[0];
   const teamsForSelectedSession = teams.filter((team) => getTeamSessions(team, seasons.map((season) => season.edition)).includes(selectedSeason));
   const registrationsForSelectedSession = auctionRegistrations.filter((registration) => registration.season === selectedSeason);
   const adminPointsTable = seasonStandings[selectedSeason]
@@ -1794,8 +1711,9 @@ export const AdminDashboardModal = ({ onClose }) => {
               <span className="block text-[8px] font-bold uppercase tracking-widest text-amber-400 sm:text-[10px]">
                 ORGANIZER CONTROL CENTER
               </span>
-              <h3 className="break-words font-sports text-base leading-tight tracking-wide text-white sm:text-3xl">
-                NPL TOURNAMENT DIRECTOR PORTAL
+              <h3 className="font-sports text-sm leading-tight tracking-wide text-white sm:text-3xl">
+                <span className="sm:hidden">NPL ADMIN</span>
+                <span className="hidden sm:inline">NPL TOURNAMENT DIRECTOR PORTAL</span>
               </h3>
             </div>
           </div>
@@ -1896,7 +1814,7 @@ export const AdminDashboardModal = ({ onClose }) => {
           /* Main Admin Panel Dashboard */
           <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
             {/* Top Metrics Row */}
-            <div className="hidden flex-shrink-0 grid-cols-2 gap-2 border-b border-slate-800 bg-slate-950 p-2 text-center text-xs sm:grid sm:grid-cols-4 sm:gap-3 sm:p-4 lg:grid-cols-6">
+            <div className="hidden flex-shrink-0 grid-cols-2 gap-2 border-b border-slate-800 bg-slate-950 p-2 text-center text-xs sm:grid sm:grid-cols-4 sm:gap-3 sm:p-4 lg:grid-cols-5">
               <div className="p-2 bg-slate-900/60 rounded-xl">
                 <span className="text-[10px] text-slate-400 uppercase font-bold block">Registrations</span>
                 <span className="font-sports text-2xl text-amber-400">{registrationsForSelectedSession.length}</span>
@@ -1916,10 +1834,6 @@ export const AdminDashboardModal = ({ onClose }) => {
               <div className="p-2 bg-slate-900/60 rounded-xl">
                 <span className="text-[10px] text-blue-400 uppercase font-bold block">Teams</span>
                 <span className="font-sports text-2xl text-blue-400">{teamsForSelectedSession.length}</span>
-              </div>
-              <div className="p-2 bg-slate-900/60 rounded-xl">
-                <span className="text-[10px] text-purple-400 uppercase font-bold block">Matches</span>
-                <span className="font-sports text-2xl text-purple-400">{liveSessionMatches.length}</span>
               </div>
               <div className="p-2 bg-slate-900/60 rounded-xl flex items-center justify-center">
                 <button
@@ -1941,13 +1855,6 @@ export const AdminDashboardModal = ({ onClose }) => {
               >
                 <span className="sm:hidden">REG ({registrationsForSelectedSession.length})</span>
                 <span className="hidden sm:inline">AUCTION REGISTRATIONS ({registrationsForSelectedSession.length})</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('livescore')}
-                className={`min-h-12 whitespace-nowrap border-b-2 px-3 py-2 font-sports text-sm tracking-wider transition-colors sm:px-4 sm:py-3 sm:text-base ${activeTab === 'livescore' ? 'border-amber-500 text-amber-400' : 'border-transparent text-slate-400 hover:text-white'}`}
-              >
-                <span className="sm:hidden">LIVE SCORE</span>
-                <span className="hidden sm:inline">LIVE MATCH SCORER</span>
               </button>
               <button
                 onClick={() => setActiveTab('teams')}
@@ -1984,7 +1891,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                     <button
                       type="button"
                       onClick={showTeamLogoSlots}
-                      className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-sky-500 px-4 py-2 text-xs font-black uppercase tracking-wide text-slate-950 transition hover:bg-sky-400"
+                      className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-sky-500 px-4 py-2 text-xs font-black uppercase tracking-wide text-slate-950 transition hover:bg-sky-400 sm:w-auto"
                     >
                       <Shield className="h-4 w-4" />
                       Upload team logos
@@ -1992,7 +1899,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                     <button
                       type="button"
                       onClick={() => document.getElementById('media-image-library')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                      className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-sky-700 bg-sky-950/70 px-4 py-2 text-xs font-black uppercase tracking-wide text-sky-200 transition hover:bg-sky-900"
+                      className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-sky-700 bg-sky-950/70 px-4 py-2 text-xs font-black uppercase tracking-wide text-sky-200 transition hover:bg-sky-900 sm:w-auto"
                     >
                       <Image className="h-4 w-4" />
                       All photo uploads
@@ -2012,7 +1919,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                     Year
                     <input required type="number" min="1900" max="9999" value={sessionDraft.year} onChange={(event) => setSessionDraft((current) => ({ ...current, year: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white" />
                   </label>
-                  <button type="submit" className="inline-flex items-center justify-center gap-2 rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-cyan-400">
+                  <button type="submit" className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-cyan-400 sm:w-auto">
                     <Plus className="h-4 w-4" /> Add session
                   </button>
                   {sessionError && <p role="alert" className="sm:col-span-3 text-sm text-rose-300">{sessionError}</p>}
@@ -2073,9 +1980,9 @@ export const AdminDashboardModal = ({ onClose }) => {
                     Full written content
                     <textarea required value={newsDraft.fullContent} onChange={(event) => setNewsDraft((current) => ({ ...current, fullContent: event.target.value }))} rows={6} className="mt-1 w-full resize-y rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white" />
                   </label>
-                  <div className="sm:col-span-2 flex justify-end">
-                    {editingNewsItemId && <button type="button" onClick={handleCancelNewsEdit} className="mr-2 rounded-lg border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-800">Cancel</button>}
-                    <button type="submit" className="inline-flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-bold text-white hover:bg-blue-400">
+                  <div className="sm:col-span-2 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                    {editingNewsItemId && <button type="button" onClick={handleCancelNewsEdit} className="w-full rounded-lg border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-800 sm:w-auto">Cancel</button>}
+                    <button type="submit" className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-bold text-white hover:bg-blue-400 sm:w-auto">
                       {editingNewsItemId ? <Save className="h-4 w-4" /> : <Newspaper className="h-4 w-4" />}
                       {editingNewsItemId ? 'Save changes' : 'Publish content'}
                     </button>
@@ -2093,7 +2000,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                             <p className="truncate text-sm font-semibold text-white">{item.headline}</p>
                             <p className="mt-1 text-xs text-slate-400">{isTextOnly ? 'Important news • written only' : isAnnouncement ? 'Announcement' : 'Article'} • {item.season || item.session || 'Unassigned'} • {item.date}</p>
                           </div>
-                          <div className="flex flex-shrink-0 items-center gap-2">
+                          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
                             <button type="button" onClick={() => handleEditNewsItem(item)} className="inline-flex items-center gap-1.5 rounded-lg border border-blue-700 bg-blue-950/70 px-3 py-2 text-xs font-bold text-blue-200 hover:bg-blue-900"><Edit className="h-4 w-4" />Edit</button>
                             <button type="button" onClick={() => handleDeleteNewsItem(item)} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-800 bg-rose-950/60 px-3 py-2 text-xs font-bold text-rose-300 hover:bg-rose-900"><Trash2 className="h-4 w-4" />Delete</button>
                           </div>
@@ -2115,7 +2022,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                   <button
                     type="button"
                     onClick={() => setMediaCategory('player-assets')}
-                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-blue-500 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-white transition hover:bg-blue-400"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-500 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-white transition hover:bg-blue-400 sm:w-auto"
                   >
                     <Users className="h-4 w-4" />
                     Manage player & team photos
@@ -2134,7 +2041,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                       setMediaCategory('champions');
                       setMediaSearch('');
                     }}
-                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-slate-950 transition hover:bg-amber-400"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-slate-950 transition hover:bg-amber-400 sm:w-auto"
                   >
                     <Trophy className="h-4 w-4" />
                     Manage champion photos
@@ -2168,8 +2075,8 @@ export const AdminDashboardModal = ({ onClose }) => {
                     Caption (optional)
                     <textarea value={sectionPhotoDraft.caption} onChange={(event) => setSectionPhotoDraft((current) => ({ ...current, caption: event.target.value }))} rows={2} className="mt-1 w-full resize-y rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white" />
                   </label>
-                  <div className="sm:col-span-2 flex justify-end">
-                    <button type="submit" className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-emerald-400">
+                  <div className="sm:col-span-2 flex justify-stretch sm:justify-end">
+                    <button type="submit" className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-emerald-400 sm:w-auto">
                       <Plus className="h-4 w-4" /> Add section photo slot
                     </button>
                   </div>
@@ -2226,13 +2133,13 @@ export const AdminDashboardModal = ({ onClose }) => {
                     Date or event
                     <input value={galleryDraft.date} onChange={(event) => setGalleryDraft((current) => ({ ...current, date: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white" placeholder={selectedSeason} />
                   </label>
-                  <div className="sm:col-span-2 flex justify-end">
+                  <div className="sm:col-span-2 flex flex-col gap-2 sm:flex-row sm:justify-end">
                     {editingGalleryItemId && (
-                      <button type="button" onClick={handleCancelGalleryEdit} className="mr-2 rounded-lg border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-800">
+                      <button type="button" onClick={handleCancelGalleryEdit} className="w-full rounded-lg border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-800 sm:w-auto">
                         Cancel
                       </button>
                     )}
-                    <button type="submit" className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-amber-400">
+                    <button type="submit" className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-amber-400 sm:w-auto">
                       {editingGalleryItemId ? <Save className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
                       {editingGalleryItemId ? 'Save changes' : 'Add photo slot'}
                     </button>
@@ -2262,8 +2169,8 @@ export const AdminDashboardModal = ({ onClose }) => {
                             {item.caption && <p className="mt-1 line-clamp-2 text-xs text-slate-500">{item.caption}</p>}
                           </div>
                         </div>
-                        <div className="flex flex-shrink-0 flex-wrap items-center gap-2">
-                          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800">
+                        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+                          <label className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800">
                             <Upload className="h-4 w-4" />
                             Choose image
                             <input
@@ -2320,7 +2227,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                   <button
                     type="button"
                     onClick={handleAddLegacyPhoto}
-                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-violet-500 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-white transition hover:bg-violet-400"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-violet-500 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-white transition hover:bg-violet-400 sm:w-auto"
                   >
                     <Plus className="h-4 w-4" />
                     Add old photo
@@ -2340,7 +2247,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                       setMediaSearch('');
                       document.getElementById('media-image-library')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                     }}
-                    className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-slate-950 transition hover:bg-amber-400"
+                    className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-slate-950 transition hover:bg-amber-400 sm:w-auto"
                   >
                     <Image className="h-4 w-4" />
                     Manage record photos
@@ -2359,7 +2266,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                       setMediaCategory('featured-performers');
                       setMediaSearch('');
                     }}
-                    className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-sky-500 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-slate-950 transition hover:bg-sky-400"
+                    className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-sky-500 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-slate-950 transition hover:bg-sky-400 sm:w-auto"
                   >
                     <UserRound className="h-4 w-4" />
                     Manage homepage photos
@@ -2378,7 +2285,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                       setMediaCategory('performer-section');
                       setMediaSearch('');
                     }}
-                    className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-indigo-500 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-white transition hover:bg-indigo-400"
+                    className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-indigo-500 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-white transition hover:bg-indigo-400 sm:w-auto"
                   >
                     <UserRound className="h-4 w-4" />
                     Manage section photos
@@ -2459,8 +2366,8 @@ export const AdminDashboardModal = ({ onClose }) => {
                         </label>
                       ))}
                     </div>
-                    <div className="mt-4 flex justify-end">
-                      <button type="submit" disabled={isSavingMediaInfo} className="inline-flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-bold text-white hover:bg-blue-400 disabled:cursor-wait disabled:opacity-60">
+                    <div className="mt-4 flex justify-stretch sm:justify-end">
+                      <button type="submit" disabled={isSavingMediaInfo} className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-bold text-white hover:bg-blue-400 disabled:cursor-wait disabled:opacity-60 sm:w-auto">
                         <Save className="h-4 w-4" /> {isSavingMediaInfo ? 'Saving...' : 'Save information'}
                       </button>
                     </div>
@@ -2477,7 +2384,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                         <button
                           type="button"
                           onClick={openTeamsForLogoSession}
-                          className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-sky-500 px-4 py-2 text-xs font-black uppercase tracking-wide text-slate-950 transition hover:bg-sky-400"
+                          className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-sky-500 px-4 py-2 text-xs font-black uppercase tracking-wide text-slate-950 transition hover:bg-sky-400 sm:w-auto"
                         >
                           <Plus className="h-4 w-4" />
                           Add teams to {mediaSessionFilter}
@@ -2495,10 +2402,12 @@ export const AdminDashboardModal = ({ onClose }) => {
             {activeTab === 'registrations' && (
               <div className="flex-grow space-y-4 overflow-y-auto p-3 sm:p-5">
                 {/* Search & Action bar */}
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <SessionSelector seasons={seasons} selectedSeason={selectedSeason} setSelectedSeason={setSelectedSeason} />
-                    <div className="relative flex-grow sm:w-64">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="grid w-full min-w-0 grid-cols-2 items-end gap-2 sm:flex sm:w-auto sm:items-center">
+                    <div className="col-span-2 min-w-0 sm:col-span-1">
+                      <SessionSelector seasons={seasons} selectedSeason={selectedSeason} setSelectedSeason={setSelectedSeason} />
+                    </div>
+                    <div className="relative min-w-0 w-full sm:flex-grow sm:w-64">
                       <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
                         type="text"
@@ -2512,7 +2421,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                     <select
                       value={regStatusFilter}
                       onChange={(e) => setRegStatusFilter(e.target.value)}
-                      className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-300"
+                      className="w-full min-w-0 bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-300 sm:w-auto"
                     >
                       <option value="ALL">All Statuses</option>
                       <option value="PENDING">Pending</option>
@@ -2523,22 +2432,34 @@ export const AdminDashboardModal = ({ onClose }) => {
                     </select>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                    {import.meta.env.DEV && (
+                      <button
+                        type="button"
+                        onClick={() => addDemoAuctionPlayers(selectedSeason)}
+                        className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-sky-700 bg-sky-950/70 px-3 py-1.5 text-xs font-bold text-sky-200 hover:bg-sky-900 sm:w-auto"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        <span>Add 3 Demo Players</span>
+                      </button>
+                    )}
                     <button
                       onClick={handleExportCSV}
-                      className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-bold text-slate-200 hover:text-amber-400 flex items-center gap-1.5"
+                      className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-bold text-slate-200 hover:text-amber-400 sm:w-auto"
                     >
                       <Download className="w-3.5 h-3.5" />
                       <span>Export CSV</span>
                     </button>
 
-                    <button
-                      onClick={() => openModal('live-auction-arena')}
-                      className="px-4 py-1.5 rounded-xl bg-amber-500 text-slate-950 text-xs font-sports tracking-wider hover:bg-amber-400 flex items-center gap-1 font-bold"
+                    <a
+                      href={`/auction-live?season=${encodeURIComponent(selectedSeason)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex w-full items-center justify-center gap-1 rounded-xl bg-amber-500 px-4 py-1.5 text-[10px] font-sports font-bold tracking-wider text-slate-950 hover:bg-amber-400 sm:w-auto sm:text-xs"
                     >
                       <Flame className="w-3.5 h-3.5 fill-current" />
                       <span>LAUNCH AUCTION ARENA</span>
-                    </button>
+                    </a>
                   </div>
                 </div>
 
@@ -2550,6 +2471,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                         <th className="py-3 px-3">PLAYER ID</th>
                         <th className="py-3 px-3">FULL NAME</th>
                         <th className="py-3 px-3">ROLE</th>
+                        <th className="py-3 px-3">BASE PRICE (₹)</th>
                         <th className="py-3 px-3">STATUS</th>
                         <th className="py-3 px-3 text-right">DIRECTOR ACTIONS</th>
                       </tr>
@@ -2568,6 +2490,27 @@ export const AdminDashboardModal = ({ onClose }) => {
                           </td>
                           <td className="py-3 px-3 text-slate-300">
                             {reg.role}
+                          </td>
+                          <td className="py-3 px-3">
+                            <input
+                              type="number"
+                              min="1"
+                              step="1"
+                              aria-label={`Base price for ${reg.fullName || reg.name}`}
+                              defaultValue={Number(String(reg.basePrice || '').replace(/[^\d]/g, '')) || 100}
+                              onBlur={(event) => {
+                                const basePrice = Number(event.currentTarget.value);
+                                const currentBasePrice = Number(String(reg.basePrice || '').replace(/[^\d]/g, '')) || 100;
+                                if (basePrice === currentBasePrice) return;
+                                try {
+                                  updateAuctionPlayerBasePrice(reg.id, basePrice);
+                                } catch (error) {
+                                  event.currentTarget.value = String(currentBasePrice);
+                                  showToast(error.message || 'Could not update player base price.', 'error');
+                                }
+                              }}
+                              className="w-28 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs font-bold text-white"
+                            />
                           </td>
                           <td className="py-3 px-3">
                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
@@ -2610,161 +2553,23 @@ export const AdminDashboardModal = ({ onClose }) => {
               </div>
             )}
 
-            {/* Tab 2: Live Match Scoreboard Adjuster */}
-            {activeTab === 'livescore' && (
-              <div className="flex-grow space-y-5 overflow-y-auto p-3 sm:space-y-6 sm:p-6">
-                {adminUser?.role === 'owner' && (
-                  <form onSubmit={handleAddSessionMatch} className="grid grid-cols-1 gap-3 rounded-2xl border border-amber-800/60 bg-amber-950/20 p-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <div className="sm:col-span-2 lg:col-span-3">
-                      <h4 className="font-sports text-lg text-amber-300">ADD FIXTURE TO {selectedSeason.toUpperCase()}</h4>
-                      <p className="text-xs text-slate-400">Only teams registered for this session are selectable.</p>
-                    </div>
-                    <label className="text-[11px] font-bold uppercase text-slate-400">
-                      Team 1
-                      <select required value={matchDraft.team1Id} onChange={(event) => setMatchDraft((current) => ({ ...current, team1Id: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm normal-case text-white">
-                        <option value="">Select team</option>
-                        {teamsForSelectedSession.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
-                      </select>
-                    </label>
-                    <label className="text-[11px] font-bold uppercase text-slate-400">
-                      Team 2
-                      <select required value={matchDraft.team2Id} onChange={(event) => setMatchDraft((current) => ({ ...current, team2Id: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm normal-case text-white">
-                        <option value="">Select team</option>
-                        {teamsForSelectedSession.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
-                      </select>
-                    </label>
-                    <label className="text-[11px] font-bold uppercase text-slate-400">
-                      Match number
-                      <input value={matchDraft.matchNumber} onChange={(event) => setMatchDraft((current) => ({ ...current, matchNumber: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm normal-case text-white" placeholder="Match 1" />
-                    </label>
-                    <label className="text-[11px] font-bold uppercase text-slate-400">
-                      Stage
-                      <input value={matchDraft.tournamentPhase} onChange={(event) => setMatchDraft((current) => ({ ...current, tournamentPhase: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm normal-case text-white" />
-                    </label>
-                    <label className="text-[11px] font-bold uppercase text-slate-400">
-                      Status
-                      <select value={matchDraft.status} onChange={(event) => setMatchDraft((current) => ({ ...current, status: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm normal-case text-white">
-                        {['UPCOMING', 'LIVE', 'COMPLETED'].map((status) => <option key={status}>{status}</option>)}
-                      </select>
-                    </label>
-                    <label className="text-[11px] font-bold uppercase text-slate-400">
-                      Date
-                      <input type="date" value={matchDraft.date} onChange={(event) => setMatchDraft((current) => ({ ...current, date: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm normal-case text-white" />
-                    </label>
-                    <label className="text-[11px] font-bold uppercase text-slate-400">
-                      Time
-                      <input type="time" value={matchDraft.time} onChange={(event) => setMatchDraft((current) => ({ ...current, time: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm normal-case text-white" />
-                    </label>
-                    <label className="text-[11px] font-bold uppercase text-slate-400">
-                      Venue
-                      <input value={matchDraft.venue} onChange={(event) => setMatchDraft((current) => ({ ...current, venue: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm normal-case text-white" />
-                    </label>
-                    {matchError && <p role="alert" className="sm:col-span-2 lg:col-span-3 text-sm text-rose-300">{matchError}</p>}
-                    <div className="sm:col-span-2 lg:col-span-3 flex justify-end">
-                      <button type="submit" className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-amber-400"><Plus className="h-4 w-4" />Add fixture</button>
-                    </div>
-                  </form>
-                )}
-                {!liveMatch && (
-                  <p className="rounded-xl border border-dashed border-slate-700 bg-slate-950/60 p-5 text-center text-sm text-slate-400">No match is assigned to {selectedSeason} yet.</p>
-                )}
-                <div className="glass-panel-card p-6 rounded-3xl border border-slate-800 space-y-4">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                    <div>
-                      <span className="text-[10px] text-red-500 font-bold uppercase tracking-widest block">
-                        ACTIVE LIVE FIXTURE
-                      </span>
-                      <h4 className="font-sports text-2xl text-white tracking-wider">
-                        {liveMatch?.team1?.name} vs {liveMatch?.team2?.name}
-                      </h4>
-                    </div>
-                    <SessionSelector seasons={seasons} selectedSeason={selectedSeason} setSelectedSeason={setSelectedSeason} />
-                    <span className="px-2.5 py-1 rounded bg-red-600 text-white font-bold text-xs uppercase animate-pulse">
-                      BROADCAST LIVE
-                    </span>
-                    {adminUser?.role === 'owner' && liveMatch && (
-                      <button type="button" onClick={handleRemoveSessionMatch} className="rounded-lg border border-rose-800 bg-rose-950/60 px-3 py-1.5 text-[10px] font-bold uppercase text-rose-300 hover:bg-rose-900">Remove fixture</button>
-                    )}
-                  </div>
-
-                  {/* Current Score Display */}
-                  <div className="grid grid-cols-2 gap-4 text-center bg-slate-950 p-4 rounded-2xl border border-slate-800">
-                    <div>
-                      <span className="text-xs text-slate-400 block">{liveMatch?.team1?.name}</span>
-                      <span className="font-sports text-4xl text-amber-400">{liveMatch?.team1?.score}</span>
-                      <span className="text-xs text-slate-400 block">({liveMatch?.team1?.overs} ov)</span>
-                    </div>
-
-                    <div>
-                      <span className="text-xs text-slate-400 block">{liveMatch?.team2?.name}</span>
-                      <span className="font-sports text-4xl text-white">{liveMatch?.team2?.score}</span>
-                      <span className="text-xs text-slate-400 block">({liveMatch?.team2?.overs} ov)</span>
-                    </div>
-                  </div>
-
-                  {/* CricHeroes Scorer Launcher & Match Quick Controls */}
-                  <div className="space-y-4 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => launchScorerForMatch(liveMatch)}
-                      disabled={!liveMatch}
-                      className="w-full flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 px-6 py-4 font-sports text-lg tracking-wider text-slate-950 hover:brightness-110 shadow-xl transition disabled:opacity-40"
-                    >
-                      <Award className="h-6 w-6 text-slate-950" />
-                      <span>LAUNCH CRICHEROES LIVE SCORER CONSOLE</span>
-                    </button>
-
-                    <div className="pt-2">
-                      <span className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-2">
-                        ALL FIXTURES IN {selectedSeason.toUpperCase()}:
-                      </span>
-                      <div className="space-y-2 max-h-60 overflow-y-auto">
-                        {matches
-                          .filter((m) => (m.season || m.session) === selectedSeason)
-                          .map((m) => (
-                            <div
-                              key={m.id}
-                              className="flex items-center justify-between p-3 rounded-xl border border-slate-800 bg-slate-950 text-xs"
-                            >
-                              <div>
-                                <span className="font-sports text-sm text-white">
-                                  {m.team1?.name} vs {m.team2?.name}
-                                </span>
-                                <span className="text-[10px] text-slate-500 block">
-                                  {m.matchNumber} • {m.tournamentPhase} • Status: {m.status}
-                                </span>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => launchScorerForMatch(m)}
-                                className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs"
-                              >
-                                Score Match →
-                              </button>
-                            </div>
-                          ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Tab 3: Teams & Points Table Editor */}
             {activeTab === 'teams' && (
               <div className="flex-grow space-y-4 overflow-y-auto p-3 sm:p-6">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                  <h4 className="font-sports text-xl text-white tracking-wider">
+                <div className="flex flex-col gap-2 border-b border-slate-800 pb-2 sm:flex-row sm:items-end sm:justify-between">
+                  <h4 className="font-sports text-lg text-white tracking-wider sm:text-xl">
                     EDIT POINTS TABLE & FRANCHISE RECORDS
                   </h4>
-                  <SessionSelector seasons={seasons} selectedSeason={selectedSeason} setSelectedSeason={setSelectedSeason} />
+                  <div className="self-start sm:self-auto">
+                    <SessionSelector seasons={seasons} selectedSeason={selectedSeason} setSelectedSeason={setSelectedSeason} />
+                  </div>
                 </div>
 
                 {adminUser?.role === 'owner' && (
-                  <div className="rounded-2xl border border-amber-800/60 bg-amber-950/20 p-4 space-y-4">
+                  <div className="space-y-4 rounded-2xl border border-amber-800/60 bg-amber-950/20 p-3 sm:p-4">
                     <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
                       <div>
-                        <h5 className="font-sports text-lg text-amber-300">DEVELOPER TEAM MANAGER</h5>
+                        <h5 className="font-sports text-base text-amber-300 sm:text-lg">DEVELOPER TEAM MANAGER</h5>
                         <p className="text-xs text-slate-300">Open a session to manage only its teams. Changes are saved to this browser automatically.</p>
                       </div>
 
@@ -2794,7 +2599,7 @@ export const AdminDashboardModal = ({ onClose }) => {
                           role="dialog"
                           aria-modal="true"
                           aria-labelledby="session-team-workspace-title"
-                          className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-amber-700/70 bg-slate-950 shadow-2xl"
+                          className="flex max-h-[92dvh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-amber-700/70 bg-slate-950 shadow-2xl sm:max-h-[92vh]"
                         >
                           <header className="flex items-center justify-between gap-4 border-b border-slate-800 px-4 py-3 sm:px-6">
                             <div>
@@ -2910,10 +2715,10 @@ export const AdminDashboardModal = ({ onClose }) => {
                         </div>
                       )}
 
-                      <div className="md:col-span-2 flex justify-end">
+                      <div className="md:col-span-2 flex justify-stretch sm:justify-end">
                         <button
                           type="submit"
-                          className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-amber-400"
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-amber-400 sm:w-auto"
                         >
                           <Plus className="h-4 w-4" />
                           Add Team
@@ -3155,12 +2960,12 @@ export const AdminDashboardModal = ({ onClose }) => {
                     />
                   </div>
                 </div>
-                <div className="flex justify-end border-t border-slate-800 pt-4">
+                <div className="flex justify-stretch border-t border-slate-800 pt-4 sm:justify-end">
                   <button
                     type="button"
                     onClick={handleTournamentSave}
                     disabled={JSON.stringify(tournamentDraft) === JSON.stringify(tournamentInfo)}
-                    className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
                   >
                     <Save className="h-4 w-4" />
                     Save Changes

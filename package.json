@@ -8,7 +8,8 @@
   },
   "scripts": {
     "dev": "node server/index.js",
-    "dev:cloudflare": "npm run build && wrangler d1 migrations apply npl --local && wrangler pages dev dist",
+    "dev:cloudflare": "npm run build && wrangler d1 migrations apply npl --local && wrangler pages dev dist --do AUCTION_ROOMS=AuctionRoom@npl-auction-realtime --persist-to .wrangler/state",
+    "dev:auction-realtime": "wrangler dev --config workers/auction-realtime/wrangler.toml --persist-to .wrangler/state",
     "build": "node scripts/generate-static-site-media.mjs && vite build",
     "lint": "oxlint",
     "android:sync": "cap sync android",
@@ -17,7 +18,7 @@
     "app-icon:studio": "node scripts/app-icon-studio.mjs",
     "preview": "vite preview",
     "start": "node server/index.js",
-    "deploy:cloudflare": "npm run build && wrangler pages deploy dist",
+    "deploy:cloudflare": "npm run build && wrangler deploy --config workers/auction-realtime/wrangler.toml && wrangler pages deploy dist --project-name narua-premier-league",
     "db:migrate:local": "wrangler d1 migrations apply npl --local",
     "db:migrate:remote": "wrangler d1 migrations apply npl --remote"
   },
@@ -32,7 +33,8 @@
     "multer": "^2.4.0",
     "pg": "^8.23.1",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "ws": "^8.22.1"
   },
   "devDependencies": {
     "@capacitor/assets": "^4.0.0",

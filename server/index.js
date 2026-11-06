@@ -1,11 +1,13 @@
 import { promisify } from 'node:util';
 import { createHmac, randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import multer from 'multer';
 import pg from 'pg';
+import { WebSocket, WebSocketServer } from 'ws';
 import { mergeOfficialSession3Content } from '../src/data/session3Data.js';
 import { mergeOfficialSession4Content } from '../src/data/session4Data.js';
 import { mergeOfficialSession5Content } from '../src/data/session5Data.js';
@@ -284,6 +286,16 @@ const start = async () => {
   const scoringStore = new ScoringStore(database);
   await scoringStore.initSchema();
   const app = express();
+  const auctionWebSocketServer = new WebSocketServer({ noServer: true });
+  const auctionSubscribers = new Map();
+  const broadcastAuctionState = (season, state) => {
+    const subscribers = auctionSubscribers.get(season);
+    if (!subscribers) return;
+    const message = JSON.stringify({ type: 'auction-state', season, state });
+    for (const socket of subscribers) {
+      if (socket.readyState === WebSocket.OPEN) socket.send(message);
+    }
+  };
   app.disable('x-powered-by');
   app.use(express.json({ limit: '12mb' }));
   app.use('/api', (_req, res, next) => {
@@ -329,7 +341,7 @@ const start = async () => {
     if (req.params.id) {
       const match = await scoringStore.getMatchById(req.params.id);
       if (!match) return res.status(404).json({ error: 'Match not found.' });
-      if (match.assignedScorerId && match.assignedScorerId !== user.adminId) {
+      if (match.assignedScorerId !== user.adminId) {
         return res.status(403).json({ error: 'You are not assigned to score this match.' });
       }
     }
@@ -342,6 +354,22 @@ const start = async () => {
     }
     next();
   };
+
+  const matchForViewer = (match, user) => {
+    if (!match) return match;
+    const canViewContacts = user?.role === 'owner' || user?.role === 'admin' ||
+      (user?.role === 'scorer' && match.assignedScorerId === user.adminId);
+    if (canViewContacts) return match;
+    return {
+      ...match,
+      umpires: (match.umpires || []).map(({ name }) => ({ name })),
+      secondaryScorers: (match.secondaryScorers || []).map(({ name }) => ({ name }))
+    };
+  };
+  const scorecardForViewer = (scorecard, user) => ({
+    ...scorecard,
+    match: matchForViewer(scorecard.match, user)
+  });
 
   app.get('/api/admin/session', (req, res) => {
     const user = getSessionUser(req, auth.users, auth.sessionSecret);
@@ -391,6 +419,10 @@ const start = async () => {
     return res.json({ state });
   });
 
+  app.get('/api/auction/live/ws', async (req, res) => {
+    return res.status(426).json({ error: 'A WebSocket connection is required.' });
+  });
+
   app.put('/api/admin/auction/live', requireAdmin, async (req, res) => {
     const { season, state, expectedUpdatedAt } = req.body || {};
     if (typeof season !== 'string' || !season.trim() || season.length > 60) {
@@ -409,6 +441,7 @@ const start = async () => {
       !Array.isArray(state.soldPlayers) || state.soldPlayers.length > 500 ||
       !Array.isArray(state.unsoldPlayers) || state.unsoldPlayers.length > 500 ||
       !state.teamPurses || typeof state.teamPurses !== 'object' || Array.isArray(state.teamPurses) ||
+      (state.purseCap !== undefined && (!Number.isSafeInteger(state.purseCap) || state.purseCap <= 0)) ||
       Object.values(state.teamPurses).some((purse) => !Number.isSafeInteger(purse) || purse < 0)) {
       return res.status(400).json({ error: 'Auction state is invalid.' });
     }
@@ -428,6 +461,7 @@ const start = async () => {
 
     const safeState = {
       status: state.status,
+      purseCap: state.purseCap ?? 5000000,
       currentPlayer: safeCurrentPlayer,
       currentBid: state.currentBid,
       currentBiddingTeam: state.currentBiddingTeam,
@@ -440,11 +474,12 @@ const start = async () => {
       unsoldPlayers: state.unsoldPlayers.slice(0, 500),
       teamPurses: state.teamPurses
     };
+    const seasonKey = season.trim();
 
     const save = async () => {
       if (database) {
         const client = await database.connect();
-        const key = `auction-live:${season}`;
+        const key = `auction-live:${seasonKey}`;
         try {
           await client.query('BEGIN');
           await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [key]);
@@ -454,6 +489,7 @@ const start = async () => {
             await client.query('ROLLBACK');
             return { conflict: true, state: currentState };
           }
+          safeState.version = (Number.isSafeInteger(currentState?.version) ? currentState.version : 0) + 1;
           safeState.updatedAt = new Date().toISOString();
           await client.query(
             `INSERT INTO npl_site_data (data_key, value) VALUES ($1, $2::jsonb)
@@ -472,12 +508,13 @@ const start = async () => {
 
       const pendingSave = liveAuctionSaveQueue.catch(() => {}).then(async () => {
         const states = await readJson(liveAuctionFile, {});
-        const currentState = states[season] || null;
+        const currentState = states[seasonKey] || null;
         if ((currentState?.updatedAt || null) !== (expectedUpdatedAt || null)) {
           return { conflict: true, state: currentState };
         }
+        safeState.version = (Number.isSafeInteger(currentState?.version) ? currentState.version : 0) + 1;
         safeState.updatedAt = new Date().toISOString();
-        states[season] = safeState;
+        states[seasonKey] = safeState;
         await writeJson(liveAuctionFile, states);
         return { state: safeState };
       });
@@ -487,6 +524,7 @@ const start = async () => {
 
     const result = await save();
     if (result.conflict) return res.status(409).json({ error: 'The live auction changed in another session. Refreshing its latest state.', state: result.state });
+    broadcastAuctionState(seasonKey, result.state);
     return res.json({ state: result.state });
   });
 
@@ -726,7 +764,8 @@ const start = async () => {
     try {
       const { season, status } = req.query;
       const matches = await scoringStore.getAllMatches({ season, status });
-      res.json({ matches });
+      const viewer = getSessionUser(req, auth.users, auth.sessionSecret);
+      res.json({ matches: matches.map((match) => matchForViewer(match, viewer)) });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -745,7 +784,8 @@ const start = async () => {
     try {
       const match = await scoringStore.getMatchById(req.params.id);
       if (!match) return res.status(404).json({ error: 'Match not found.' });
-      res.json({ match });
+      const viewer = getSessionUser(req, auth.users, auth.sessionSecret);
+      res.json({ match: matchForViewer(match, viewer) });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -837,7 +877,8 @@ const start = async () => {
     try {
       const scorecard = await scoringStore.getScorecard(req.params.id);
       if (!scorecard) return res.status(404).json({ error: 'Match scorecard not found.' });
-      res.json(scorecard);
+      const viewer = getSessionUser(req, auth.users, auth.sessionSecret);
+      res.json(scorecardForViewer(scorecard, viewer));
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -857,7 +898,8 @@ const start = async () => {
       });
 
       const scorecard = await scoringStore.getScorecard(matchId);
-      res.write(`event: score:initial\ndata: ${JSON.stringify(scorecard)}\n\n`);
+      const viewer = getSessionUser(req, auth.users, auth.sessionSecret);
+      res.write(`event: score:initial\ndata: ${JSON.stringify(scorecardForViewer(scorecard, viewer))}\n\n`);
 
       const unregister = registerMatchListener(matchId, res);
 
@@ -934,7 +976,58 @@ const start = async () => {
     app.use(vite.middlewares);
   }
 
-  app.listen(port, '0.0.0.0', () => {
+  const server = createServer(app);
+  server.on('upgrade', (request, socket, head) => {
+    const url = new URL(request.url || '/', 'http://localhost');
+    if (url.pathname !== '/api/auction/live/ws') return;
+
+    const season = url.searchParams.get('season')?.trim() || '';
+    const rejectUpgrade = (status, message) => {
+      socket.write(`HTTP/1.1 ${status} Error\r\nConnection: close\r\nContent-Type: text/plain\r\n\r\n${message}`);
+      socket.destroy();
+    };
+    if (!season || season.length > 60) {
+      rejectUpgrade(400, 'Choose a valid auction season.');
+      return;
+    }
+
+    const connect = async () => {
+      let state;
+      if (database) {
+        const result = await database.query(
+          'SELECT value FROM npl_site_data WHERE data_key = $1',
+          [`auction-live:${season}`]
+        );
+        state = result.rows[0]?.value || null;
+      } else {
+        const states = await readJson(liveAuctionFile, {});
+        state = states[season] || null;
+      }
+
+      auctionWebSocketServer.handleUpgrade(request, socket, head, (client) => {
+        let subscribers = auctionSubscribers.get(season);
+        if (!subscribers) {
+          subscribers = new Set();
+          auctionSubscribers.set(season, subscribers);
+        }
+        subscribers.add(client);
+        const removeSubscriber = () => {
+          subscribers.delete(client);
+          if (subscribers.size === 0) auctionSubscribers.delete(season);
+        };
+        client.on('close', removeSubscriber);
+        client.on('error', removeSubscriber);
+        client.on('message', () => client.close(1008, 'Auction rooms are read-only for spectators.'));
+        client.send(JSON.stringify({ type: 'auction-state', season, state }));
+      });
+    };
+
+    connect().catch((error) => {
+      console.error('Unable to load auction state for WebSocket client:', error);
+      if (!socket.destroyed) rejectUpgrade(500, 'Auction state could not be loaded.');
+    });
+  });
+  server.listen(port, '0.0.0.0', () => {
     console.log(`NPL server ready at http://localhost:${port}`);
   });
 };
