@@ -188,6 +188,8 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/20 bg-[#090858]/70 p-2 text-slate-100 hover:text-white"
               aria-label="Toggle menu"
+              aria-expanded={isMobileMenuOpen}
+              aria-controls="npl-navigation-drawer"
             >
               {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
@@ -196,7 +198,7 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
 
         {/* Mobile Navigation Drawer */}
         {isMobileMenuOpen && (
-          <div className="relative z-20 mt-2 space-y-2 border-t border-indigo-300/20 bg-[#090858] px-4 pb-6 pt-4 shadow-2xl animate-in slide-in-from-top duration-200 xl:hidden">
+          <div id="npl-navigation-drawer" className="relative z-20 mt-2 space-y-2 border-t border-indigo-300/20 bg-[#090858] px-4 pb-6 pt-4 shadow-2xl animate-in slide-in-from-top duration-200">
             <div className="grid grid-cols-2 gap-2 border-b border-indigo-300/20 pb-3">
               {navItems.map((item) => (
                   <button
