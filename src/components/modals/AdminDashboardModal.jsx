@@ -154,7 +154,125 @@ const mediaInfoFields = {
   ]
 };
 
+class AdminDashboardErrorBoundary extends React.Component {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error) {
+    console.error('Admin Control Portal failed to render:', error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
+          <section role="alert" className="w-full max-w-lg rounded-2xl border border-rose-700 bg-slate-950 p-6 text-center shadow-2xl">
+            <h2 className="font-sports text-2xl text-white">Admin Portal could not load</h2>
+            <p className="mt-2 text-sm text-slate-300">
+              Close this window and reload the site. If it continues, contact the site administrator.
+            </p>
+            <button type="button" onClick={this.props.onClose} className="mt-5 rounded-lg bg-amber-500 px-5 py-2 font-bold text-slate-950">
+              Close
+            </button>
+          </section>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 export const AdminDashboardModal = ({ onClose }) => {
+  const { isAdminLoggedIn, isAdminAuthLoading, loginAdmin } = useNpl();
+  const [adminId, setAdminId] = useState('');
+  const [password, setPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [isSigningIn, setIsSigningIn] = useState(false);
+
+  if (isAdminLoggedIn) {
+    return (
+      <AdminDashboardErrorBoundary onClose={onClose}>
+        <AdminDashboardContent onClose={onClose} />
+      </AdminDashboardErrorBoundary>
+    );
+  }
+
+  const handleLogin = async (event) => {
+    event.preventDefault();
+    setLoginError('');
+    setIsSigningIn(true);
+    try {
+      const result = await loginAdmin(adminId, password);
+      if (!result.success) setLoginError(result.error);
+    } finally {
+      setIsSigningIn(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/90 p-3 backdrop-blur-md sm:p-4">
+      <section role="dialog" aria-modal="true" aria-labelledby="admin-login-title" className="w-full max-w-4xl overflow-hidden rounded-2xl border border-slate-700 bg-[#070D1E] shadow-2xl">
+        <header className="flex items-center justify-between gap-3 border-b border-slate-800 bg-gradient-to-r from-slate-950 via-[#0A142D] to-slate-950 p-3 sm:p-5">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-amber-500/50 bg-amber-500/20 text-amber-400">
+              <Shield className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <span className="block text-[10px] font-bold uppercase tracking-widest text-amber-400">Organizer Control Center</span>
+              <h2 id="admin-login-title" className="font-sports text-lg text-white sm:text-3xl">NPL Tournament Director Portal</h2>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close admin portal" className="rounded-xl border border-slate-700 bg-slate-900 p-2 text-slate-400 hover:text-white">
+            <X className="h-5 w-5" />
+          </button>
+        </header>
+        <div className="flex min-h-[min(26rem,70dvh)] flex-col items-center justify-center gap-5 p-5 text-center sm:p-12">
+          <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-500/40 bg-amber-500/10 text-amber-400">
+            <Shield className="h-7 w-7" />
+          </span>
+          <div>
+            <h3 className="font-sports text-2xl text-white sm:text-4xl">Restricted Tournament Access</h3>
+            <p className="mx-auto mt-2 max-w-md text-sm text-slate-400">Sign in with your authorized admin ID and password.</p>
+          </div>
+          {isAdminAuthLoading ? (
+            <p role="status" className="text-sm text-slate-300">Checking your secure session…</p>
+          ) : (
+            <form onSubmit={handleLogin} className="w-full max-w-xs space-y-3">
+              <input
+                type="text"
+                autoComplete="username"
+                aria-label="Admin ID"
+                placeholder="Admin ID"
+                value={adminId}
+                onChange={(event) => { setAdminId(event.target.value); setLoginError(''); }}
+                className="min-h-12 w-full rounded-xl border border-slate-700 bg-slate-900 px-4 text-center text-sm text-white placeholder:text-slate-500 focus:border-amber-500 focus:outline-none"
+              />
+              <input
+                type="password"
+                autoComplete="current-password"
+                aria-label="Password"
+                placeholder="Password"
+                value={password}
+                onChange={(event) => { setPassword(event.target.value); setLoginError(''); }}
+                className="min-h-12 w-full rounded-xl border border-slate-700 bg-slate-900 px-4 text-center text-sm text-white placeholder:text-slate-500 focus:border-amber-500 focus:outline-none"
+              />
+              {loginError && <p role="alert" className="rounded-lg border border-rose-800 bg-rose-950/70 px-3 py-2 text-sm text-rose-300">{loginError}</p>}
+              <button type="submit" disabled={isSigningIn} className="min-h-12 w-full rounded-xl bg-amber-500 px-4 py-3 font-sports text-base font-black tracking-wider text-slate-950 transition-colors hover:bg-amber-400 disabled:cursor-wait disabled:opacity-60">
+                {isSigningIn ? 'CHECKING…' : 'UNLOCK ADMIN CONSOLE'}
+              </button>
+            </form>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+};
+
+const AdminDashboardContent = ({ onClose }) => {
   const {
     tournamentInfo,
     setTournamentInfo,
