@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useNpl } from './context/NplContext';
 import { Navbar } from './components/Navbar';
 import { HeroSection } from './components/HeroSection';
@@ -28,8 +28,10 @@ import { PlayerProfileModal } from './components/modals/PlayerProfileModal';
 import { NewsModal } from './components/modals/NewsModal';
 import { LightboxModal } from './components/modals/LightboxModal';
 import { VideoPlayerModal } from './components/modals/VideoPlayerModal';
-import { AdminDashboardModal } from './components/modals/AdminDashboardModal';
 import { LiveScorerModal } from './components/modals/LiveScorerModal';
+
+const AdminDashboardModal = lazy(() => import('./components/modals/AdminDashboardModal')
+  .then((module) => ({ default: module.AdminDashboardModal })));
 
 export const App = () => {
   const [activeSection, setActiveSection] = useState(() => (
@@ -184,7 +186,13 @@ export const App = () => {
       )}
 
       {isAdminModalOpen && (
-        <AdminDashboardModal onClose={() => setIsAdminModalOpen(false)} />
+        <Suspense fallback={
+          <div role="status" className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-5 text-center text-white">
+            Opening Admin Portal…
+          </div>
+        }>
+          <AdminDashboardModal onClose={() => setIsAdminModalOpen(false)} />
+        </Suspense>
       )}
     </div>
   );

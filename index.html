@@ -9,6 +9,38 @@
   </head>
   <body class="bg-[var(--color-npl-navy)] text-slate-100 antialiased selection:bg-amber-500 selection:text-black min-h-screen overflow-x-hidden">
     <div id="root"></div>
+    <script>
+      (function () {
+        var root = document.getElementById('root');
+        var showStartupError = function () {
+          if (!root || root.childNodes.length) return;
+          var panel = document.createElement('main');
+          panel.setAttribute('role', 'alert');
+          panel.style.cssText = 'min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:#070e20;color:#fff;text-align:center;font-family:system-ui,sans-serif';
+          var content = document.createElement('div');
+          content.style.cssText = 'max-width:420px;padding:24px;border:1px solid #334155;border-radius:16px;background:#020617';
+          var title = document.createElement('h1');
+          title.textContent = 'NPL could not start';
+          title.style.cssText = 'font-size:24px;font-weight:800;margin:0 0 12px';
+          var message = document.createElement('p');
+          message.textContent = 'Check your connection, then reload the page.';
+          message.style.cssText = 'font-size:14px;color:#cbd5e1;margin:0 0 20px';
+          var button = document.createElement('button');
+          button.type = 'button';
+          button.textContent = 'Reload page';
+          button.style.cssText = 'min-height:44px;padding:0 20px;border:0;border-radius:10px;background:#f59e0b;color:#020617;font-weight:800';
+          button.onclick = function () { window.location.reload(); };
+          content.appendChild(title);
+          content.appendChild(message);
+          content.appendChild(button);
+          panel.appendChild(content);
+          root.appendChild(panel);
+        };
+        window.setTimeout(showStartupError, 15000);
+        window.addEventListener('error', function () { window.setTimeout(showStartupError, 0); });
+        window.addEventListener('unhandledrejection', function () { window.setTimeout(showStartupError, 0); });
+      }());
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
