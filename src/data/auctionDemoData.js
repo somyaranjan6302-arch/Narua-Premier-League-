@@ -158,6 +158,8 @@ export const auctionDemoPlayers = [
     fullName: 'Ishan Roy',
     name: 'Ishan Roy',
     role: 'All-Rounder',
+    battingStyle: 'Right Hand Bat',
+    bowlingStyle: 'Right Arm Medium',
     age: 22,
     location: 'Narua',
     basePrice: '₹100',

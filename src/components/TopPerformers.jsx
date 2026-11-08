@@ -24,7 +24,9 @@ const getMetric = (text) => {
 export const TopPerformers = ({ seasonOverride, showSeasonSelector = true, featured = false, scrollToSection }) => {
   const { topPerformers, teams, openModal, siteMedia, seasons, selectedSeason, setSelectedSeason } = useNpl();
   const displaySeason = seasonOverride || selectedSeason;
-  const activePerformers = displaySeason === 'Season 5'
+  const activePerformers = displaySeason === 'Season 6'
+    ? {}
+    : displaySeason === 'Season 5'
     ? session5Performers
     : displaySeason === 'Season 2' ? session2Performers
       : displaySeason === 'Season 3' ? session3Performers

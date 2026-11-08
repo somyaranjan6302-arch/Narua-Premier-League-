@@ -10,13 +10,13 @@ export const initialTournamentInfo = {
   name: "Narua Premier League",
   shortName: "NPL",
   established: 2024,
-  currentSeason: "Season 5 (2026)",
+  currentSeason: "Season 6 (2027)",
   tagline: "Where Local Cricket Becomes History.",
   storyHeading: "Our Story",
   storyText: "Narua Premier League is a competitive cricket tournament built to bring players, teams and cricket lovers together through the spirit of competition, teamwork and entertainment. From humble grassroots origins on village pitches to a grand floodlit spectacle with digital broadcasting and professional franchise auctions, NPL has transformed regional sports culture into a celebrated carnival.",
   venue: "Narua Playground, Jajpur",
   totalTeams: 6,
-  totalSeasons: 5,
+  totalSeasons: 6,
   totalMatches: 16,
   totalRuns: 0,
   totalWickets: 0,
@@ -39,6 +39,16 @@ export const initialChampions = [
 ];
 
 export const initialSeasons = [
+  {
+    season: "2027",
+    year: "2027",
+    edition: "Season 6",
+    sampleData: false,
+    status: "UPCOMING",
+    teamsCount: 0,
+    matchesCount: 0,
+    description: "Upcoming season. Official team, match, and auction data will be added when confirmed."
+  },
   session5Season,
   {
     season: "2026",
@@ -469,7 +479,9 @@ const buildSampleStandings = (season, teamCount) => {
 export const initialSeasonStandings = Object.fromEntries(
   initialSeasons.map((season) => [
     season.edition,
-    season.edition === initialSeasons[0].edition
+    season.edition === 'Season 6'
+      ? []
+      : season.edition === 'Season 5'
       ? session5Standings
       : season.edition === 'Season 2' ? session2Standings
       : season.edition === 'Season 3' ? session3Standings

@@ -3,7 +3,8 @@ import {
   calculateTournamentNetRunRate,
   EXTRA_TYPES,
   processDelivery,
-  WICKET_TYPES
+  WICKET_TYPES,
+  TEAM_WICKET_TYPES
 } from '../../server/cricketEngine.js';
 
 const json = (value, status = 200, headers = {}) => new Response(JSON.stringify(value), {
@@ -43,6 +44,64 @@ const saveRecord = async (env, id, record, previousValue) => {
   return record;
 };
 
+const publishScoringUpdate = async (env, record) => {
+  if (!env.AUCTION_ROOMS) {
+    console.error('Scoring update saved, but the AUCTION_ROOMS Durable Object binding is not configured.');
+    return;
+  }
+
+  try {
+    const season = record.match.season;
+    const match = matchForViewer(record.match, null);
+    const scorecard = getScorecard(record);
+    const updates = [
+      {
+        roomName: `scoring-match:${record.match.id}`,
+        payload: {
+          type: 'scoring-update',
+          season,
+          match,
+          scorecard: scorecardForViewer(scorecard, null)
+        }
+      },
+      {
+        roomName: `scoring:${season}`,
+        payload: {
+          type: 'scoring-summary',
+          season,
+          match,
+          scorecard: {
+            innings: scorecard.innings.map(({ teamId, totalRuns, wickets, overs }) => ({
+              teamId,
+              totalRuns,
+              wickets,
+              overs
+            })),
+            currentInningsNumber: scorecard.currentInningsNumber,
+            liveSummary: {
+              target: scorecard.liveSummary.target,
+              remainingRuns: scorecard.liveSummary.remainingRuns,
+              remainingBalls: scorecard.liveSummary.remainingBalls,
+              rrr: scorecard.liveSummary.rrr
+            }
+          }
+        }
+      }
+    ];
+    await Promise.all(updates.map(async ({ roomName, payload }) => {
+      const roomId = env.AUCTION_ROOMS.idFromName(roomName);
+      const response = await env.AUCTION_ROOMS.get(roomId).fetch('https://scoring-room/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) throw new Error(`Scoring room returned HTTP ${response.status}.`);
+    }));
+  } catch (error) {
+    console.error('Scoring update was saved but could not be broadcast in realtime:', error);
+  }
+};
+
 const readBody = async (request) => {
   try {
     const body = await request.json();
@@ -80,23 +139,29 @@ const player = (value, label) => {
   return { id: value.id.trim().slice(0, 120), name: value.name.trim().slice(0, 120) };
 };
 
-const getInningsState = (match, innings, target = null) => calculateInningsState({
-  maxOvers: match.oversLimit,
-  target,
-  openingStriker: innings?.openers?.striker,
-  openingNonStriker: innings?.openers?.nonStriker,
-  openingBowler: innings?.openers?.bowler,
-  deliveries: innings?.deliveries || []
-});
+const getInningsState = (match, innings, target = null, squads = null) => {
+  const battingTeamId = innings?.battingTeamId || match.currentBattingTeamId;
+  const battingSquad = battingTeamId === match.teamAId ? squads?.teamA : squads?.teamB;
+  const playingCount = (battingSquad || []).filter((person) => person.isPlayingXi !== false).length;
+  return calculateInningsState({
+    maxOvers: match.oversLimit,
+    maxWickets: playingCount > 1 ? playingCount - 1 : 10,
+    target,
+    openingStriker: innings?.openers?.striker,
+    openingNonStriker: innings?.openers?.nonStriker,
+    openingBowler: innings?.openers?.bowler,
+    deliveries: innings?.deliveries || []
+  });
+};
 
 const getScorecard = (record) => {
   if (!record) return null;
   const { match, inningsByNumber } = record;
   const innings1 = inningsByNumber['1'] || { deliveries: [] };
   const innings2 = inningsByNumber['2'] || { deliveries: [] };
-  const innings1State = getInningsState(match, innings1);
+  const innings1State = getInningsState(match, innings1, null, record.squads);
   const target = innings1State.totalRuns + 1;
-  const innings2State = getInningsState(match, innings2, target);
+  const innings2State = getInningsState(match, innings2, target, record.squads);
   const firstBattingTeamId = innings1.battingTeamId ||
     (match.tossDecision === 'BAT'
       ? match.tossWinnerId
@@ -116,10 +181,20 @@ const getScorecard = (record) => {
   ];
   const currentState = match.currentInningsNumber === 2 ? innings2State : innings1State;
   const savedPlayers = match.currentPlayers || {};
+  const savedBowlerFigures = savedPlayers.bowler
+    ? currentState.bowling.find((figure) => figure.id === savedPlayers.bowler.id)
+    : null;
   const currentBowler = savedPlayers.bowler
-    ? savedPlayers.bowler.id === currentState.currentBowler?.id
-      ? { ...currentState.currentBowler, ...savedPlayers.bowler }
-      : { ...savedPlayers.bowler, overs: '0.0', maidens: 0, runsConceded: 0, wickets: 0, economy: '0.00' }
+    ? {
+      ...savedPlayers.bowler,
+      ...(savedBowlerFigures || {
+        overs: '0.0',
+        maidens: 0,
+        runsConceded: 0,
+        wickets: 0,
+        economy: '0.00'
+      })
+    }
     : currentState.currentBowler;
 
   return {
@@ -164,7 +239,7 @@ const matchFromBody = (body, id, user) => {
     match: {
       id,
       tournamentId: text(body.tournamentId, 'npl-tournament', 120),
-      season: text(body.season, 'Season 5', 60),
+      season: text(body.season, 'Season 6', 60),
       matchNumber: text(body.matchNumber, 'Match 1', 60),
       tournamentPhase: text(body.tournamentPhase, 'LEAGUE MATCH', 80),
       teamAId,
@@ -217,6 +292,7 @@ const updateRecord = async (env, found, change) => {
   change(found.record);
   found.record.match.updatedAt = new Date().toISOString();
   await saveRecord(env, found.record.match.id, found.record, found.value);
+  await publishScoringUpdate(env, found.record);
   return found.record;
 };
 
@@ -455,6 +531,7 @@ export const handleLiveScoringApi = async ({ request, env, url, path, method, us
     try {
       const record = matchFromBody(body, matchId, user);
       await saveRecord(env, matchId, record, null);
+      await publishScoringUpdate(env, record);
       return json({ match: record.match }, 201);
     } catch (error) {
       if (error.message.includes('changed in another session')) {
@@ -633,13 +710,31 @@ export const handleLiveScoringApi = async ({ request, env, url, path, method, us
     const previousState = getInningsState(
       current,
       innings,
-      inningsNumber === 2 ? getInningsState(current, found.record.inningsByNumber['1']).totalRuns + 1 : null
+      inningsNumber === 2
+        ? getInningsState(current, found.record.inningsByNumber['1'], null, found.record.squads).totalRuns + 1
+        : null,
+      found.record.squads
     );
     const selectedBowlerId = body.bowlerId || previousState.currentBowler.id;
     const selectedBowler = previousState.bowling.find((figure) => figure.id === selectedBowlerId);
+    const bowlingSquad = current.currentBowlingTeamId === current.teamAId
+      ? found.record.squads.teamA
+      : found.record.squads.teamB;
+    if (!bowlingSquad.some((person) => person.id === selectedBowlerId && person.isPlayingXi !== false)) {
+      return errorResponse('Select a bowler from the playing XI.', 400);
+    }
     const bowlerQuota = Number(current.oversPerBowler || Math.ceil(current.oversLimit / 5));
     if (selectedBowler && selectedBowler.legalBalls >= bowlerQuota * 6) {
       return errorResponse(`${selectedBowler.name} has reached the ${bowlerQuota}-over bowling quota.`, 400);
+    }
+    if (previousState.legalBalls > 0 && previousState.legalBalls % 6 === 0) {
+      const completedOverNumber = (previousState.legalBalls / 6) - 1;
+      const bowledInPreviousOver = innings.deliveries.some((delivery) =>
+        delivery.overNumber === completedOverNumber && delivery.bowlerId === selectedBowlerId
+      );
+      if (bowledInPreviousOver) {
+        return errorResponse('The bowler from the previous over cannot bowl this over.', 400);
+      }
     }
     if (previousState.isInningsComplete) return errorResponse('This innings is already complete.', 409);
     const extraType = body.extraType || null;
@@ -678,7 +773,30 @@ export const handleLiveScoringApi = async ({ request, env, url, path, method, us
     const squad = current.currentBattingTeamId === current.teamAId
       ? found.record.squads.teamA
       : found.record.squads.teamB;
-    const incoming = squad.find((person) => person.id === (body.nextBatsmanId || body.incomingPlayerId));
+    const dismissedPlayerId = body.dismissedPlayerId || activeStriker.id;
+    if (body.isWicket && TEAM_WICKET_TYPES.has(wicketType) &&
+      dismissedPlayerId !== activeStriker.id && dismissedPlayerId !== activeNonStriker.id) {
+      return errorResponse('Choose the striker or non-striker currently at the crease.', 400);
+    }
+    const incomingPlayerId = body.nextBatsmanId || body.incomingPlayerId;
+    const incoming = squad.find((person) =>
+      person.id === incomingPlayerId && person.isPlayingXi !== false
+    );
+    const isTeamWicket = Boolean(body.isWicket && TEAM_WICKET_TYPES.has(wicketType));
+    const nextWicketEndsInnings = isTeamWicket &&
+      previousState.wickets + 1 >= previousState.maxWickets;
+    const incomingRequired = body.isWicket && (wicketType === WICKET_TYPES.RETIRED_HURT ||
+      (isTeamWicket && !nextWicketEndsInnings));
+    if (incomingRequired && !incoming) {
+      return errorResponse('Select an eligible incoming batter who has not already been dismissed.', 400);
+    }
+    if (incoming && (
+      incoming.id === activeStriker.id ||
+      incoming.id === activeNonStriker.id ||
+      previousState.batting.some((batter) => batter.id === incoming.id && batter.isOut)
+    )) {
+      return errorResponse('The incoming batter must be an eligible player who is not out or at the crease.', 400);
+    }
     const currentActors = {
       ...previousState,
       deliveries: innings.deliveries,
@@ -694,8 +812,8 @@ export const handleLiveScoringApi = async ({ request, env, url, path, method, us
         extraType,
         isWicket: Boolean(body.isWicket),
         wicketType,
-        incomingPlayerId: incoming?.id || body.incomingPlayerId || null,
-        incomingPlayerName: incoming?.name || body.incomingPlayerName || null,
+        incomingPlayerId: incoming?.id || null,
+        incomingPlayerName: incoming?.name || null,
         commentary: text(body.commentary, '', 500)
       });
     } catch (error) {
@@ -708,9 +826,14 @@ export const handleLiveScoringApi = async ({ request, env, url, path, method, us
     };
     const nextDeliveries = [...innings.deliveries, delivery];
     const target = inningsNumber === 2
-      ? getInningsState(current, found.record.inningsByNumber['1']).totalRuns + 1
+      ? getInningsState(current, found.record.inningsByNumber['1'], null, found.record.squads).totalRuns + 1
       : null;
-    const scoreState = getInningsState(current, { ...innings, deliveries: nextDeliveries }, target);
+    const scoreState = getInningsState(
+      current,
+      { ...innings, deliveries: nextDeliveries },
+      target,
+      found.record.squads
+    );
     let matchStatus = current.status;
     let result = current.result;
     let winnerTeamId = current.winnerTeamId;
@@ -722,7 +845,7 @@ export const handleLiveScoringApi = async ({ request, env, url, path, method, us
       const bowlingTeamName = current.currentBowlingTeamId === current.teamAId ? current.teamAName : current.teamBName;
       if (scoreState.totalRuns >= target) {
         winnerTeamId = current.currentBattingTeamId;
-        const wicketsRemaining = 10 - scoreState.wickets;
+        const wicketsRemaining = scoreState.maxWickets - scoreState.wickets;
         winMargin = `${wicketsRemaining} wicket${wicketsRemaining === 1 ? '' : 's'}`;
         result = `${battingTeamName} won by ${winMargin}`;
       } else if (scoreState.totalRuns === target - 1) {
@@ -763,9 +886,19 @@ export const handleLiveScoringApi = async ({ request, env, url, path, method, us
     const undoneDelivery = innings.deliveries[innings.deliveries.length - 1];
     const deliveries = innings.deliveries.slice(0, -1);
     const target = inningsNumber === 2
-      ? getInningsState(found.record.match, found.record.inningsByNumber['1']).totalRuns + 1
+      ? getInningsState(
+        found.record.match,
+        found.record.inningsByNumber['1'],
+        null,
+        found.record.squads
+      ).totalRuns + 1
       : null;
-    const scoreState = getInningsState(found.record.match, { ...innings, deliveries }, target);
+    const scoreState = getInningsState(
+      found.record.match,
+      { ...innings, deliveries },
+      target,
+      found.record.squads
+    );
     try {
       await updateRecord(env, found, (record) => {
         record.inningsByNumber[String(inningsNumber)].deliveries = deliveries;

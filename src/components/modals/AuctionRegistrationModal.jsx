@@ -3,6 +3,44 @@ import { useNpl } from '../../context/NplContext';
 import { ImageCropEditor } from '../ImageCropEditor';
 import { X, Flame, CheckCircle2, User, Award, Camera, QrCode, Printer } from 'lucide-react';
 
+const MAX_AUCTION_PHOTO_BYTES = 250 * 1024;
+const AUCTION_PHOTO_QUALITIES = [0.82, 0.72, 0.62, 0.52, 0.42];
+
+const compressAuctionPhoto = async (file) => {
+  const image = new Image();
+  const previewUrl = URL.createObjectURL(file);
+  try {
+    image.src = previewUrl;
+    await image.decode();
+
+    let scale = Math.min(1, 720 / image.naturalWidth, 1080 / image.naturalHeight);
+    while (true) {
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Could not prepare this photo.');
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+      for (const quality of AUCTION_PHOTO_QUALITIES) {
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+        if (blob?.size <= MAX_AUCTION_PHOTO_BYTES) {
+          return new File([blob], 'npl-player-photo.jpg', { type: 'image/jpeg' });
+        }
+      }
+
+      if (canvas.width <= 400 && canvas.height <= 600) break;
+      scale *= 0.8;
+    }
+
+    throw new Error('Could not reduce this photo below 250 KB. Choose a simpler image.');
+  } finally {
+    URL.revokeObjectURL(previewUrl);
+  }
+};
+
 export const AuctionRegistrationModal = ({ onClose }) => {
   const { registerPlayerForAuction, selectedSeason } = useNpl();
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -57,21 +95,26 @@ export const AuctionRegistrationModal = ({ onClose }) => {
     input.value = '';
   };
 
-  const handlePhotoCrop = (file) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result !== 'string') {
-        setPhotoError('This photo could not be prepared. Try another image.');
-        return;
-      }
-      setFormData((current) => ({ ...current, photo: reader.result }));
+  const handlePhotoCrop = async (file) => {
+    try {
+      const compressedFile = await compressAuctionPhoto(file);
+      const reader = new FileReader();
+      const photoData = await new Promise((resolve, reject) => {
+        reader.onload = () => typeof reader.result === 'string'
+          ? resolve(reader.result)
+          : reject(new Error('This photo could not be prepared. Try another image.'));
+        reader.onerror = () => reject(new Error('This photo could not be prepared. Try another image.'));
+        reader.readAsDataURL(compressedFile);
+      });
+
+      setFormData((current) => ({ ...current, photo: photoData }));
       if (photoPreviewUrl.current) URL.revokeObjectURL(photoPreviewUrl.current);
       photoPreviewUrl.current = null;
       setPhotoCropFile(null);
       setPhotoError('');
-    };
-    reader.onerror = () => setPhotoError('This photo could not be prepared. Try another image.');
-    reader.readAsDataURL(file);
+    } catch (error) {
+      setPhotoError(error.message || 'This photo could not be prepared. Try another image.');
+    }
   };
 
   const cancelPhotoCrop = () => {
@@ -225,7 +268,7 @@ export const AuctionRegistrationModal = ({ onClose }) => {
                           aria-label="Upload player photo from your device"
                           className="block w-full text-xs text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-amber-500 file:px-3 file:py-2 file:text-xs file:font-bold file:text-slate-950 hover:file:bg-amber-400"
                         />
-                        <p className="text-[10px] text-slate-500">Select a photo from your phone or computer. Images are resized automatically (max 8 MB).</p>
+                        <p className="text-[10px] text-slate-500">Select a photo up to 8 MB. It is cropped and compressed to 250 KB or less for fast auctions.</p>
                       </div>
                     </div>
                     {photoCropFile && (

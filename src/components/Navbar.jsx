@@ -4,13 +4,20 @@ import { useNpl } from '../context/NplContext';
 import { Menu, X, Shield, Award, Calendar, Users, Trophy, Image, Play, Flame, Newspaper, ChevronDown, UserPlus } from 'lucide-react';
 
 export const Navbar = ({ activeSection, setActiveSection }) => {
-  const { matches, openModal, setIsAdminModalOpen, isAdminLoggedIn, siteMedia } = useNpl();
+  const { matches, matchDataLoaded, openModal, setIsAdminModalOpen, isAdminLoggedIn, siteMedia } = useNpl();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMoreOpen, setIsMoreOpen] = useState(false);
 
   // Find live match or upcoming match for the ticker strip
-  const liveMatch = matches.find(m => m.status === 'LIVE') || matches[0];
+  const availableMatches = Array.isArray(matches)
+    ? matches.filter((match) => match && typeof match === 'object')
+    : [];
+  const liveMatch = matchDataLoaded
+    ? availableMatches.find((match) => match.status === 'LIVE') ||
+      availableMatches.find((match) => match.status === 'UPCOMING') ||
+      availableMatches[0]
+    : null;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -55,12 +62,12 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
           <div className="mx-0 flex min-w-0 flex-1 items-center justify-start gap-2 sm:mx-auto sm:gap-3">
             <span className="flex flex-shrink-0 items-center gap-1.5 rounded-full bg-red-600/90 px-2 py-0.5 text-[9px] font-bold tracking-wider text-white animate-pulse sm:text-[10px]">
               <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
-              {liveMatch.status}
+              {liveMatch.status || 'MATCH'}
             </span>
-            <span className="flex-shrink-0 font-semibold text-[#ffdb19]">{liveMatch.matchNumber}:</span>
-            <span className="max-w-[5.5rem] min-w-0 truncate font-bold text-white sm:max-w-none">{liveMatch.team1.shortName} {liveMatch.team1.score}</span>
+            <span className="flex-shrink-0 font-semibold text-[#ffdb19]">{liveMatch.matchNumber || 'MATCH'}:</span>
+            <span className="max-w-[5.5rem] min-w-0 truncate font-bold text-white sm:max-w-none">{liveMatch.team1?.shortName || liveMatch.team1?.name || 'TBD'} {liveMatch.team1?.score || ''}</span>
             <span className="flex-shrink-0 text-slate-400">vs</span>
-            <span className="max-w-[5.5rem] min-w-0 truncate font-bold text-white sm:max-w-none">{liveMatch.team2.shortName} {liveMatch.team2.score || "Yet to bat"}</span>
+            <span className="max-w-[5.5rem] min-w-0 truncate font-bold text-white sm:max-w-none">{liveMatch.team2?.shortName || liveMatch.team2?.name || 'TBD'} {liveMatch.team2?.score || 'Yet to bat'}</span>
             <span className="hidden md:inline text-slate-400">•</span>
             <span className="hidden md:inline text-amber-300/90 italic">{liveMatch.equation || liveMatch.preview}</span>
             <button

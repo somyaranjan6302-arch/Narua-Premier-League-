@@ -17,6 +17,7 @@ import {
   processDelivery,
   calculateTournamentNetRunRate,
   WICKET_TYPES,
+  TEAM_WICKET_TYPES,
   EXTRA_TYPES
 } from './cricketEngine.js';
 
@@ -25,6 +26,14 @@ const dataDirectory = path.join(serverDirectory, 'data');
 const matchesFile = path.join(dataDirectory, 'live-matches.json');
 const deliveriesFile = path.join(dataDirectory, 'live-deliveries.json');
 const squadsFile = path.join(dataDirectory, 'live-squads.json');
+const getFirstBattingTeamId = (match) => match.tossDecision === 'BAT'
+  ? match.tossWinnerId
+  : (match.tossWinnerId === match.teamAId ? match.teamBId : match.teamAId);
+const maxWicketsForTeam = (match, squads, teamId) => {
+  const teamSquad = teamId === match.teamAId ? squads.teamA : squads.teamB;
+  const playingCount = (teamSquad || []).filter((person) => person.isPlayingXi !== false).length;
+  return playingCount > 1 ? playingCount - 1 : 10;
+};
 
 // In-memory real-time SSE listeners: matchId -> Set of response callbacks
 const matchListeners = new Map();
@@ -565,6 +574,7 @@ export class ScoringStore {
 
       const inningsNum = match.currentInningsNumber || 1;
       const allDeliveries = await this.getDeliveries(matchId);
+      const squads = await this.getSquads(matchId);
       const inningsDeliveries = allDeliveries[inningsNum] || [];
 
       // Openers
@@ -573,6 +583,10 @@ export class ScoringStore {
         nonStriker: { id: deliveryInput.nonStrikerId, name: deliveryInput.nonStrikerName },
         bowler: { id: deliveryInput.bowlerId, name: deliveryInput.bowlerName }
       };
+      const battingSquad = match.currentBattingTeamId === match.teamAId ? squads.teamA : squads.teamB;
+      const bowlingSquad = match.currentBowlingTeamId === match.teamAId ? squads.teamA : squads.teamB;
+      const maxWickets = maxWicketsForTeam(match, squads, match.currentBattingTeamId);
+      const firstInningsMaxWickets = maxWicketsForTeam(match, squads, getFirstBattingTeamId(match));
 
       // Target for 2nd innings
       let target = null;
@@ -580,6 +594,7 @@ export class ScoringStore {
         const inn1Deliveries = allDeliveries[1] || [];
         const inn1State = calculateInningsState({
           maxOvers: match.oversLimit,
+          maxWickets: firstInningsMaxWickets,
           openingStriker: allDeliveries['innings_1_openers']?.striker,
           openingBowler: allDeliveries['innings_1_openers']?.bowler,
           deliveries: inn1Deliveries
@@ -590,17 +605,57 @@ export class ScoringStore {
       // Calculate state before this ball
       const currentState = calculateInningsState({
         maxOvers: match.oversLimit,
+        maxWickets,
         target,
         openingStriker: openers.striker,
         openingNonStriker: openers.nonStriker,
         openingBowler: openers.bowler,
         deliveries: inningsDeliveries
       });
+      if (match.status !== 'LIVE' || currentState.isInningsComplete) {
+        throw new Error('This innings is not live or has already completed.');
+      }
       const selectedBowlerId = deliveryInput.bowlerId || currentState.currentBowler.id;
       const selectedBowler = currentState.bowling.find((figure) => figure.id === selectedBowlerId);
+      if (!bowlingSquad.some((person) => person.id === selectedBowlerId && person.isPlayingXi !== false)) {
+        throw new Error('Select a bowler from the playing XI.');
+      }
       const bowlerQuota = Number(match.oversPerBowler || Math.ceil(match.oversLimit / 5));
       if (selectedBowler && selectedBowler.legalBalls >= bowlerQuota * 6) {
         throw new Error(`${selectedBowler.name} has reached the ${bowlerQuota}-over bowling quota.`);
+      }
+      if (currentState.legalBalls > 0 && currentState.legalBalls % 6 === 0) {
+        const completedOverNumber = (currentState.legalBalls / 6) - 1;
+        const bowledInPreviousOver = inningsDeliveries.some((delivery) =>
+          delivery.overNumber === completedOverNumber && delivery.bowlerId === selectedBowlerId
+        );
+        if (bowledInPreviousOver) {
+          throw new Error('The bowler from the previous over cannot bowl this over.');
+        }
+      }
+      const dismissedPlayerId = deliveryInput.dismissedPlayerId || currentState.currentStriker.id;
+      const isWicket = Boolean(deliveryInput.isWicket && deliveryInput.wicketType);
+      if (isWicket && TEAM_WICKET_TYPES.has(deliveryInput.wicketType) &&
+        dismissedPlayerId !== currentState.currentStriker.id &&
+        dismissedPlayerId !== currentState.currentNonStriker.id) {
+        throw new Error('Choose the striker or non-striker currently at the crease.');
+      }
+      const incomingPlayerId = deliveryInput.nextBatsmanId || deliveryInput.incomingPlayerId;
+      const incomingBatter = battingSquad.find((person) =>
+        person.id === incomingPlayerId && person.isPlayingXi !== false
+      );
+      const isTeamWicket = isWicket && TEAM_WICKET_TYPES.has(deliveryInput.wicketType);
+      const incomingRequired = isWicket && (deliveryInput.wicketType === WICKET_TYPES.RETIRED_HURT ||
+        (isTeamWicket && currentState.wickets + 1 < maxWickets));
+      if (incomingRequired && !incomingBatter) {
+        throw new Error('Select an eligible incoming batter who has not already been dismissed.');
+      }
+      if (incomingBatter && (
+        incomingBatter.id === currentState.currentStriker.id ||
+        incomingBatter.id === currentState.currentNonStriker.id ||
+        currentState.batting.some((batter) => batter.id === incomingBatter.id && batter.isOut)
+      )) {
+        throw new Error('The incoming batter must be an eligible player who is not out or at the crease.');
       }
 
       // Prepare ball record
@@ -634,8 +689,6 @@ export class ScoringStore {
         bowlerRunsConceded = 0;
       }
 
-      const isWicket = Boolean(deliveryInput.isWicket && deliveryInput.wicketType);
-
       const newDelivery = {
         id: `del_${matchId}_${inningsNum}_${seqNumber}_${randomBytes(3).toString('hex')}`,
         sequenceNumber: seqNumber,
@@ -655,8 +708,15 @@ export class ScoringStore {
         isLegal,
         isWicket,
         wicketType: deliveryInput.wicketType || null,
-        dismissedPlayerId: isWicket ? (deliveryInput.dismissedPlayerId || deliveryInput.strikerId) : null,
-        dismissedPlayerName: isWicket ? (deliveryInput.dismissedPlayerName || deliveryInput.strikerName) : null,
+        dismissedPlayerId: isWicket ? dismissedPlayerId : null,
+        dismissedPlayerName: isWicket ? (
+          deliveryInput.dismissedPlayerName ||
+          (dismissedPlayerId === currentState.currentStriker.id
+            ? currentState.currentStriker.name
+            : currentState.currentNonStriker.name)
+        ) : null,
+        incomingPlayerId: incomingBatter?.id || null,
+        incomingPlayerName: incomingBatter?.name || null,
         fielderId: deliveryInput.fielderId || null,
         fielderName: deliveryInput.fielderName || null,
         commentary: deliveryInput.commentary || '',
@@ -669,6 +729,7 @@ export class ScoringStore {
       // Recalculate full state after this ball
       const stateAfter = calculateInningsState({
         maxOvers: match.oversLimit,
+        maxWickets,
         target,
         openingStriker: openers.striker,
         openingNonStriker: openers.nonStriker,
@@ -689,7 +750,7 @@ export class ScoringStore {
           const bowlingTeamName = match.currentBowlingTeamId === match.teamAId ? match.teamAName : match.teamBName;
 
           if (stateAfter.totalRuns >= target) {
-            const wicketsRemaining = 10 - stateAfter.wickets;
+            const wicketsRemaining = maxWickets - stateAfter.wickets;
             winnerId = match.currentBattingTeamId;
             margin = `${wicketsRemaining} wicket${wicketsRemaining > 1 ? 's' : ''}`;
             resultText = `${battingTeamName} won by ${margin}`;
@@ -773,6 +834,7 @@ export class ScoringStore {
 
       const inningsNum = match.currentInningsNumber || 1;
       const allDeliveries = await this.getDeliveries(matchId);
+      const squads = await this.getSquads(matchId);
       const inningsDeliveries = allDeliveries[inningsNum] || [];
 
       if (inningsDeliveries.length === 0) {
@@ -800,6 +862,7 @@ export class ScoringStore {
         const inn1Deliveries = allDeliveries[1] || [];
         const inn1State = calculateInningsState({
           maxOvers: match.oversLimit,
+          maxWickets: maxWicketsForTeam(match, squads, getFirstBattingTeamId(match)),
           openingStriker: allDeliveries['innings_1_openers']?.striker,
           openingBowler: allDeliveries['innings_1_openers']?.bowler,
           deliveries: inn1Deliveries
@@ -809,6 +872,7 @@ export class ScoringStore {
 
       const stateAfterUndo = calculateInningsState({
         maxOvers: match.oversLimit,
+        maxWickets: maxWicketsForTeam(match, squads, match.currentBattingTeamId),
         target,
         openingStriker: openers.striker,
         openingNonStriker: openers.nonStriker,
@@ -855,6 +919,9 @@ export class ScoringStore {
     const allDeliveries = await this.getDeliveries(matchId);
     const inn1Deliveries = allDeliveries[1] || [];
     const inn2Deliveries = allDeliveries[2] || [];
+    const squads = await this.getSquads(matchId);
+    const firstTeamId = getFirstBattingTeamId(match);
+    const secondTeamId = firstTeamId === match.teamAId ? match.teamBId : match.teamAId;
 
     const inn1Openers = allDeliveries['innings_1_openers'] || {
       striker: inn1Deliveries[0] ? { id: inn1Deliveries[0].strikerId, name: inn1Deliveries[0].strikerName } : null,
@@ -870,16 +937,18 @@ export class ScoringStore {
 
     const inn1State = calculateInningsState({
       maxOvers: match.oversLimit,
+      maxWickets: maxWicketsForTeam(match, squads, firstTeamId),
       openingStriker: inn1Openers.striker,
       openingNonStriker: inn1Openers.nonStriker,
       openingBowler: inn1Openers.bowler,
       deliveries: inn1Deliveries
     });
 
-    const target = inn1State.totalRuns > 0 ? inn1State.totalRuns + 1 : null;
+    const target = inn1State.totalRuns + 1;
 
     const inn2State = calculateInningsState({
       maxOvers: match.oversLimit,
+      maxWickets: maxWicketsForTeam(match, squads, secondTeamId),
       target,
       openingStriker: inn2Openers.striker,
       openingNonStriker: inn2Openers.nonStriker,
@@ -889,15 +958,23 @@ export class ScoringStore {
 
     const currentInningsState = match.currentInningsNumber === 2 ? inn2State : inn1State;
     const savedPlayers = match.currentPlayers || {};
+    const savedBowlerFigures = savedPlayers.bowler
+      ? currentInningsState.bowling.find((figure) => figure.id === savedPlayers.bowler.id)
+      : null;
     const currentBowler = savedPlayers.bowler
-      ? savedPlayers.bowler.id === currentInningsState.currentBowler?.id
-        ? { ...currentInningsState.currentBowler, ...savedPlayers.bowler }
-        : { ...savedPlayers.bowler, overs: '0.0', maidens: 0, runsConceded: 0, wickets: 0, economy: '0.00' }
+      ? {
+        ...savedPlayers.bowler,
+        ...(savedBowlerFigures || {
+          overs: '0.0',
+          maidens: 0,
+          runsConceded: 0,
+          wickets: 0,
+          economy: '0.00'
+        })
+      }
       : currentInningsState.currentBowler;
 
-    const firstBattingTeamId = match.tossDecision === 'BAT'
-      ? match.tossWinnerId
-      : (match.tossWinnerId === match.teamAId ? match.teamBId : (match.tossWinnerId ? match.teamAId : match.currentBattingTeamId || match.teamAId));
+    const firstBattingTeamId = firstTeamId;
     const firstBattingTeamName = firstBattingTeamId === match.teamAId ? match.teamAName : match.teamBName;
     const secondBattingTeamName = firstBattingTeamId === match.teamAId ? match.teamBName : match.teamAName;
 
@@ -909,7 +986,7 @@ export class ScoringStore {
         overs: currentInningsState.overs,
         crr: currentInningsState.currentRunRate,
         rrr: currentInningsState.requiredRunRate,
-        target: inn2State.target,
+        target: match.currentInningsNumber === 2 ? target : null,
         remainingRuns: currentInningsState.remainingRuns,
         remainingBalls: currentInningsState.remainingBalls,
         currentStriker: savedPlayers.striker || currentInningsState.currentStriker,

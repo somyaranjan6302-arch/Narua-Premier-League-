@@ -27,7 +27,12 @@ import {
   auctionDemoTeams
 } from '../data/auctionDemoData';
 
-const NplContext = createContext();
+const NplContext = (typeof window !== 'undefined' && window.__NPL_CONTEXT__)
+  ? window.__NPL_CONTEXT__
+  : createContext(null);
+if (typeof window !== 'undefined') {
+  window.__NPL_CONTEXT__ = NplContext;
+}
 const isAuctionDemo = import.meta.env.DEV &&
   new URLSearchParams(window.location.search).get('demoAuction') === '1';
 
@@ -36,6 +41,60 @@ const attachDefaultSeason = (items, defaultSeason) => (
     ? items.map((item) => item.season || item.session ? item : { ...item, season: defaultSeason })
     : items
 );
+
+const activeSeason = initialSeasons[0];
+const includeActiveSeason = (items) => {
+  const savedSeasons = Array.isArray(items) ? items : [];
+  const savedActiveSeason = savedSeasons.find((season) => season.edition === activeSeason.edition);
+  return [
+    { ...activeSeason, ...savedActiveSeason, sampleData: false },
+    ...savedSeasons.filter((season) => season.edition !== activeSeason.edition)
+  ];
+};
+
+const normalizeActiveTournamentInfo = (info) => ({
+  ...(info && typeof info === 'object' ? info : initialTournamentInfo),
+  currentSeason: initialTournamentInfo.currentSeason,
+  totalSeasons: Math.max(Number(info.totalSeasons) || 0, initialTournamentInfo.totalSeasons)
+});
+
+const persistLocalState = (key, value) => {
+  try {
+    localStorage.setItem(key, value);
+  } catch (error) {
+    if (error?.name === 'QuotaExceededError' || error?.code === 22 || error?.code === 1014) {
+      try {
+        localStorage.removeItem('npl_auctionRegistrations');
+        if (key !== 'npl_auctionRegistrations') localStorage.setItem(key, value);
+      } catch (retryError) {
+        console.error(`Could not persist ${key} in browser storage:`, retryError);
+      }
+      return;
+    }
+    console.error(`Could not persist ${key} in browser storage:`, error);
+  }
+};
+
+const mergeScoringMatches = (siteMatches, scoringMatches) => {
+  const siteMatchesById = new Map(
+    siteMatches.filter((match) => match && typeof match === 'object').map((match) => [match.id, match])
+  );
+  const scoringIds = new Set();
+  const mergedScoringMatches = scoringMatches
+    .filter((match) => match && typeof match === 'object')
+    .map((match) => {
+      scoringIds.add(match.id);
+      const siteMatch = siteMatchesById.get(match.id);
+      return siteMatch?.status === 'COMPLETED' && match.status === 'UPCOMING'
+        ? siteMatch
+        : match;
+    });
+
+  return [
+    ...mergedScoringMatches,
+    ...siteMatches.filter((match) => match && !scoringIds.has(match.id))
+  ];
+};
 
 const savePublicSiteData = (saveQueue, data) => {
   if (isAuctionDemo || !import.meta.env.PROD) return Promise.resolve();
@@ -70,11 +129,15 @@ export const NplProvider = ({ children }) => {
 
   const initialSelectedSeason = isAuctionDemo
     ? auctionDemoSeason.edition
-    : initialSeasons[0]?.edition || 'Season 5';
+    : activeSeason.edition;
 
-  const [tournamentInfo, setTournamentInfo] = useState(() => loadState('tournamentInfo', isAuctionDemo
-    ? { ...initialTournamentInfo, currentSeason: 'Session 6 (2027)', totalTeams: auctionDemoTeams.length, totalSeasons: 6 }
-    : initialTournamentInfo));
+  const [tournamentInfo, setTournamentInfo] = useState(() => {
+    const defaults = isAuctionDemo
+      ? { ...initialTournamentInfo, currentSeason: 'Session 6 (2027)', totalTeams: auctionDemoTeams.length, totalSeasons: 6 }
+      : initialTournamentInfo;
+    const savedInfo = loadState('tournamentInfo', defaults);
+    return isAuctionDemo ? savedInfo : normalizeActiveTournamentInfo(savedInfo);
+  });
   const [champions, setChampions] = useState(() => {
     const savedChampions = loadState('champions', null);
     if (!Array.isArray(savedChampions)) return initialChampions;
@@ -83,7 +146,7 @@ export const NplProvider = ({ children }) => {
   const [seasons, setSeasons] = useState(() => {
     if (isAuctionDemo) return [auctionDemoSeason, ...initialSeasons];
     const savedSeasons = loadState('seasons', initialSeasons);
-    return Array.isArray(savedSeasons) ? savedSeasons : initialSeasons;
+    return includeActiveSeason(savedSeasons);
   });
   const [teams, setTeams] = useState(() => {
     if (isAuctionDemo) return auctionDemoTeams;
@@ -103,18 +166,20 @@ export const NplProvider = ({ children }) => {
   });
   const [matches, setMatches] = useState(() => isAuctionDemo
     ? []
-    : attachDefaultSeason(loadState('matches', initialMatches), initialSelectedSeason));
+    : attachDefaultSeason(loadState('matches', initialMatches), initialSeasons[1]?.edition || initialSelectedSeason));
   const [pointsTable, setPointsTable] = useState(() => loadState('pointsTable', initialPointsTable));
   const [seasonStandings, setSeasonStandings] = useState(() => {
     if (isAuctionDemo) return { [auctionDemoSeason.edition]: [] };
     const savedStandings = loadState('seasonStandings', initialSeasonStandings);
-    const savedPointsTable = loadState('pointsTable', initialPointsTable);
     const standingsVersion = loadState('seasonStandingsVersion', 0);
-    const latestEdition = initialSeasons[0]?.edition;
+    const latestEdition = activeSeason.edition;
+    const mostRecentCompletedSeason = initialSeasons.find((season) => season.status === 'COMPLETED');
     const duplicateYearEdition = initialSeasons.find((season, index) => (
-      index > 0 && season.season === initialSeasons[0]?.season
+      index > 1 && season.season === mostRecentCompletedSeason?.season
     ))?.edition;
-    const latestSavedStandings = savedStandings[latestEdition] || savedStandings[initialSeasons[0]?.season] || savedPointsTable;
+    const latestSavedStandings = savedStandings[mostRecentCompletedSeason?.edition]
+      || savedStandings[mostRecentCompletedSeason?.season]
+      || [];
     const duplicateStandingsWereShared = standingsVersion < 2 &&
       duplicateYearEdition &&
       JSON.stringify(savedStandings[duplicateYearEdition]) === JSON.stringify(latestSavedStandings);
@@ -124,7 +189,7 @@ export const NplProvider = ({ children }) => {
       season.edition === duplicateYearEdition && duplicateStandingsWereShared
         ? initialSeasonStandings[season.edition]
         : savedStandings[season.edition] || (season.edition === latestEdition
-          ? savedStandings[season.season] || savedPointsTable
+          ? savedStandings[season.season] || []
           : initialSeasonStandings[season.edition])
     ]));
   });
@@ -152,7 +217,7 @@ export const NplProvider = ({ children }) => {
   });
   const [auctionRegistrations, setAuctionRegistrations] = useState(() => isAuctionDemo
     ? auctionDemoPlayers
-    : attachDefaultSeason(loadState('auctionRegistrations', initialAuctionRegistrations), initialSelectedSeason));
+    : attachDefaultSeason(initialAuctionRegistrations, initialSelectedSeason));
   const [auctionLiveStates, setAuctionLiveStates] = useState(() => {
     if (isAuctionDemo) return { [auctionDemoSeason.edition]: auctionDemoLiveState };
     const savedBySeason = loadState('auctionLiveStates', {});
@@ -162,15 +227,22 @@ export const NplProvider = ({ children }) => {
         season,
         state?.status ? state : initialAuctionLiveState
       ])),
-      [initialSelectedSeason]: savedBySeason[initialSelectedSeason] || (
+      ['Season 5']: savedBySeason['Season 5'] || (
         legacyState.status ? legacyState : initialAuctionLiveState
-      )
+      ),
+      [initialSelectedSeason]: savedBySeason[initialSelectedSeason] || initialAuctionLiveState
     };
   });
+  const auctionLiveStatesRef = useRef(auctionLiveStates);
   const auctionLiveState = auctionLiveStates[selectedSeason] || initialAuctionLiveState;
+  useEffect(() => {
+    auctionLiveStatesRef.current = auctionLiveStates;
+  }, [auctionLiveStates]);
   const [auctionSyncStatus, setAuctionSyncStatus] = useState(isAuctionDemo ? 'online' : 'connecting');
   const [siteMedia, setSiteMedia] = useState({});
   const [siteDataLoaded, setSiteDataLoaded] = useState(isAuctionDemo);
+  const [matchFeedLoaded, setMatchFeedLoaded] = useState(isAuctionDemo);
+  const backendMatchesRef = useRef([]);
   const [registrationDataLoaded, setRegistrationDataLoaded] = useState(isAuctionDemo);
   const siteDataSaveQueue = useRef(Promise.resolve());
   const registrationSaveQueue = useRef(Promise.resolve());
@@ -209,13 +281,18 @@ export const NplProvider = ({ children }) => {
       .then((response) => response.ok ? response.json() : null)
       .then((data) => {
         if (!data || typeof data !== 'object') return;
-        if (data.tournamentInfo) setTournamentInfo(data.tournamentInfo);
+        if (data.tournamentInfo) setTournamentInfo(normalizeActiveTournamentInfo(data.tournamentInfo));
         if (Array.isArray(data.champions)) setChampions(data.champions);
-        if (Array.isArray(data.seasons)) setSeasons(data.seasons);
+        if (Array.isArray(data.seasons)) setSeasons(includeActiveSeason(data.seasons));
         if (Array.isArray(data.teams)) setTeams(data.teams);
-        if (Array.isArray(data.matches)) setMatches(data.matches);
+        if (Array.isArray(data.matches)) {
+          setMatches(mergeScoringMatches(data.matches, backendMatchesRef.current));
+        }
         if (Array.isArray(data.pointsTable)) setPointsTable(data.pointsTable);
-        if (data.seasonStandings) setSeasonStandings(data.seasonStandings);
+        if (data.seasonStandings) setSeasonStandings({
+          ...data.seasonStandings,
+          [activeSeason.edition]: data.seasonStandings[activeSeason.edition] || []
+        });
         if (Array.isArray(data.topPerformers) || (data.topPerformers && typeof data.topPerformers === 'object')) {
           setTopPerformers(data.topPerformers);
         }
@@ -235,8 +312,8 @@ export const NplProvider = ({ children }) => {
     fetch('/api/matches')
       .then((res) => res.ok ? res.json() : null)
       .then((data) => {
-        if (data?.matches && data.matches.length > 0) {
-          const backendMatches = data.matches.map((bm) => ({
+        if (Array.isArray(data?.matches) && data.matches.length > 0) {
+          const backendMatches = data.matches.filter((match) => match && typeof match === 'object').map((bm) => ({
             id: bm.id,
             season: bm.season,
             matchNumber: bm.matchNumber,
@@ -251,15 +328,13 @@ export const NplProvider = ({ children }) => {
             team1: { id: bm.teamAId, name: bm.teamAName, shortName: bm.teamAShort, score: '0/0', overs: '0' },
             team2: { id: bm.teamBId, name: bm.teamBName, shortName: bm.teamBShort, score: '0/0', overs: '0' }
           }));
+          backendMatchesRef.current = backendMatches;
 
-          setMatches((prev) => {
-            const backendIds = new Set(backendMatches.map((m) => m.id));
-            const existing = prev.filter((m) => !backendIds.has(m.id));
-            return [...backendMatches, ...existing];
-          });
+          setMatches((previousMatches) => mergeScoringMatches(previousMatches, backendMatches));
         }
       })
-      .catch(() => {});
+      .catch((error) => console.error('Could not load live match data:', error))
+      .finally(() => setMatchFeedLoaded(true));
   }, []);
 
   useEffect(() => {
@@ -280,7 +355,9 @@ export const NplProvider = ({ children }) => {
           current.updatedAt >= nextState.updatedAt) {
           return previous;
         }
-        return { ...previous, [selectedSeason]: nextState };
+        const updated = { ...previous, [selectedSeason]: nextState };
+        auctionLiveStatesRef.current = updated;
+        return updated;
       });
     };
 
@@ -297,6 +374,26 @@ export const NplProvider = ({ children }) => {
         if (!active) return;
         console.error('Could not refresh live auction state:', error);
       }
+    };
+
+    const applyAuctionBid = (bid) => {
+      if (!bid || !Number.isSafeInteger(bid.version)) return;
+      const current = auctionLiveStatesRef.current[selectedSeason] || initialAuctionLiveState;
+      if (Number.isSafeInteger(current.version) && current.version >= bid.version) return;
+      if ((current.version || 0) + 1 !== bid.version ||
+        current.currentPlayer?.id !== bid.currentPlayerId) {
+        refreshAuction();
+        return;
+      }
+
+      const bidState = { ...bid };
+      delete bidState.currentPlayerId;
+      const updated = {
+        ...auctionLiveStatesRef.current,
+        [selectedSeason]: { ...current, ...bidState }
+      };
+      auctionLiveStatesRef.current = updated;
+      setAuctionLiveStates(updated);
     };
 
     const setPollingInterval = (delay) => {
@@ -319,8 +416,10 @@ export const NplProvider = ({ children }) => {
         if (!active) return;
         try {
           const message = JSON.parse(event.data);
-          if (message.type !== 'auction-state' || message.season !== selectedSeason) return;
-          applyAuctionState(message.state);
+          if (message.season !== selectedSeason) return;
+          if (message.type === 'auction-state') applyAuctionState(message.state);
+          else if (message.type === 'auction-bid') applyAuctionBid(message.bid);
+          else return;
           setAuctionSyncStatus('online');
         } catch (error) {
           console.error('Could not read live auction WebSocket update:', error);
@@ -375,87 +474,91 @@ export const NplProvider = ({ children }) => {
   // Sync to local storage
   useEffect(() => {
     if (isAuctionDemo) return;
-    localStorage.setItem('npl_tournamentInfo', JSON.stringify(tournamentInfo));
+    try {
+      localStorage.removeItem('npl_auctionRegistrations');
+    } catch (error) {
+      console.error('Could not clear the outdated local auction registration cache:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isAuctionDemo) return;
+    persistLocalState('npl_tournamentInfo', JSON.stringify(tournamentInfo));
   }, [tournamentInfo]);
 
   useEffect(() => {
     if (isAuctionDemo) return;
-    localStorage.setItem('npl_champions', JSON.stringify(champions));
+    persistLocalState('npl_champions', JSON.stringify(champions));
   }, [champions]);
 
   useEffect(() => {
     if (isAuctionDemo) return;
-    localStorage.setItem('npl_seasons', JSON.stringify(seasons));
+    persistLocalState('npl_seasons', JSON.stringify(seasons));
   }, [seasons]);
 
   useEffect(() => {
     if (isAuctionDemo) return;
-    localStorage.setItem('npl_teams', JSON.stringify(teams));
+    persistLocalState('npl_teams', JSON.stringify(teams));
   }, [teams]);
 
   useEffect(() => {
     if (isAuctionDemo) return;
-    localStorage.setItem('npl_teamDataVersion', '3');
+    persistLocalState('npl_teamDataVersion', '3');
   }, []);
 
   useEffect(() => {
     if (isAuctionDemo) return;
-    localStorage.setItem('npl_matches', JSON.stringify(matches));
+    persistLocalState('npl_matches', JSON.stringify(matches));
   }, [matches]);
 
   useEffect(() => {
     if (isAuctionDemo) return;
-    localStorage.setItem('npl_pointsTable', JSON.stringify(pointsTable));
+    persistLocalState('npl_pointsTable', JSON.stringify(pointsTable));
   }, [pointsTable]);
 
   useEffect(() => {
     if (isAuctionDemo) return;
-    localStorage.setItem('npl_seasonStandings', JSON.stringify(seasonStandings));
+    persistLocalState('npl_seasonStandings', JSON.stringify(seasonStandings));
   }, [seasonStandings]);
 
   useEffect(() => {
     if (isAuctionDemo) return;
-    localStorage.setItem('npl_seasonStandingsVersion', '2');
+    persistLocalState('npl_seasonStandingsVersion', '2');
   }, []);
 
   useEffect(() => {
     if (isAuctionDemo) return;
-    localStorage.setItem('npl_topPerformers', JSON.stringify(topPerformers));
+    persistLocalState('npl_topPerformers', JSON.stringify(topPerformers));
   }, [topPerformers]);
 
   useEffect(() => {
     if (isAuctionDemo) return;
-    localStorage.setItem('npl_highlights', JSON.stringify(highlights));
+    persistLocalState('npl_highlights', JSON.stringify(highlights));
   }, [highlights]);
 
   useEffect(() => {
     if (isAuctionDemo) return;
-    localStorage.setItem('npl_auctionRegistrations', JSON.stringify(auctionRegistrations));
-  }, [auctionRegistrations]);
-
-  useEffect(() => {
-    if (isAuctionDemo) return;
-    localStorage.setItem('npl_auctionLiveStates', JSON.stringify(auctionLiveStates));
+    persistLocalState('npl_auctionLiveStates', JSON.stringify(auctionLiveStates));
   }, [auctionLiveStates]);
 
   useEffect(() => {
     if (isAuctionDemo) return;
-    localStorage.setItem('npl_news', JSON.stringify(news));
+    persistLocalState('npl_news', JSON.stringify(news));
   }, [news]);
 
   useEffect(() => {
     if (isAuctionDemo) return;
-    localStorage.setItem('npl_gallery', JSON.stringify(gallery));
+    persistLocalState('npl_gallery', JSON.stringify(gallery));
   }, [gallery]);
 
   useEffect(() => {
     if (isAuctionDemo) return;
-    localStorage.setItem('npl_sectionPhotos', JSON.stringify(sectionPhotos));
+    persistLocalState('npl_sectionPhotos', JSON.stringify(sectionPhotos));
   }, [sectionPhotos]);
 
   useEffect(() => {
     if (isAuctionDemo) return;
-    localStorage.setItem('npl_legacyPhotos', JSON.stringify(legacyPhotos));
+    persistLocalState('npl_legacyPhotos', JSON.stringify(legacyPhotos));
   }, [legacyPhotos]);
 
   const publicSiteData = {
@@ -520,6 +623,10 @@ export const NplProvider = ({ children }) => {
   const syncScoredMatch = useCallback((scoredMatch, scorecard = null) => {
     if (!scoredMatch?.id) return;
     const innings = scorecard?.innings || [];
+    const currentInningsNumber = scorecard?.currentInningsNumber || scoredMatch.currentInningsNumber || 1;
+    const target = currentInningsNumber === 2 ? scorecard?.liveSummary?.target ?? null : null;
+    const remainingRuns = currentInningsNumber === 2 ? scorecard?.liveSummary?.remainingRuns ?? null : null;
+    const remainingBalls = currentInningsNumber === 2 ? scorecard?.liveSummary?.remainingBalls ?? null : null;
     const scoreForTeam = (teamId) => {
       const inningsScore = innings.find((entry) => entry.teamId === teamId);
       if (!inningsScore) return null;
@@ -548,6 +655,15 @@ export const NplProvider = ({ children }) => {
         venue: scoredMatch.venue || scoredMatch.ground || previousMatch?.venue || '',
         status: scoredMatch.status === 'COMPLETED' ? 'COMPLETED'
           : scoredMatch.status === 'UPCOMING' ? 'UPCOMING' : 'LIVE',
+        currentInningsNumber,
+        target,
+        remainingRuns,
+        remainingBalls,
+        rrr: currentInningsNumber === 2 ? scorecard?.liveSummary?.rrr ?? null : null,
+        equation: target !== null && remainingRuns !== null && remainingBalls !== null
+          ? `Need ${remainingRuns} runs from ${remainingBalls} balls`
+          : '',
+        updatedAt: scoredMatch.updatedAt || previousMatch?.updatedAt || '',
         result: scoredMatch.result || previousMatch?.result || '',
         winnerTeamId: scoredMatch.winnerTeamId || previousMatch?.winnerTeamId || null,
         playerOfMatch: scoredMatch.playerOfMatch || previousMatch?.playerOfMatch || null,
@@ -571,6 +687,9 @@ export const NplProvider = ({ children }) => {
         }
       };
 
+      if (previousMatch?.updatedAt && scoredMatch.updatedAt &&
+        previousMatch.updatedAt > scoredMatch.updatedAt) return previousMatches;
+
       if (previousMatch && Object.keys(publicMatch).every((key) => (
         JSON.stringify(previousMatch[key]) === JSON.stringify(publicMatch[key])
       ))) return previousMatches;
@@ -580,6 +699,53 @@ export const NplProvider = ({ children }) => {
         : [publicMatch, ...previousMatches];
     });
   }, [selectedSeason, teams]);
+
+  const removeScoredMatch = useCallback((matchId) => {
+    backendMatchesRef.current = backendMatchesRef.current.filter((match) => match.id !== matchId);
+    setMatches((current) => current.filter((match) => match.id !== matchId));
+  }, []);
+
+  useEffect(() => {
+    if (isAuctionDemo || !selectedSeason) return undefined;
+    let active = true;
+    let socket;
+    let reconnectTimeout;
+    let reconnectDelay = 1000;
+
+    const connect = () => {
+      if (!active) return;
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      socket = new WebSocket(
+        `${protocol}//${window.location.host}/api/matches/live/ws?season=${encodeURIComponent(selectedSeason)}`
+      );
+      socket.onopen = () => {
+        reconnectDelay = 1000;
+      };
+      socket.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          if (message.type === 'scoring-summary' && message.season === selectedSeason) {
+            syncScoredMatch(message.match, message.scorecard);
+          }
+        } catch (error) {
+          console.error('Could not read live scoring feed update:', error);
+        }
+      };
+      socket.onerror = () => socket.close();
+      socket.onclose = () => {
+        if (!active) return;
+        reconnectTimeout = window.setTimeout(connect, reconnectDelay);
+        reconnectDelay = Math.min(reconnectDelay * 2, 15000);
+      };
+    };
+    connect();
+
+    return () => {
+      active = false;
+      window.clearTimeout(reconnectTimeout);
+      socket?.close();
+    };
+  }, [isAuctionDemo, selectedSeason, syncScoredMatch]);
 
   const refreshSiteMedia = async () => {
     const response = await fetch('/api/site-media');
@@ -707,10 +873,13 @@ export const NplProvider = ({ children }) => {
     }
     const basePrice = Number(String(player.basePrice || '').replace(/[^\d]/g, '')) || 100;
     const publicPlayer = Object.fromEntries(
-      ['id', 'registrationId', 'fullName', 'name', 'role', 'photo', 'basePrice']
+      ['id', 'registrationId', 'fullName', 'name', 'role', 'basePrice']
         .filter((key) => typeof player[key] === 'string')
         .map((key) => [key, player[key]])
     );
+    publicPlayer.photo = player.photo?.startsWith('/api/media/auction-player-photo%3A')
+      ? player.photo
+      : '';
     publicPlayer.basePrice = `₹${basePrice.toLocaleString('en-IN')}`;
     const seasonTeams = teams.filter((team) => {
       const sessions = Array.isArray(team.sessions) ? team.sessions
@@ -777,29 +946,70 @@ export const NplProvider = ({ children }) => {
     });
   };
 
-  const placeLiveBid = async (teamId, amount, season = selectedSeason) => {
+  const placeLiveBid = async (teamId, increment, season = selectedSeason) => {
     const team = teams.find((candidate) => candidate.id === teamId);
     if (!team) throw new Error('Choose a valid franchise.');
     const teamSessions = Array.isArray(team.sessions) ? team.sessions
       : Array.isArray(team.seasons) ? team.seasons
         : team.session ? [team.session] : [season];
     if (!teamSessions.includes(season)) throw new Error('Choose a franchise assigned to this auction season.');
-    await updateAuctionLiveState(season, (previous) => {
-      if (previous.status !== 'live' || !previous.currentPlayer) throw new Error('The auction is not accepting bids right now.');
-      const purse = previous.teamPurses?.[teamId] ?? previous.purseCap ?? DEFAULT_AUCTION_PURSE_CAP;
-      if (!Number.isSafeInteger(amount) || amount <= previous.currentBid) throw new Error('Each bid must be higher than the current bid.');
-      if (amount > purse) throw new Error(`${team.name} does not have enough purse remaining.`);
-      return {
-        ...previous,
-        currentBid: amount,
-        currentBiddingTeam: teamId,
-        bidHistory: [
-          { team: team.name, amount, time: new Date().toLocaleTimeString() },
-          ...(previous.bidHistory || []).slice(0, 19)
-        ]
+
+    const previousState = auctionLiveStates[season] || initialAuctionLiveState;
+    const optimisticAmount = previousState.currentBid + increment;
+    if (!Number.isSafeInteger(increment) || increment <= 0 ||
+      !Number.isSafeInteger(optimisticAmount)) {
+      throw new Error('Enter a valid bid increment.');
+    }
+    const optimisticState = {
+      ...previousState,
+      currentBid: optimisticAmount,
+      currentBiddingTeam: teamId,
+      bidHistory: [
+        { team: team.name, amount: optimisticAmount, time: new Date().toLocaleTimeString() },
+        ...(previousState.bidHistory || []).slice(0, 19)
+      ],
+      version: (Number.isSafeInteger(previousState.version) ? previousState.version : 0) + 1
+    };
+    const optimisticStates = { ...auctionLiveStatesRef.current, [season]: optimisticState };
+    auctionLiveStatesRef.current = optimisticStates;
+    setAuctionLiveStates(optimisticStates);
+
+    try {
+      const response = await fetch('/api/admin/auction/bid', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ season, teamId, teamName: team.name, increment })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Could not update the live auction.');
+      if (!result.bid) throw new Error('The auction did not confirm the bid.');
+
+      const bidState = { ...result.bid };
+      delete bidState.currentPlayerId;
+      const updated = {
+        ...auctionLiveStatesRef.current,
+        [season]: { ...(auctionLiveStatesRef.current[season] || optimisticState), ...bidState }
       };
-    });
-    sound.playBidBeep();
+      auctionLiveStatesRef.current = updated;
+      setAuctionLiveStates(updated);
+      sound.playBidBeep();
+    } catch (error) {
+      try {
+        const response = await fetch(`/api/auction/live?season=${encodeURIComponent(season)}`, {
+          cache: 'no-store'
+        });
+        if (!response.ok) throw new Error('Could not reload the latest auction state.');
+        const result = await response.json();
+        if (result.state) {
+          const updated = { ...auctionLiveStatesRef.current, [season]: result.state };
+          auctionLiveStatesRef.current = updated;
+          setAuctionLiveStates(updated);
+        }
+      } catch (refreshError) {
+        console.error('Could not reconcile the live auction after a bid error:', refreshError);
+      }
+      throw error;
+    }
   };
 
   const sellLivePlayer = async (player, winningTeamId, finalAmount, season = selectedSeason) => {
@@ -936,7 +1146,7 @@ export const NplProvider = ({ children }) => {
     setMatches(initialMatches);
     setPointsTable(initialPointsTable);
     setSeasonStandings(initialSeasonStandings);
-    setSelectedSeason(initialSeasons[0]?.edition || 'Season 5');
+    setSelectedSeason(activeSeason.edition);
     setTopPerformers(initialTopPerformers);
     setRecords(initialRecords);
     setGallery(initialGallery);
@@ -945,7 +1155,7 @@ export const NplProvider = ({ children }) => {
     setHighlights(initialHighlights);
     setNews(initialNews);
     setAuctionRegistrations(initialAuctionRegistrations);
-    setAuctionLiveStates({ [initialSeasons[0]?.edition || 'Season 5']: initialAuctionLiveState });
+    setAuctionLiveStates({ [activeSeason.edition]: initialAuctionLiveState });
     showToast("Factory data reset complete!");
   };
 
@@ -962,7 +1172,9 @@ export const NplProvider = ({ children }) => {
         setTeams,
         matches,
         setMatches,
+        matchDataLoaded: siteDataLoaded && matchFeedLoaded,
         syncScoredMatch,
+        removeScoredMatch,
         updateMatchLiveScore,
         pointsTable,
         setPointsTable,

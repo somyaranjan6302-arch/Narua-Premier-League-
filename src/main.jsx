@@ -7,15 +7,33 @@ const App = lazy(() => import('./App.jsx'))
 const ScorerPortal = lazy(() => import('./components/ScorerPortal.jsx'))
 const AuctionBroadcast = lazy(() => import('./components/AuctionBroadcast.jsx'))
 
-class AppErrorBoundary extends Component {
-  state = { hasError: false }
+const isChunkLoadError = (error) => {
+  const message = [error?.message, error?.cause?.message].filter(Boolean).join(' ')
+  return /failed to fetch dynamically imported module|importing a module script failed|loading chunk .* failed|failed to load module script/i.test(message)
+}
 
-  static getDerivedStateFromError() {
-    return { hasError: true }
+class AppErrorBoundary extends Component {
+  state = { hasError: false, errorMessage: '' }
+
+  static getDerivedStateFromError(error) {
+    return {
+      hasError: true,
+      errorMessage: error instanceof Error ? error.message : String(error)
+    }
   }
 
   componentDidCatch(error) {
     console.error('NPL app failed to render:', error)
+    if (!isChunkLoadError(error)) return
+
+    const recoveryId = error.message || String(error)
+    try {
+      if (sessionStorage.getItem('npl_chunk_load_recovery') === recoveryId) return
+      sessionStorage.setItem('npl_chunk_load_recovery', recoveryId)
+      window.location.reload()
+    } catch (recoveryError) {
+      console.error('Could not automatically recover from the NPL chunk load failure:', recoveryError)
+    }
   }
 
   render() {
@@ -27,6 +45,12 @@ class AppErrorBoundary extends Component {
             <p className="mt-2 text-sm text-slate-300">
               Reload the page to try again. Your saved tournament data is not affected.
             </p>
+            {this.state.errorMessage && (
+              <details className="mt-4 text-left text-xs text-slate-400">
+                <summary className="cursor-pointer">Technical details</summary>
+                <code className="mt-2 block break-words">{this.state.errorMessage}</code>
+              </details>
+            )}
             <button
               type="button"
               onClick={() => window.location.reload()}

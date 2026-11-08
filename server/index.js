@@ -979,7 +979,13 @@ const start = async () => {
   const server = createServer(app);
   server.on('upgrade', (request, socket, head) => {
     const url = new URL(request.url || '/', 'http://localhost');
-    if (url.pathname !== '/api/auction/live/ws') return;
+    if (url.pathname !== '/api/auction/live/ws') {
+      if (url.pathname === '/api/matches/live/ws') {
+        socket.write('HTTP/1.1 426 Upgrade Required\r\nConnection: close\r\nContent-Type: text/plain\r\n\r\nUse the live scoring event stream.');
+        socket.destroy();
+      }
+      return;
+    }
 
     const season = url.searchParams.get('season')?.trim() || '';
     const rejectUpgrade = (status, message) => {

@@ -99,8 +99,8 @@ The studio binds only to `127.0.0.1`; selected images are processed on your comp
 - **Player Roster:** Search by name/team and filter by Batters, Bowlers, All-rounders, and Keepers.
 - **Top Performers & Records:** Orange Cap, Purple Cap, Max Sixes, Best Bowling, and All-Time Records.
 - **Photo Gallery & Video Highlights:** Masonry gallery with fullscreen lightbox and broadcast video player.
-- **Auction Registration:** Public registration form that generates an official digital **NPL Player Pass** with ID & QR code.
-- **Live Auction Arena Simulator:** Interactive bidding simulator with team paddles, audio gavel strike, confetti, and purse tracking.
+- **Auction Registration:** Public registration form that generates an official digital **NPL Player Pass** with ID & QR code. Player photos are cropped and compressed to 250 KB or less, then served separately from live bid state.
+- **Live Auction Arena Simulator:** Interactive bidding simulator with team paddles, audio gavel strike, confetti, and purse tracking. Bid updates use compact, server-validated commands and realtime deltas.
 - **Organizer Admin Console:** Server-authenticated admin portal with a developer owner account, owner-managed admin accounts, salted password hashes, and HTTP-only sessions.
 - **Developer Media Library:** The owner-only Admin Portal tab can replace the public logo, stadium and trophy art, champion/team photos, news images, gallery photos, highlight thumbnails, and top-performer portraits. Production uploads are stored in Postgres; local development uploads use `public/`.
 

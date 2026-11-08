@@ -6,7 +6,7 @@ import { Trophy, Info } from 'lucide-react';
 const previewTeamLogo = '/uploads/points-table-team-logo-preview.png';
 
 export const PointsTable = () => {
-  const { pointsTable, seasonStandings, seasons, selectedSeason, setSelectedSeason, teams } = useNpl();
+  const { seasonStandings, seasons, selectedSeason, setSelectedSeason, teams } = useNpl();
   const [demoStandings, setDemoStandings] = useState(null);
   const [demoStandingsError, setDemoStandingsError] = useState('');
   const [liveEngineTable, setLiveEngineTable] = useState(null);
@@ -15,7 +15,7 @@ export const PointsTable = () => {
   const seasonInfo = seasons.find((season) => season.edition === selectedSeason) || seasons[0];
   const visiblePointsTable = showDemoStandings
     ? demoStandings || []
-    : liveEngineTable || seasonStandings[selectedSeason] || (selectedSeason === seasons[0]?.edition ? pointsTable : []);
+    : liveEngineTable || seasonStandings[selectedSeason] || [];
 
   useEffect(() => {
     fetch(`/api/tournaments/${encodeURIComponent(selectedSeason)}/points-table`)

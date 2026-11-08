@@ -4,6 +4,15 @@ import { mergeOfficialSession3Content } from '../../src/data/session3Data.js';
 import { mergeOfficialSession4Content } from '../../src/data/session4Data.js';
 import { mergeOfficialSession5Content } from '../../src/data/session5Data.js';
 import staticSiteMedia from '../staticSiteMedia.js';
+import {
+  auctionPhotoByteLength,
+  auctionBidSnapshot,
+  AuctionBidError,
+  commitAuctionBid,
+  compactAuctionState,
+  isAuctionPlayerPhotoUrl,
+  MAX_AUCTION_PHOTO_BYTES
+} from './auctionState.js';
 import { handleLiveScoringApi } from './liveScoring.js';
 
 const SESSION_COOKIE = 'npl_admin_session';
@@ -11,8 +20,9 @@ const SESSION_SECONDS = 8 * 60 * 60;
 const PASSWORD_ITERATIONS = 100000;
 const MEDIA_CHUNK_SIZE = 96 * 1024;
 const mediaTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
-const mediaKeyPattern = /^(news|champion|team-logo|team|match-banner|gallery|memory-photo|highlight|performer|featured-performer|player-photo|section-photo|record):[A-Za-z0-9 ._-]{1,80}$/;
+const mediaKeyPattern = /^(news|champion|team-logo|team|match-banner|gallery|memory-photo|highlight|performer|featured-performer|player-photo|auction-player-photo|section-photo|record):[A-Za-z0-9 ._-]{1,80}$/;
 const allowedMediaKeys = new Set(['logo', 'trophy', 'stadium']);
+const AUCTION_PHOTO_PATTERN = /^data:image\/(jpeg|png|webp|gif);base64,([A-Za-z0-9+/]+={0,2})$/;
 
 const json = (value, status = 200, headers = {}) => new Response(
   JSON.stringify(value),
@@ -51,6 +61,63 @@ const setSiteValue = (env, key, value) => run(
   key,
   JSON.stringify(value)
 );
+
+const publishAuctionUpdate = async (env, season, update, executionContext) => {
+  const task = (async () => {
+    if (!env.AUCTION_ROOMS) throw new Error('The Cloudflare Durable Object binding "AUCTION_ROOMS" is not configured.');
+    const roomId = env.AUCTION_ROOMS.idFromName(season);
+    const response = await env.AUCTION_ROOMS.get(roomId).fetch('https://auction-room/publish', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ season, ...update })
+    });
+    if (!response.ok) throw new Error(`Auction room returned HTTP ${response.status}.`);
+  })().catch((error) => {
+    console.error('Auction state was saved, but its WebSocket broadcast failed:', error);
+  });
+
+  if (typeof executionContext?.waitUntil === 'function') executionContext.waitUntil(task);
+  else await task;
+};
+
+const compactStoredAuction = async (env, season, state, executionContext) => {
+  const playerId = state?.currentPlayer?.id;
+  let photo = state?.currentPlayer?.photo || '';
+  if (playerId && !photo) {
+    const registration = await first(
+      env,
+      'SELECT value FROM npl_auction_registrations WHERE registration_id = ?',
+      playerId
+    );
+    photo = registration ? JSON.parse(registration.value).photo || '' : '';
+  }
+  const photoUrl = playerId && photo.startsWith('data:image/')
+    ? await ensureAuctionPlayerPhoto(env, playerId, photo, true)
+    : playerId && photo.startsWith('/api/auction/player-photo?')
+      ? await ensureAuctionPlayerPhoto(env, playerId, photo, true)
+      : photo;
+  if (photoUrl && photoUrl !== state?.currentPlayer?.photo) {
+    state = { ...state, currentPlayer: { ...state.currentPlayer, photo: photoUrl } };
+  }
+  const compacted = compactAuctionState(state, photoUrl);
+  if (!compacted) return state;
+
+  const key = `auction-live:${season}`;
+  const saved = await first(
+    env,
+    `UPDATE npl_site_data SET value = ?, updated_at = CURRENT_TIMESTAMP
+     WHERE data_key = ? AND COALESCE(json_extract(value, '$.version'), 0) = ?
+     RETURNING value`,
+    JSON.stringify(compacted),
+    key,
+    Number.isSafeInteger(state.version) ? state.version : 0
+  );
+  if (!saved) return readSiteValue(env, key);
+
+  const persistedState = JSON.parse(saved.value);
+  await publishAuctionUpdate(env, season, { state: persistedState }, executionContext);
+  return persistedState;
+};
 
 const randomBytes = (size) => crypto.getRandomValues(new Uint8Array(size));
 const toHex = (bytes) => [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
@@ -214,7 +281,71 @@ const initializeOwner = async (env, password) => {
 const listRegistrations = (env) => all(
   env,
   'SELECT value FROM npl_auction_registrations ORDER BY created_at DESC, rowid DESC'
-).then((rows) => rows.map((row) => JSON.parse(row.value)));
+).then(async (rows) => Promise.all(rows.map(async (row) => {
+  const registration = JSON.parse(row.value);
+  const photo = await ensureAuctionPlayerPhoto(env, registration.id, registration.photo, true);
+  if (photo !== registration.photo) {
+    registration.photo = photo;
+    await run(env, 'UPDATE npl_auction_registrations SET value = ? WHERE registration_id = ?',
+      JSON.stringify(registration), registration.id);
+  }
+  return registration;
+})));
+
+const saveAuctionPlayerPhoto = async (env, playerId, photo, maxBytes = MAX_AUCTION_PHOTO_BYTES) => {
+  if (!photo) return '';
+  if (typeof playerId !== 'string' || !/^[A-Za-z0-9._:-]{1,120}$/.test(playerId)) {
+    throw new Error('Player registration ID is invalid.');
+  }
+  if (photo.startsWith('/api/media/auction-player-photo%3A')) return photo;
+  const match = photo.match(AUCTION_PHOTO_PATTERN);
+  if (!match) throw new Error('Player photo must be a supported JPEG, PNG, WebP, or GIF image.');
+  if (auctionPhotoByteLength(match[2]) > maxBytes) {
+    throw new Error(`Player photos must be ${Math.floor(maxBytes / 1024)} KB or smaller.`);
+  }
+
+  const mediaKey = `auction-player-photo:${playerId}`;
+  const bytes = Uint8Array.from(atob(match[2]), (character) => character.charCodeAt(0));
+  const chunkCount = Math.ceil(bytes.length / MEDIA_CHUNK_SIZE);
+  const statements = [
+    database(env).prepare('DELETE FROM npl_media_chunks WHERE media_key = ?').bind(mediaKey),
+    database(env).prepare(
+      `INSERT INTO npl_media (media_key, content_type, chunk_count)
+       VALUES (?, ?, ?)
+       ON CONFLICT(media_key) DO UPDATE SET
+         content_type = excluded.content_type, chunk_count = excluded.chunk_count, updated_at = CURRENT_TIMESTAMP`
+    ).bind(mediaKey, `image/${match[1]}`, chunkCount)
+  ];
+  for (let index = 0; index < chunkCount; index += 1) {
+    statements.push(database(env).prepare(
+      'INSERT INTO npl_media_chunks (media_key, chunk_index, content) VALUES (?, ?, ?)'
+    ).bind(mediaKey, index, bytes.slice(index * MEDIA_CHUNK_SIZE, (index + 1) * MEDIA_CHUNK_SIZE)));
+  }
+  await database(env).batch(statements);
+  return `/api/media/${encodeURIComponent(mediaKey)}?v=${toBase64Url(randomBytes(8))}`;
+};
+
+const ensureAuctionPlayerPhoto = async (env, playerId, photo, allowLegacyLarge = false) => {
+  if (!playerId || typeof photo !== 'string' || !photo) return '';
+  if (photo.startsWith('/api/media/auction-player-photo%3A')) return photo;
+
+  let photoData = photo;
+  if (photo.startsWith('/api/auction/player-photo?')) {
+    const registration = await first(
+      env,
+      'SELECT value FROM npl_auction_registrations WHERE registration_id = ?',
+      playerId
+    );
+    photoData = registration ? JSON.parse(registration.value).photo : '';
+  }
+  if (!photoData?.startsWith('data:image/')) return photoData;
+  return saveAuctionPlayerPhoto(
+    env,
+    playerId,
+    photoData,
+    allowLegacyLarge ? 8 * 1024 * 1024 : MAX_AUCTION_PHOTO_BYTES
+  );
+};
 
 const saveMedia = async (env, mediaKey, image) => {
   const bytes = new Uint8Array(await image.arrayBuffer());
@@ -245,7 +376,7 @@ const saveMedia = async (env, mediaKey, image) => {
   return mediaUrl;
 };
 
-const apiRequest = async (request, env) => {
+const apiRequest = async (request, env, executionContext) => {
   database(env);
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/+$/, '') || '/';
@@ -293,7 +424,9 @@ const apiRequest = async (request, env) => {
     }
     return new Response(bytes.slice(0, length), {
       headers: {
-        'Cache-Control': 'no-store',
+        'Cache-Control': mediaKey.startsWith('auction-player-photo:')
+          ? 'public, max-age=3600, stale-while-revalidate=86400'
+          : 'no-store',
         'Content-Type': media.content_type,
         'X-Content-Type-Options': 'nosniff'
       }
@@ -303,7 +436,8 @@ const apiRequest = async (request, env) => {
   if (method === 'GET' && path === '/api/auction/live') {
     const season = url.searchParams.get('season')?.trim() || '';
     if (!season || season.length > 60) return errorResponse('Choose a valid auction season.', 400);
-    return json({ state: await readSiteValue(env, `auction-live:${season}`) });
+    const state = await readSiteValue(env, `auction-live:${season}`);
+    return json({ state: await compactStoredAuction(env, season, state, executionContext) });
   }
 
   if (method === 'GET' && path === '/api/auction/live/ws') {
@@ -326,16 +460,24 @@ const apiRequest = async (request, env) => {
     }
     const body = await readJson(request);
     if (!body || typeof body !== 'object' || typeof body.id !== 'string' ||
+      !/^[A-Za-z0-9._:-]{1,120}$/.test(body.id) ||
       typeof body.fullName !== 'string' || typeof body.phone !== 'string' || body.consent !== true) {
       return errorResponse('Registration details are incomplete.', 400);
     }
+    let playerPhoto = '';
+    try {
+      playerPhoto = await saveAuctionPlayerPhoto(env, body.id, body.photo || '');
+    } catch (error) {
+      return errorResponse(error.message, 400);
+    }
+    const registration = { ...body, photo: playerPhoto };
     await run(
       env,
       `INSERT INTO npl_auction_registrations (registration_id, value, created_at)
        VALUES (?, ?, ?)
        ON CONFLICT(registration_id) DO UPDATE SET value = excluded.value, created_at = excluded.created_at`,
       body.id,
-      JSON.stringify(body),
+      JSON.stringify(registration),
       Date.now()
     );
     return json({ id: body.id }, 201);
@@ -379,6 +521,24 @@ const apiRequest = async (request, env) => {
   const requireOwner = () => user?.role === 'owner'
     ? null
     : errorResponse(user ? 'Only the developer owner can manage admin accounts.' : 'Sign in required.', user ? 403 : 401);
+
+  if (method === 'GET' && path === '/api/matches/live/ws') {
+    const season = url.searchParams.get('season')?.trim() || '';
+    if (!season || season.length > 60) return errorResponse('Choose a valid scoring season.', 400);
+    if (request.headers.get('Upgrade')?.toLowerCase() !== 'websocket') {
+      return errorResponse('A WebSocket connection is required.', 426);
+    }
+    if (!env.AUCTION_ROOMS) throw new Error('The Cloudflare Durable Object binding "AUCTION_ROOMS" is not configured.');
+    const matchId = url.searchParams.get('matchId')?.trim() || '';
+    if (matchId && !/^[A-Za-z0-9._:-]{1,120}$/.test(matchId)) {
+      return errorResponse('Choose a valid match.', 400);
+    }
+    const channel = matchId ? 'scoring-match' : 'scoring';
+    const roomId = env.AUCTION_ROOMS.idFromName(matchId ? `scoring-match:${matchId}` : `scoring:${season}`);
+    return env.AUCTION_ROOMS.get(roomId).fetch(
+      new Request(`https://scoring-room/connect?channel=${channel}&matchId=${encodeURIComponent(matchId)}&season=${encodeURIComponent(season)}`, request)
+    );
+  }
 
   const liveScoringResponse = await handleLiveScoringApi({ request, env, url, path, method, user });
   if (liveScoringResponse) return liveScoringResponse;
@@ -506,7 +666,16 @@ const apiRequest = async (request, env) => {
     if (denied) return denied;
     const body = await readJson(request);
     if (!Array.isArray(body?.registrations)) return errorResponse('Registrations must be a list.', 400);
-    const registrations = JSON.stringify(body.registrations);
+    let storedRegistrations;
+    try {
+      storedRegistrations = await Promise.all(body.registrations.map(async (registration) => ({
+        ...registration,
+        photo: await ensureAuctionPlayerPhoto(env, registration.id, registration.photo)
+      })));
+    } catch (error) {
+      return errorResponse(error.message, 400);
+    }
+    const registrations = JSON.stringify(storedRegistrations);
     await database(env).batch([
       database(env).prepare('DELETE FROM npl_auction_registrations'),
       database(env).prepare(
@@ -518,6 +687,47 @@ const apiRequest = async (request, env) => {
       ).bind(registrations, registrations)
     ]);
     return new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
+  }
+
+  if (method === 'POST' && path === '/api/admin/auction/bid') {
+    const denied = requireAdmin();
+    if (denied) return denied;
+    const body = await readJson(request);
+    const season = typeof body?.season === 'string' ? body.season.trim() : '';
+    if (!season || season.length > 60) return errorResponse('Choose a valid auction season.', 400);
+
+    const key = `auction-live:${season}`;
+    let persistedState;
+    try {
+      persistedState = await commitAuctionBid({
+        readState: () => readSiteValue(env, key),
+        bid: body,
+        compareAndSet: async (nextState, expectedVersion) => {
+          const saved = await first(
+            env,
+            `UPDATE npl_site_data SET value = ?, updated_at = CURRENT_TIMESTAMP
+             WHERE data_key = ? AND COALESCE(json_extract(value, '$.version'), 0) = ?
+             RETURNING value`,
+            JSON.stringify(nextState),
+            key,
+            expectedVersion
+          );
+          return saved ? JSON.parse(saved.value) : null;
+        }
+      });
+    } catch (error) {
+      if (!(error instanceof AuctionBidError)) throw error;
+      return json({
+        error: error.message,
+        bid: error.state ? auctionBidSnapshot(error.state) : null
+      }, error.status);
+    }
+
+    await publishAuctionUpdate(env, season, {
+      type: 'auction-bid',
+      bid: auctionBidSnapshot(persistedState)
+    }, executionContext);
+    return json({ bid: auctionBidSnapshot(persistedState) });
   }
 
   if (method === 'PUT' && path === '/api/admin/auction/live') {
@@ -552,7 +762,9 @@ const apiRequest = async (request, env) => {
       state.currentPlayer.photo.length <= 8 * 1024 * 1024 &&
       (state.currentPlayer.photo.startsWith('/uploads/') ||
         state.currentPlayer.photo.startsWith('/assets/') ||
-        /^data:image\/(?:jpeg|png|webp|gif);base64,/.test(state.currentPlayer.photo))) {
+        state.currentPlayer.photo.startsWith('/api/auction/player-photo?') ||
+        isAuctionPlayerPhotoUrl(state.currentPlayer.photo) ||
+        /^https?:\/\/[^/]+\/.{1,2048}$/i.test(state.currentPlayer.photo))) {
       currentPlayer.photo = state.currentPlayer.photo;
     }
     const safeState = {
@@ -591,22 +803,7 @@ const apiRequest = async (request, env) => {
       }, 409);
     }
     const persistedState = JSON.parse(saved.value);
-    try {
-      if (!env.AUCTION_ROOMS) throw new Error('The Cloudflare Durable Object binding "AUCTION_ROOMS" is not configured.');
-      const roomId = env.AUCTION_ROOMS.idFromName(season.trim());
-      const response = await env.AUCTION_ROOMS.get(roomId).fetch('https://auction-room/publish', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ season: season.trim(), state: persistedState })
-      });
-      if (!response.ok) throw new Error(`Auction room returned HTTP ${response.status}.`);
-    } catch (error) {
-      console.error('Auction state was saved, but its WebSocket broadcast failed:', error);
-      return json({
-        error: 'The auction was saved, but live broadcast failed. Viewers will receive the saved state after reconnecting.',
-        state: persistedState
-      }, 503);
-    }
+    await publishAuctionUpdate(env, season.trim(), { state: persistedState }, executionContext);
     return json({ state: persistedState });
   }
 
@@ -645,12 +842,13 @@ const apiRequest = async (request, env) => {
   return errorResponse('API endpoint not found.', 404);
 };
 
-export async function onRequest({ request, env }) {
+export async function onRequest(context) {
+  const { request, env } = context;
   if (!new URL(request.url).pathname.startsWith('/api/')) {
     return errorResponse('API endpoint not found.', 404);
   }
   try {
-    return await apiRequest(request, env);
+    return await apiRequest(request, env, context);
   } catch (error) {
     console.error('Cloudflare NPL API request failed:', error);
     const message = error instanceof Error ? error.message : 'Unexpected API error.';

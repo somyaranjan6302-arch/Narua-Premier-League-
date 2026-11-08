@@ -4,6 +4,8 @@ import { LiveAuctionArenaModal } from './modals/LiveAuctionArenaModal';
 
 export default function AuctionBroadcast() {
   const { selectedSeason, setSelectedSeason, isAdminLoggedIn } = useNpl();
+  const isAdminControl = new URLSearchParams(window.location.search).get('control') === '1'
+    && isAdminLoggedIn;
 
   useEffect(() => {
     const requestedSeason = new URLSearchParams(window.location.search).get('season');
@@ -12,5 +14,5 @@ export default function AuctionBroadcast() {
     }
   }, [selectedSeason, setSelectedSeason]);
 
-  return <LiveAuctionArenaModal standalone isAdminControl={isAdminLoggedIn} />;
+  return <LiveAuctionArenaModal standalone isAdminControl={isAdminControl} />;
 }

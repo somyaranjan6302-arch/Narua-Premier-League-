@@ -72,6 +72,7 @@ test('ScoringStore Full Lifecycle: Match setup -> Innings 1 -> Innings 2 Chase -
   });
   assert.equal(inn1Start.status, 'LIVE');
   assert.equal(inn1Start.currentInningsNumber, 1);
+  assert.equal((await store.getScorecard(match.id)).liveSummary.target, null);
 
   // 5. Ball 1: 4 runs by Striker 1
   const b1 = await store.recordDelivery(match.id, {
@@ -131,10 +132,12 @@ test('ScoringStore Full Lifecycle: Match setup -> Innings 1 -> Innings 2 Chase -
     isWicket: true,
     wicketType: WICKET_TYPES.BOWLED,
     dismissedPlayerId: 'a1',
-    dismissedPlayerName: 'Alpha Striker 1'
+    dismissedPlayerName: 'Alpha Striker 1',
+    incomingPlayerId: 'a3'
   });
   assert.equal(b3.scoreState.wickets, 1);
   assert.equal(b3.scoreState.overs, '0.2');
+  assert.equal(b3.scoreState.currentStriker.id, 'a3');
 
   // 8. Test Undo (undoes wicket)
   const undone = await store.undoDelivery(match.id);
@@ -160,6 +163,7 @@ test('ScoringStore Full Lifecycle: Match setup -> Innings 1 -> Innings 2 Chase -
   await store.endInnings(match.id);
   const midMatch = await store.getMatchById(match.id);
   assert.equal(midMatch.status, 'INNINGS_BREAK');
+  assert.equal((await store.getScorecard(match.id)).liveSummary.target, 12);
 
   // 11. Start Innings 2 (Team Beta chasing 12 runs in 5 overs)
   await store.startInnings(match.id, {
@@ -289,4 +293,25 @@ test('ScoringStore enforces each bowler quota', async () => {
     await store.deleteMatch(match.id);
   }
   assert.deepEqual(await store.getSquads(match.id), { teamA: [], teamB: [] });
+});
+
+test('ScoringStore deletion removes the match and its saved roster and deliveries', async () => {
+  const store = new ScoringStore(null);
+  const match = await store.createMatch({
+    season: `Delete Test ${Date.now()}`,
+    teamAId: 'delete-alpha',
+    teamBId: 'delete-beta',
+    teamAName: 'Delete Alpha',
+    teamBName: 'Delete Beta'
+  }, { adminId: 'developer' });
+
+  await store.saveSquads(match.id, {
+    teamA: [{ id: 'da1', name: 'Alpha Batter' }],
+    teamB: [{ id: 'db1', name: 'Beta Bowler' }]
+  });
+  await store.deleteMatch(match.id);
+
+  assert.equal(await store.getMatchById(match.id), null);
+  assert.deepEqual(await store.getSquads(match.id), { teamA: [], teamB: [] });
+  assert.deepEqual(await store.getDeliveries(match.id), { 1: [], 2: [] });
 });

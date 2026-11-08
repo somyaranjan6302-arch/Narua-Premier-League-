@@ -39,6 +39,99 @@ test('TEST 1: Six legal deliveries complete an over', () => {
 
   assert.equal(state.legalBalls, 6);
   assert.equal(state.overs, '1.0');
+  assert.equal(state.currentOverDeliveries.length, 6);
+  assert.equal(state.currentOverDeliveries[0].batRuns, 0);
+  assert.equal(state.currentOverDeliveries[0].display, '0');
+});
+
+test('A wicket requires a replacement and preserves the dismissed batter name', () => {
+  const striker = { id: 'p1', name: 'Striker' };
+  const nonStriker = { id: 'p2', name: 'Non-Striker' };
+  const bowler = { id: 'b1', name: 'Bowler' };
+  const currentState = {
+    legalBalls: 0,
+    deliveries: [],
+    wickets: 0,
+    maxWickets: 10,
+    currentStriker: striker,
+    currentNonStriker: nonStriker,
+    currentBowler: bowler
+  };
+  const wicket = {
+    isWicket: true,
+    wicketType: WICKET_TYPES.BOWLED,
+    dismissedPlayerId: striker.id
+  };
+
+  assert.throws(() => processDelivery(currentState, wicket), /Select the incoming batter/);
+
+  const result = processDelivery(currentState, {
+    ...wicket,
+    incomingPlayerId: 'p3',
+    incomingPlayerName: 'Incoming Batter'
+  });
+  assert.equal(result.delivery.dismissedPlayerName, striker.name);
+  assert.equal(result.nextStriker.id, 'p3');
+  assert.equal(result.nextNonStriker.id, nonStriker.id);
+  const replayedState = calculateInningsState({
+    openingStriker: striker,
+    openingNonStriker: nonStriker,
+    openingBowler: bowler,
+    deliveries: [{
+      ...result.delivery,
+      isLegal: true,
+      totalRuns: 0,
+      batRuns: 0
+    }]
+  });
+  assert.throws(() => processDelivery({
+    ...currentState,
+    wickets: replayedState.wickets,
+    batting: replayedState.batting,
+    legalBalls: replayedState.legalBalls,
+    deliveries: [result.delivery],
+    currentStriker: replayedState.currentStriker,
+    currentNonStriker: replayedState.currentNonStriker
+  }, {
+    ...wicket,
+    dismissedPlayerId: nonStriker.id,
+    incomingPlayerId: striker.id
+  }), /dismissed batter cannot return/);
+});
+
+test('The next over starts with a fresh delivery list', () => {
+  const striker = { id: 'p1', name: 'Striker' };
+  const nonStriker = { id: 'p2', name: 'Non-Striker' };
+  const bowler = { id: 'b1', name: 'Bowler' };
+  const deliveries = Array.from({ length: 7 }, (_, index) => ({
+    strikerId: striker.id,
+    strikerName: striker.name,
+    nonStrikerId: nonStriker.id,
+    nonStrikerName: nonStriker.name,
+    bowlerId: bowler.id,
+    bowlerName: bowler.name,
+    batRuns: 0,
+    isLegal: true,
+    totalRuns: 0,
+    display: '0',
+    sequenceNumber: index + 1
+  }));
+  const completedOver = calculateInningsState({
+    openingStriker: striker,
+    openingNonStriker: nonStriker,
+    openingBowler: bowler,
+    deliveries: deliveries.slice(0, 6)
+  });
+  const nextOver = calculateInningsState({
+    openingStriker: striker,
+    openingNonStriker: nonStriker,
+    openingBowler: bowler,
+    deliveries
+  });
+
+  assert.equal(completedOver.currentOverDeliveries.length, 6);
+  assert.equal(nextOver.currentOverDeliveries.length, 1);
+  assert.equal(nextOver.currentOverDeliveries[0].display, '0');
 });
 
 test('TEST 2: Wide adds an extra but does not increment legal balls', () => {

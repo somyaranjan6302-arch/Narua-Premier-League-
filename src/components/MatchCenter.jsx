@@ -356,14 +356,15 @@ export const MatchCenter = () => {
                   </div>
                 </div>
 
-                {match.status === 'LIVE' && (
+                {match.status === 'LIVE' && match.currentInningsNumber === 2 &&
+                  Number.isFinite(match.target) && match.target > 0 && (
                   <div className="space-y-3 border-t border-slate-800/80 bg-red-950/15 p-4">
                     <div className="flex items-center justify-between gap-3 rounded-xl border border-red-500/20 bg-red-950/30 p-2.5 text-xs">
                       <span className="truncate font-bold text-amber-300">
-                        ⚡ {match.equation}
+                        ⚡ {match.equation || 'Second innings in progress'}
                       </span>
                       <span className="shrink-0 font-mono text-slate-300">
-                        Target: {match.team1?.target || 192}
+                        Target: {match.target}
                       </span>
                     </div>
 

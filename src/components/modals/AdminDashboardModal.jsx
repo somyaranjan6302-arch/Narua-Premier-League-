@@ -416,6 +416,7 @@ const AdminDashboardContent = ({ onClose }) => {
     setTeamDraft((current) => ({ ...current, sessions: current.sessions?.length ? current.sessions : [selectedSeason || seasons[0]?.edition || 'Season 5'] }));
   }, [selectedSeason, seasons]);
   const [activeTab, setActiveTab] = useState('registrations');
+  const [pendingStandingAdjustment, setPendingStandingAdjustment] = useState(null);
   const [regSearch, setRegSearch] = useState('');
   const [regStatusFilter, setRegStatusFilter] = useState('ALL');
 
@@ -1816,6 +1817,19 @@ const AdminDashboardContent = ({ onClose }) => {
   const registrationsForSelectedSession = auctionRegistrations.filter((registration) => registration.season === selectedSeason);
   const adminPointsTable = seasonStandings[selectedSeason]
     || (selectedSeason === seasons[0]?.edition ? pointsTable : []);
+  const confirmStandingAdjustment = () => {
+    if (!pendingStandingAdjustment) return;
+    const { teamId, season } = pendingStandingAdjustment;
+    setSeasonStandings((previousStandings) => ({
+      ...previousStandings,
+      [season]: (previousStandings[season] || adminPointsTable).map((pointRow) => (
+        pointRow.teamId === teamId
+          ? { ...pointRow, p: pointRow.p + 1, w: pointRow.w + 1, pts: pointRow.pts + 2 }
+          : pointRow
+      ))
+    }));
+    setPendingStandingAdjustment(null);
+  };
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/90 p-0 backdrop-blur-md sm:p-4">
       <div className="relative my-0 flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden rounded-none border-0 border-slate-700 bg-[#070D1E] shadow-2xl sm:my-6 sm:h-auto sm:max-h-[94vh] sm:max-w-6xl sm:rounded-3xl sm:border-2">
@@ -2570,7 +2584,7 @@ const AdminDashboardContent = ({ onClose }) => {
                     </button>
 
                     <a
-                      href={`/auction-live?season=${encodeURIComponent(selectedSeason)}`}
+                      href={`/auction-live?season=${encodeURIComponent(selectedSeason)}&control=1`}
                       target="_blank"
                       rel="noreferrer"
                       className="flex w-full items-center justify-center gap-1 rounded-xl bg-amber-500 px-4 py-1.5 text-[10px] font-sports font-bold tracking-wider text-slate-950 hover:bg-amber-400 sm:w-auto sm:text-xs"
@@ -2996,16 +3010,11 @@ const AdminDashboardContent = ({ onClose }) => {
                           <td className="py-2.5 px-3 text-right">
                             <div className="flex items-center justify-end gap-1">
                               <button
-                                onClick={() => {
-                                  setSeasonStandings((previousStandings) => ({
-                                    ...previousStandings,
-                                    [selectedSeason]: (previousStandings[selectedSeason] || adminPointsTable).map((pointRow) => (
-                                      pointRow.teamId === row.teamId
-                                        ? { ...pointRow, p: pointRow.p + 1, w: pointRow.w + 1, pts: pointRow.pts + 2 }
-                                        : pointRow
-                                    ))
-                                  }));
-                                }}
+                                onClick={() => setPendingStandingAdjustment({
+                                  teamId: row.teamId,
+                                  team: row.team,
+                                  season: selectedSeason
+                                })}
                                 className="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-800 text-emerald-300 text-[10px] font-bold"
                               >
                                 +1 Win (+2 Pts)
@@ -3092,6 +3101,42 @@ const AdminDashboardContent = ({ onClose }) => {
 
               </div>
             )}
+          </div>
+        )}
+        {pendingStandingAdjustment && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 p-4">
+            <section
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="confirm-standing-adjustment-title"
+              className="w-full max-w-md space-y-4 rounded-2xl border border-amber-500/40 bg-slate-950 p-6 shadow-2xl"
+            >
+              <h3 id="confirm-standing-adjustment-title" className="font-sports text-xl text-white">
+                CONFIRM POINTS TABLE CHANGE
+              </h3>
+              <p className="text-sm text-slate-300">
+                Add 1 match win and 2 points for <strong className="text-white">{pendingStandingAdjustment.team}</strong> in {pendingStandingAdjustment.season}?
+              </p>
+              <p className="text-xs text-slate-400">
+                Match Center results continue to generate the public standings whenever scored matches are available.
+              </p>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setPendingStandingAdjustment(null)}
+                  className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmStandingAdjustment}
+                  className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-amber-400"
+                >
+                  Confirm change
+                </button>
+              </div>
+            </section>
           </div>
         )}
       </div>

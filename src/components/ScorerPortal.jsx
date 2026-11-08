@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Activity, ArrowLeft, CalendarDays, Check, ChevronRight, CircleHelp, LogOut, Plus, Shield, Trophy, Users } from 'lucide-react';
+import { Activity, ArrowLeft, CalendarDays, Check, ChevronRight, CircleHelp, LogOut, Plus, Shield, Trash2, Trophy, Users } from 'lucide-react';
 import { useNpl } from '../context/NplContext';
 import { LiveScorerModal } from './modals/LiveScorerModal';
 
@@ -201,13 +201,15 @@ export default function ScorerPortal() {
     openModal,
     closeModal,
     showToast,
-    syncScoredMatch
+    syncScoredMatch,
+    removeScoredMatch
   } = useNpl();
   const [login, setLogin] = useState({ adminId: '', password: '' });
   const [matches, setMatches] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeletingMatchId, setIsDeletingMatchId] = useState('');
   const [error, setError] = useState('');
   const [draft, setDraft] = useState(() => buildDraft(selectedSeason));
   const [rosters, setRosters] = useState({ teamA: [], teamB: [] });
@@ -351,6 +353,26 @@ export default function ScorerPortal() {
     (isAdministrator || match.assignedScorerId === adminUser?.adminId)
   ));
 
+  const deleteMatch = async (match) => {
+    const confirmed = window.confirm(
+      `Delete ${match.matchNumber || 'this match'} (${match.teamAName} vs ${match.teamBName}) and all saved scoring data? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setIsDeletingMatchId(match.id);
+    setError('');
+    try {
+      await apiRequest(`/api/matches/${encodeURIComponent(match.id)}`, { method: 'DELETE' });
+      setMatches((current) => current.filter((item) => item.id !== match.id));
+      removeScoredMatch(match.id);
+      showToast('Match and its saved scoring data deleted.', 'success');
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setIsDeletingMatchId('');
+    }
+  };
+
   return (
     <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_#15145c_0%,_#070831_50%,_#04051d_100%)] text-white">
       <header className="border-b border-white/10 bg-[#07083f]/85 shadow-xl shadow-black/20">
@@ -410,6 +432,36 @@ export default function ScorerPortal() {
                 Open scoring desk
               </button>
             </form>
+
+            <div className="relative my-4 flex items-center justify-center">
+              <div className="w-full border-t border-white/10" />
+              <span className="absolute bg-[#0b0d49] px-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">or quick preview</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => openModal('scorer-console', {
+                id: 'match-demo-28038292',
+                matchNumber: 'Match 1',
+                tournamentPhase: 'LEAGUE MATCH',
+                status: 'LIVE',
+                season: selectedSeasonFilter || 'Session 6',
+                teamAId: 'team-barpada',
+                teamBId: 'team-gcc',
+                teamAName: 'Barpada XI',
+                teamAShort: 'BRP',
+                teamBName: 'GCC Fighter Binjharpur',
+                teamBShort: 'GCC',
+                oversLimit: 8,
+                oversPerBowler: 2,
+                tossWinnerId: 'team-gcc',
+                tossDecision: 'FIELD',
+                result: ''
+              })}
+              className="w-full rounded-xl border border-amber-400/50 bg-amber-400/15 px-4 py-3 text-sm font-extrabold text-amber-300 hover:bg-amber-400/25 transition flex items-center justify-center gap-2 shadow-lg"
+            >
+              <span>⚡ Open Live Scoring Console (Demo Match)</span>
+            </button>
             <a href="/" className="mt-5 inline-flex items-center gap-2 text-xs font-semibold text-blue-100/60 hover:text-white">
               <ArrowLeft className="h-3.5 w-3.5" /> Back to NPL home
             </a>
@@ -537,9 +589,30 @@ export default function ScorerPortal() {
                         </div>
                         <h3 className="font-sports text-lg font-bold">{match.teamAShort || match.teamAName} <span className="text-[#ff8a00]">vs</span> {match.teamBShort || match.teamBName}</h3>
                         <p className="mt-1 text-xs text-blue-100/55">{match.oversLimit || 20} overs · {match.ballType || 'Tennis'} ball · {match.ground || match.venue}</p>
-                        <button type="button" onClick={() => openModal('scorer-console', match)} className="mt-5 flex w-full items-center justify-between rounded-xl border border-white/10 px-3 py-2.5 text-sm font-bold text-white transition group-hover:border-[#ffdb19]/30 group-hover:text-[#ffdb19]">
-                          {match.status === 'LIVE' ? 'Resume scoring' : 'Open match'} <ChevronRight className="h-4 w-4" />
-                        </button>
+                        <div className={`mt-5 grid gap-2 ${isAdministrator ? 'grid-cols-[1fr_auto]' : 'grid-cols-1'}`}>
+                          <button
+                            type="button"
+                            onClick={() => openModal('scorer-console', match)}
+                            className="inline-flex min-h-11 items-center justify-between gap-2 rounded-xl border border-[#ffdb19]/30 bg-[#ffdb19]/10 px-3 py-2.5 text-left text-sm font-bold text-[#ffdb19] transition hover:bg-[#ffdb19]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffdb19]"
+                          >
+                            <span>{match.status === 'LIVE' || match.status === 'INNINGS_BREAK'
+                              ? 'Continue Scoring'
+                              : match.status === 'COMPLETED' ? 'View Scorecard' : 'Open Match'}</span>
+                            <ChevronRight className="h-4 w-4 shrink-0" />
+                          </button>
+                          {isAdministrator && (
+                            <button
+                              type="button"
+                              disabled={isDeletingMatchId === match.id}
+                              onClick={() => deleteMatch(match)}
+                              aria-label={`Delete ${match.matchNumber || 'match'}`}
+                              className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-bold text-rose-200 transition hover:border-rose-400/60 hover:bg-rose-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 disabled:cursor-wait disabled:opacity-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              <span>{isDeletingMatchId === match.id ? 'Deleting…' : 'Delete'}</span>
+                            </button>
+                          )}
+                        </div>
                       </article>
                     ))}
                   </div>

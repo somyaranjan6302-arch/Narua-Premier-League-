@@ -132,7 +132,12 @@ export const AuctionSection = () => {
                   </span>
                 </div>
 
-                <div className={`rounded-2xl border p-4 ${
+                <div
+                  onClick={() => openModal('live-auction-arena')}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') openModal('live-auction-arena'); }}
+                  className={`rounded-2xl border p-4 cursor-pointer hover:border-amber-400/80 hover:bg-slate-900/90 transition-all ${
                   isAuctionActive ? 'border-rose-500/40 bg-rose-950/20' : 'border-slate-800 bg-slate-950/70'
                 }`}>
                   <div className="flex items-center justify-between gap-3">
@@ -142,8 +147,8 @@ export const AuctionSection = () => {
                         {isAuctionLive ? 'Live auction broadcast' : isAuctionActive ? 'Auction paused' : 'Live auction centre'}
                       </span>
                     </div>
-                    <span className="text-[10px] font-bold uppercase text-slate-400">
-                      {auctionLiveState.soldPlayers?.length || 0} sold
+                    <span className="text-[10px] font-bold uppercase text-amber-300 bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 rounded-full">
+                      Open Arena ↗
                     </span>
                   </div>
                   {isAuctionActive && auctionLiveState.currentPlayer ? (

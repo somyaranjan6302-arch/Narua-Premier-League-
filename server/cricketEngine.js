@@ -191,19 +191,35 @@ export const processDelivery = (currentState, deliveryInput) => {
   // 5. Strike rotation
   let nextStriker = { ...currentState.currentStriker };
   let nextNonStriker = { ...currentState.currentNonStriker };
+  let actualDismissedPlayerName = dismissedPlayerName;
 
   // Dismissal handling
   if (isActualWicket || isRetiredHurt) {
     const outPlayerId = dismissedPlayerId || (runOutBatter === 'NON_STRIKER' ? nextNonStriker.id : nextStriker.id);
-    if (outPlayerId === nextStriker.id) {
-      if (incomingPlayerId) {
-        nextStriker = { id: incomingPlayerId, name: incomingPlayerName || 'New Batter' };
-      }
-    } else if (outPlayerId === nextNonStriker.id) {
-      if (incomingPlayerId) {
-        nextNonStriker = { id: incomingPlayerId, name: incomingPlayerName || 'New Batter' };
-      }
+    const isStrikerOut = outPlayerId === nextStriker.id;
+    const isNonStrikerOut = outPlayerId === nextNonStriker.id;
+    if (!isStrikerOut && !isNonStrikerOut) {
+      throw new Error('The dismissed batter must be at the crease.');
     }
+    actualDismissedPlayerName ||= isStrikerOut ? nextStriker.name : nextNonStriker.name;
+    if ((isRetiredHurt ||
+      (isActualWicket && (currentState.wickets || 0) + 1 < (currentState.maxWickets || 10))) &&
+      !incomingPlayerId) {
+      throw new Error('Select the incoming batter before recording the wicket.');
+    }
+    if (incomingPlayerId && (incomingPlayerId === nextStriker.id || incomingPlayerId === nextNonStriker.id)) {
+      throw new Error('The incoming batter must be different from both batters at the crease.');
+    }
+    if (incomingPlayerId && currentState.batting?.some((batter) =>
+      batter.id === incomingPlayerId && batter.isOut
+    )) {
+      throw new Error('A dismissed batter cannot return to the crease.');
+    }
+    const incoming = incomingPlayerId
+      ? { id: incomingPlayerId, name: incomingPlayerName || 'New Batter' }
+      : null;
+    if (isStrikerOut) nextStriker = incoming;
+    else nextNonStriker = incoming;
   }
 
   // Physical runs taken running between wickets (odd runs swap ends)
@@ -245,7 +261,7 @@ export const processDelivery = (currentState, deliveryInput) => {
     bowlerGetsWicket,
     wicketType,
     dismissedPlayerId: isActualWicket || isRetiredHurt ? (dismissedPlayerId || nextStriker.id) : null,
-    dismissedPlayerName: isActualWicket || isRetiredHurt ? (dismissedPlayerName || nextStriker.name) : null,
+    dismissedPlayerName: isActualWicket || isRetiredHurt ? actualDismissedPlayerName : null,
     incomingPlayerId,
     incomingPlayerName,
     fielderId,
@@ -340,6 +356,7 @@ export const calculateInningsState = ({
   let currentOverDeliveries = [];
 
   for (const del of deliveries) {
+    if (legalBalls > 0 && legalBalls % 6 === 0) currentOverDeliveries = [];
     const isLegal = del.isLegal !== false && del.extraType !== EXTRA_TYPES.WIDE && del.extraType !== EXTRA_TYPES.NO_BALL;
     if (del.strikerId) currentStriker = { id: del.strikerId, name: del.strikerName };
     if (del.nonStrikerId) currentNonStriker = { id: del.nonStrikerId, name: del.nonStrikerName };
@@ -393,11 +410,11 @@ export const calculateInningsState = ({
       const dismissedId = del.dismissedPlayerId || del.strikerId;
       const dismissedBatter = battingStats.get(dismissedId) || batter;
       dismissedBatter.isOut = true;
-      if (del.incomingPlayerId) {
-        const incoming = { id: del.incomingPlayerId, name: del.incomingPlayerName || 'New Batter' };
-        if (dismissedId === currentStriker.id) currentStriker = incoming;
-        else if (dismissedId === currentNonStriker.id) currentNonStriker = incoming;
-      }
+      const incoming = del.incomingPlayerId
+        ? { id: del.incomingPlayerId, name: del.incomingPlayerName || 'New Batter' }
+        : null;
+      if (dismissedId === currentStriker?.id) currentStriker = incoming;
+      else if (dismissedId === currentNonStriker?.id) currentNonStriker = incoming;
 
       let dismissalText = 'out';
       if (del.wicketType === WICKET_TYPES.BOWLED) dismissalText = `b ${del.bowlerName}`;
@@ -449,10 +466,12 @@ export const calculateInningsState = ({
       const temp = currentStriker;
       currentStriker = currentNonStriker;
       currentNonStriker = temp;
-      currentOverDeliveries = [];
     }
 
-    currentOverDeliveries.push(del.display || getDeliveryDisplay(del));
+    currentOverDeliveries.push({
+      ...del,
+      display: del.display || getDeliveryDisplay(del)
+    });
     recentDeliveries.push(del.display || getDeliveryDisplay(del));
   }
 
@@ -504,6 +523,7 @@ export const calculateInningsState = ({
     currentBowler,
     isInningsComplete,
     isAllOut,
+    maxWickets,
     isOversComplete,
     isTargetChased
   };
