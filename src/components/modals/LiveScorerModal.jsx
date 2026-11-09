@@ -883,7 +883,7 @@ export const LiveScorerModal = ({ match: initialMatch, onClose }) => {
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-[#121415] text-white overflow-hidden select-none sm:bg-[#060D1E]">
       {/* 1. Header Bar */}
-      <header className="flex min-h-[44px] sm:h-16 items-center justify-between gap-2 bg-[#c52229] px-2 sm:border-b sm:border-slate-800 sm:bg-slate-950/95 sm:px-6 sm:py-1.5 shadow-md shrink-0">
+      <header className="flex min-h-[44px] sm:h-16 items-center justify-between gap-2 bg-[#08090b] px-2 sm:border-b sm:border-slate-800 sm:bg-slate-950/95 sm:px-6 sm:py-1.5 shadow-md shrink-0">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <button
             type="button"
@@ -896,7 +896,7 @@ export const LiveScorerModal = ({ match: initialMatch, onClose }) => {
             <span className="hidden sm:inline">Exit Scorer</span>
           </button>
           <div className="min-w-0 sm:hidden">
-            <h2 className="max-w-[55vw] truncate text-2xl font-normal leading-tight text-white tracking-wide">
+            <h2 className="max-w-[55vw] truncate text-lg font-normal leading-tight text-white tracking-wide">
               {battingTeamName || 'Barpada XI'}
             </h2>
           </div>
@@ -1148,7 +1148,14 @@ export const LiveScorerModal = ({ match: initialMatch, onClose }) => {
             )}
 
             {/* Live Scorecard Header Strip */}
-            <div className="relative min-h-[300px] overflow-hidden rounded-xl border border-[#303536] bg-[radial-gradient(ellipse_at_50%_22%,#292d2e_0%,#191b1c_43%,#090a0b_100%)] p-3 shadow-xl sm:min-h-0 sm:rounded-2xl sm:border-slate-800 sm:bg-gradient-to-r sm:from-[#0C152E] sm:via-[#0E1A38] sm:to-[#0C152E] sm:p-5">
+            <div className="relative min-h-[260px] overflow-hidden rounded-xl border border-[#303536] bg-[radial-gradient(ellipse_at_50%_22%,#292d2e_0%,#191b1c_43%,#090a0b_100%)] p-3 shadow-xl sm:min-h-0 sm:rounded-2xl sm:border-slate-800 sm:bg-gradient-to-r sm:from-[#0C152E] sm:via-[#0E1A38] sm:to-[#0C152E] sm:p-5">
+              <div
+                aria-hidden="true"
+                className="absolute inset-0 z-0 bg-cover bg-center sm:hidden"
+                style={{
+                  backgroundImage: "linear-gradient(rgba(7, 9, 12, 0.28), rgba(7, 9, 12, 0.5)), url('/assets/stadium.jpg')"
+                }}
+              />
               <div className="hidden flex-wrap items-center justify-between gap-x-2 gap-y-1 border-b border-slate-800/80 pb-1.5 sm:flex sm:pb-3">
                 <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
                   <span className="truncate text-[10px] sm:text-xs font-bold uppercase tracking-wider text-[#58c3be] sm:text-amber-400">
@@ -1193,26 +1200,42 @@ export const LiveScorerModal = ({ match: initialMatch, onClose }) => {
                 )}
               </div>
 
-              <div className="absolute inset-x-2 top-[90px] flex flex-col items-center text-center sm:hidden">
+              <div className="absolute inset-x-2 top-[42px] z-10 flex flex-col items-center text-center sm:hidden">
                 <div className="flex items-baseline justify-center gap-2 whitespace-nowrap">
-                  <span className="font-sans text-[50px] font-normal leading-none tracking-tight text-white">
+                  <span className="font-sans text-[42px] font-normal leading-none tracking-tight text-white">
                     {liveSummary?.score || '0/0'}
                   </span>
-                  <span className="font-sans text-[22px] font-normal leading-none text-white">
+                  <span className="font-sans text-[18px] font-normal leading-none text-white">
                     ({liveSummary?.overs || '0.0'}/{match.oversLimit})
                   </span>
                 </div>
                 {currentInningsNum === 2 && liveSummary?.target && (
-                  <div className="mt-2 text-sm text-white">Target {liveSummary.target}</div>
+                  <div className="mt-1 text-xs text-white">Target {liveSummary.target}</div>
                 )}
                 {match.tossWinnerId && (
-                  <p className="mt-2 max-w-[360px] text-[18px] font-normal leading-[1.25] text-slate-100">
+                  <p className="mt-1 max-w-[360px] text-[14px] font-normal leading-[1.25] text-slate-100">
                     {(match.tossWinnerId === match.teamAId ? match.teamAName : match.teamBName)} won the toss and elected to {match.tossDecision === 'BAT' ? 'bat' : 'field'}
                   </p>
                 )}
               </div>
-              <div className="absolute inset-x-0 bottom-7 text-center text-[20px] font-normal text-white sm:hidden">
+              <div className="absolute inset-x-0 bottom-7 z-10 flex items-center justify-center gap-1 text-center text-[14px] font-normal text-white sm:hidden">
                 <span title={match.id}>Match ID: {match.id.length > 12 ? match.id.slice(-8) : match.id}</span>
+                <button
+                  type="button"
+                  aria-label="Copy match ID"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(match.id);
+                      showToast('Match ID copied.', 'success');
+                    } catch (error) {
+                      console.error('Could not copy the match ID:', error);
+                      showToast('Could not copy the match ID.', 'error');
+                    }
+                  }}
+                  className="inline-flex h-6 w-6 items-center justify-center text-white/80"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </button>
               </div>
 
               {/* Match Result if Completed */}
@@ -1241,13 +1264,14 @@ export const LiveScorerModal = ({ match: initialMatch, onClose }) => {
             {/* Active Batters & Bowler Cards */}
             <div className="grid grid-cols-2 gap-0 sm:gap-3 md:grid-cols-3">
               {/* Striker Card */}
-              <div className={`min-w-0 rounded-l-lg border p-1 transition-all relative sm:rounded-2xl sm:p-3.5 ${
+              <div className={`min-h-[76px] min-w-0 rounded-l-lg border p-2 transition-all relative sm:min-h-0 sm:rounded-2xl sm:p-3.5 ${
                 striker ? 'border-[#189b96] bg-[#111617] shadow-lg shadow-black/20 sm:border-amber-500 sm:bg-amber-950/20 sm:shadow-amber-500/5' : 'border-[#383b3c] bg-[#111617] sm:border-slate-800 sm:bg-slate-900/60'
               }`}>
                 <div className="flex items-center justify-between mb-0.5">
-                  <span className="inline-flex items-center gap-1 text-[10px] sm:text-[10px] font-bold uppercase tracking-wider text-[#58c3be] sm:text-amber-400">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#58c3be] animate-ping sm:bg-amber-400" />
-                    Striker *
+                  <span className="inline-flex min-w-0 items-center gap-1 text-[14px] font-semibold leading-5 text-[#58c3be] sm:text-[10px] sm:font-bold sm:uppercase sm:tracking-wider sm:text-amber-400">
+                    <span className="h-3.5 w-3.5 shrink-0 rounded-full bg-[#58c3be] sm:h-1.5 sm:w-1.5 sm:animate-ping sm:bg-amber-400" />
+                    <span className="truncate sm:hidden">{striker?.name || 'Select Striker'}</span>
+                    <span className="hidden sm:inline">Striker *</span>
                   </span>
                   <button
                     type="button"
@@ -1260,11 +1284,11 @@ export const LiveScorerModal = ({ match: initialMatch, onClose }) => {
                     <span>Swap</span>
                   </button>
                 </div>
-                <div className="truncate font-sans text-[20px] font-normal leading-6 text-white sm:font-sports sm:text-xl">
+                <div className="hidden truncate font-sans text-[20px] font-normal leading-6 text-white sm:block sm:font-sports sm:text-xl">
                   {striker?.name || 'Select Striker'}
                 </div>
                 {striker && (
-                  <div className="mt-0 flex items-baseline gap-1 border-t border-[#303536] pt-0 text-[18px] leading-5 text-white sm:mt-2 sm:justify-between sm:gap-2 sm:border-slate-800 sm:pt-2 sm:text-xs">
+                  <div className="mt-0 flex items-baseline gap-1 border-t border-[#303536] pt-0 text-[14px] leading-5 text-white sm:mt-2 sm:justify-between sm:gap-2 sm:border-slate-800 sm:pt-2 sm:text-xs">
                     <span className="font-normal sm:text-base sm:text-amber-300">{striker.runs || 0}<span className="font-normal">({striker.balls || 0})</span></span>
                     <span className="hidden sm:inline">4s: <strong className="text-white">{striker.fours || 0}</strong></span>
                     <span className="hidden sm:inline">6s: <strong className="text-white">{striker.sixes || 0}</strong></span>
@@ -1274,16 +1298,33 @@ export const LiveScorerModal = ({ match: initialMatch, onClose }) => {
               </div>
 
               {/* Non-Striker Card */}
-              <div className="min-w-0 rounded-r-lg border border-l-0 border-[#383b3c] bg-[#111617] p-1 sm:rounded-2xl sm:border-l sm:border-slate-800 sm:bg-[#091124] sm:p-3.5">
-                <div className="mb-0.5 text-[10px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Non-Striker
+              <div className="min-h-[76px] min-w-0 rounded-r-lg border border-l-0 border-[#383b3c] bg-[#111617] p-2 sm:min-h-0 sm:rounded-2xl sm:border-l sm:border-slate-800 sm:bg-[#091124] sm:p-3.5">
+                <div className="mb-0.5 truncate text-[14px] font-semibold leading-5 text-slate-200 sm:text-[10px] sm:font-bold sm:uppercase sm:tracking-wider sm:text-slate-400">
+                  {nonStriker?.name || 'Select Non-Striker'}
                 </div>
-                <div className="truncate font-sans text-[20px] font-normal leading-6 text-white sm:font-sports sm:text-xl">
+                <div className="hidden truncate font-sans text-[20px] font-normal leading-6 text-white sm:block sm:font-sports sm:text-xl">
                   {nonStriker?.name || 'Select Non-Striker'}
                 </div>
                 {nonStriker && (
-                  <div className="mt-0 flex items-baseline gap-1 border-t border-[#303536] pt-0 text-[18px] leading-5 text-white sm:mt-2 sm:justify-between sm:gap-2 sm:border-slate-800 sm:pt-2 sm:text-xs">
+                  <div className="mt-0 flex items-center justify-between gap-1 border-t border-[#303536] pt-0 text-[14px] leading-5 text-white sm:mt-2 sm:justify-between sm:gap-2 sm:border-slate-800 sm:pt-2 sm:text-xs">
                     <span className="font-normal sm:text-base">{nonStriker.runs || 0}<span className="font-normal">({nonStriker.balls || 0})</span></span>
+                    <button
+                      type="button"
+                      disabled={isSubmitting || match.status !== 'LIVE'}
+                      onClick={() => {
+                        setWicketForm({
+                          wicketType: 'RETIRED_HURT',
+                          dismissedPlayerId: nonStriker.id,
+                          fielderName: '',
+                          runsBeforeRunOut: 0,
+                          nextBatsmanId: ''
+                        });
+                        setIsWicketModalOpen(true);
+                      }}
+                      className="text-[12px] leading-4 text-[#159b91] underline underline-offset-2 disabled:opacity-40 sm:hidden"
+                    >
+                      Replace
+                    </button>
                     <span className="hidden sm:inline">4s: <strong className="text-white">{nonStriker.fours || 0}</strong></span>
                     <span className="hidden sm:inline">6s: <strong className="text-white">{nonStriker.sixes || 0}</strong></span>
                     <span className="hidden sm:inline">SR: <strong className="text-white">{nonStriker.strikeRate || '0.0'}</strong></span>
@@ -1292,13 +1333,16 @@ export const LiveScorerModal = ({ match: initialMatch, onClose }) => {
               </div>
 
               {/* Bowler Card */}
-              <div className="col-span-2 min-h-[44px] min-w-0 rounded-b-lg border border-t-0 border-[#484b4c] bg-[#303233] px-2 py-0.5 sm:col-span-1 sm:min-h-0 sm:rounded-2xl sm:border-t sm:border-slate-800 sm:bg-[#091124] sm:p-3.5">
+              <div className="col-span-2 min-h-[54px] min-w-0 rounded-b-lg border border-t-0 border-[#484b4c] bg-[#303233] px-2 py-1.5 sm:col-span-1 sm:min-h-0 sm:rounded-2xl sm:border-t sm:border-slate-800 sm:bg-[#091124] sm:p-3.5">
                 <div className="flex items-center justify-between gap-2 sm:hidden">
                   <div className="min-w-0">
-                    <div className="truncate font-sans text-[18px] font-normal leading-6 text-white">{bowler?.name || 'Select Bowler'}</div>
+                    <div className="flex min-w-0 items-center gap-1.5 font-sans text-[14px] font-normal leading-5 text-white">
+                      <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border border-white/80 text-[9px] leading-none">•</span>
+                      <span className="truncate">{bowler?.name || 'Select Bowler'}</span>
+                    </div>
                   </div>
                   <div className="shrink-0 text-right">
-                    <div className="whitespace-nowrap text-[17px] font-normal text-white">
+                    <div className="whitespace-nowrap text-[12px] font-normal text-white">
                       {bowler?.overs || '0.0'}-{bowler?.maidens || 0}-{bowler?.runsConceded || 0}-{bowler?.wickets || 0}
                     </div>
                   </div>
@@ -1306,7 +1350,7 @@ export const LiveScorerModal = ({ match: initialMatch, onClose }) => {
                     type="button"
                     disabled={isSubmitting || match.status !== 'LIVE'}
                     onClick={() => setIsBowlerModalOpen(true)}
-                    className="min-h-8 shrink-0 rounded-md border border-[#15918c] bg-[#222627] px-2 text-[11px] font-semibold text-[#58c3be] disabled:opacity-40"
+                    className="min-h-6 shrink-0 rounded-md border border-[#15918c] bg-[#222627] px-1.5 text-[10px] font-semibold text-[#58c3be] disabled:opacity-40"
                   >
                     Change
                   </button>
@@ -1342,7 +1386,7 @@ export const LiveScorerModal = ({ match: initialMatch, onClose }) => {
             </div>
 
             {/* This Over Strip (Delivery Pills) */}
-            <div className="min-h-[84px] rounded-b-lg border border-t-0 border-[#484b4c] bg-[#303233] px-2.5 py-2 sm:min-h-0 sm:rounded-2xl sm:border-slate-800 sm:bg-[#070D1D] sm:p-3">
+            <div className="min-h-[72px] rounded-b-lg border border-t-0 border-[#484b4c] bg-[#303233] px-2.5 py-1.5 sm:min-h-0 sm:rounded-2xl sm:border-slate-800 sm:bg-[#070D1D] sm:p-3">
               <div className="mb-1.5 hidden items-center justify-between sm:mb-2 sm:flex">
                 <span className="text-[9px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400">
                   This Over Deliveries:
@@ -1402,8 +1446,8 @@ export const LiveScorerModal = ({ match: initialMatch, onClose }) => {
               </div>
             </div>
 
-            <div className="fixed inset-x-0 bottom-0 z-30 bg-[#080808] px-0 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-10px_28px_rgba(0,0,0,0.4)] sm:hidden">
-              <div className="grid grid-cols-4 gap-[2px] bg-[#242424]">
+            <div className="fixed inset-x-0 bottom-0 z-30 bg-[#f0f1f4] px-0 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-10px_28px_rgba(0,0,0,0.24)] sm:hidden">
+              <div className="grid grid-cols-4 gap-[1px] bg-[#dfe1e5]">
                 <div className="col-span-3 row-span-2 grid grid-cols-3 grid-rows-2 gap-[2px]">
                   {[
                     { runs: 0, label: '0' },
@@ -1419,24 +1463,24 @@ export const LiveScorerModal = ({ match: initialMatch, onClose }) => {
                       disabled={isSubmitting || match.status !== 'LIVE'}
                       onClick={() => handleScoreBall(button.runs)}
                       aria-label={`Record ${button.runs} ${button.runs === 1 ? 'run' : 'runs'}`}
-                      className="flex min-h-[96px] flex-col items-center justify-center bg-[#090909] text-white active:bg-[#202020] disabled:opacity-40"
+                      className="flex min-h-[96px] flex-col items-center justify-center bg-white text-[#292a2d] active:bg-[#e9eaed] disabled:opacity-40"
                     >
-                      <span className="font-sans text-[28px] font-normal leading-none">{button.label}</span>
-                      {button.sub && <span className="mt-1 text-sm font-normal">{button.sub}</span>}
+                      <span className="font-sans text-[22px] font-normal leading-none">{button.label}</span>
+                      {button.sub && <span className="mt-0.5 text-xs font-normal">{button.sub}</span>}
                     </button>
                   ))}
                 </div>
-                <div className="col-start-4 row-span-2 flex flex-col gap-[2px]">
+                <div className="col-start-4 row-span-2 flex flex-col gap-[1px]">
                   <button
                     type="button"
                     disabled={isSubmitting || !liveSummary?.recentDeliveries?.length}
                     onClick={handleUndoBall}
                     aria-label="Undo last ball"
-                    className="flex min-h-0 flex-1 items-center justify-center bg-[#1a1a1a] px-1 text-[22px] font-normal text-[#75c6c1] disabled:opacity-40"
+                    className="flex min-h-0 flex-1 items-center justify-center bg-[#f0f1f4] px-1 text-[16px] font-normal text-[#159b91] disabled:opacity-40"
                   >
                     UNDO
                   </button>
-                  <div className="flex min-h-0 flex-1 bg-[#1a1a1a]">
+                  <div className="flex min-h-0 flex-1 bg-[#f0f1f4]">
                     {[5, 7].map((runs) => (
                       <button
                         type="button"
@@ -1444,7 +1488,7 @@ export const LiveScorerModal = ({ match: initialMatch, onClose }) => {
                         disabled={isSubmitting || match.status !== 'LIVE'}
                         onClick={() => handleScoreBall(runs)}
                         aria-label={`Record ${runs} runs`}
-                        className="min-w-0 flex-1 text-[22px] font-normal text-white disabled:opacity-40"
+                        className="min-w-0 flex-1 text-[14px] font-normal text-[#44464a] disabled:opacity-40"
                       >
                         {runs}
                       </button>
@@ -1463,12 +1507,12 @@ export const LiveScorerModal = ({ match: initialMatch, onClose }) => {
                       });
                       setIsWicketModalOpen(true);
                     }}
-                    className="flex min-h-0 flex-1 items-center justify-center bg-[#1a1a1a] px-1 text-[22px] font-normal text-[#f21f32] disabled:opacity-40"
+                    className="flex min-h-0 flex-1 items-center justify-center bg-[#f0f1f4] px-1 text-[14px] font-normal text-[#ed1c2b] disabled:opacity-40"
                   >
                     OUT
                   </button>
                 </div>
-                <div className="col-span-4 grid grid-cols-4 gap-[2px]">
+                <div className="col-span-4 grid grid-cols-4 gap-[1px]">
                   {[
                     { type: 'WIDE', label: 'WD' },
                     { type: 'NO_BALL', label: 'NB' },
@@ -1483,7 +1527,7 @@ export const LiveScorerModal = ({ match: initialMatch, onClose }) => {
                         setExtrasForm({ type: extra.type, extraRuns: 1, batRuns: 0 });
                         setIsExtrasModalOpen(true);
                       }}
-                      className="min-h-[62px] bg-[#1a1a1a] text-xl font-normal text-white active:bg-[#292929] disabled:opacity-40"
+                      className="min-h-[62px] bg-[#f0f1f4] text-[14px] font-normal text-[#292a2d] active:bg-[#e2e4e8] disabled:opacity-40"
                     >
                       {extra.label}
                     </button>
@@ -1491,7 +1535,7 @@ export const LiveScorerModal = ({ match: initialMatch, onClose }) => {
                 </div>
               </div>
               {isShortcutsExpanded && (
-                <div className="space-y-2 bg-[#1b1b1b] py-2 text-center text-xs text-white">
+                <div className="space-y-2 bg-[#e6e7ea] py-2 text-center text-xs text-[#35363a]">
                   <p>Tap a run · WD wide · NB no-ball · OUT wicket</p>
                   <div className="grid grid-cols-4 gap-1">
                     {[
@@ -1507,7 +1551,7 @@ export const LiveScorerModal = ({ match: initialMatch, onClose }) => {
                           setActiveTab(tab.id);
                           setIsShortcutsExpanded(false);
                         }}
-                        className={`rounded-md px-1 py-2 ${activeTab === tab.id ? 'bg-[#373737] text-white' : 'bg-[#090909] text-white'}`}
+                        className={`rounded-md px-1 py-2 ${activeTab === tab.id ? 'bg-[#d0d2d7] text-[#202124]' : 'bg-white text-[#35363a]'}`}
                       >
                         {tab.label}
                       </button>
@@ -1519,7 +1563,7 @@ export const LiveScorerModal = ({ match: initialMatch, onClose }) => {
                 type="button"
                 aria-expanded={isShortcutsExpanded}
                 onClick={() => setIsShortcutsExpanded((expanded) => !expanded)}
-                className="mt-1 flex h-9 w-full items-center justify-center gap-2 bg-[#1c1c1c] text-base font-normal text-white"
+                className="mt-1 flex h-9 w-full items-center justify-center gap-2 bg-[#d8d9dc] text-[12px] font-normal text-[#35363a]"
               >
                 Scoring shortcuts
                 <ChevronRight className={`h-4 w-4 -rotate-90 transition-transform ${isShortcutsExpanded ? 'rotate-90' : ''}`} />
