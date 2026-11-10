@@ -16,6 +16,68 @@ export const PointsTable = () => {
   const visiblePointsTable = showDemoStandings
     ? demoStandings || []
     : liveEngineTable || seasonStandings[selectedSeason] || [];
+  const teamGroups = seasonInfo?.teamGroups || {};
+  const hasGroupStandings = Object.values(teamGroups).some((group) => group === 'Group A' || group === 'Group B');
+  const normalizedPointsTable = visiblePointsTable.map((row) => {
+    const teamId = row.teamId || row.id;
+    const team = teams.find((candidate) => candidate.id === teamId);
+    const netRunRate = row.nrr ?? row.netRunRate ?? '0.000';
+    const formattedNetRunRate = typeof netRunRate === 'number'
+      ? `${netRunRate > 0 ? '+' : ''}${netRunRate.toFixed(3)}`
+      : netRunRate;
+    return {
+      ...row,
+      teamId,
+      team: row.team || row.name || team?.name || teamId,
+      short: row.short || row.shortName || team?.shortName || row.team || row.name || teamId,
+      p: row.p ?? row.played ?? 0,
+      w: row.w ?? row.won ?? 0,
+      l: row.l ?? row.lost ?? 0,
+      nr: row.nr ?? row.noResult ?? 0,
+      nrr: formattedNetRunRate,
+      pts: row.pts ?? row.points ?? 0,
+      form: row.form || []
+    };
+  });
+  const seasonTeams = teams.filter((team) => (
+    (team.sessions || team.seasons || (team.session ? [team.session] : seasons.map((item) => item.edition)))
+      .includes(selectedSeason)
+  ));
+  const normalizedTeamIds = new Set(normalizedPointsTable.map((row) => row.teamId));
+  const completePointsTable = [
+    ...normalizedPointsTable,
+    ...seasonTeams.filter((team) => !normalizedTeamIds.has(team.id)).map((team) => ({
+      teamId: team.id,
+      team: team.name,
+      short: team.shortName || team.name,
+      p: 0,
+      w: 0,
+      l: 0,
+      nr: 0,
+      nrr: '0.000',
+      pts: 0,
+      form: []
+    }))
+  ];
+  const groupedTables = hasGroupStandings
+    ? ['Group A', 'Group B'].map((group) => ({
+      group,
+      rows: completePointsTable
+        .filter((row) => teamGroups[row.teamId] === group)
+        .sort((left, right) => right.pts - left.pts || right.w - left.w || Number(right.nrr) - Number(left.nrr))
+        .map((row, index) => ({ ...row, pos: index + 1 }))
+    })).concat(
+      completePointsTable.some((row) => !teamGroups[row.teamId])
+        ? [{
+          group: 'Unassigned',
+          rows: completePointsTable
+            .filter((row) => !teamGroups[row.teamId])
+            .sort((left, right) => right.pts - left.pts || right.w - left.w || Number(right.nrr) - Number(left.nrr))
+            .map((row, index) => ({ ...row, pos: index + 1 }))
+        }]
+        : []
+    )
+    : [{ group: '', rows: completePointsTable }];
 
   useEffect(() => {
     fetch(`/api/tournaments/${encodeURIComponent(selectedSeason)}/points-table`)
@@ -64,7 +126,9 @@ export const PointsTable = () => {
               POINTS <span className="text-gold-gradient">TABLE</span>
             </h2>
             <p className="text-slate-400 text-sm sm:text-base mt-2">
-              Top 4 teams qualify for the championship playoffs. Updated after every concluded match.
+              {hasGroupStandings
+                ? 'Teams are ranked separately within their assigned groups. Updated after every concluded match.'
+                : 'Top 4 teams qualify for the championship playoffs. Updated after every concluded match.'}
             </p>
           </div>
 
@@ -81,7 +145,7 @@ export const PointsTable = () => {
                 ))}
               </select>
             </label>
-            <div className="flex items-center gap-4 text-xs font-semibold text-slate-400 bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 self-start md:self-auto">
+            {!hasGroupStandings && <div className="flex items-center gap-4 text-xs font-semibold text-slate-400 bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 self-start md:self-auto">
               <div className="flex items-center gap-1.5">
                 <span className="w-3 h-3 rounded bg-emerald-500/20 border border-emerald-500 inline-block"></span>
                 <span className="text-slate-200">Playoffs (Top 4)</span>
@@ -90,7 +154,7 @@ export const PointsTable = () => {
                 <span className="w-3 h-3 rounded bg-slate-800 border border-slate-700 inline-block"></span>
                 <span className="text-slate-400">Eliminated</span>
               </div>
-            </div>
+            </div>}
           </div>
         </div>
 
@@ -111,7 +175,10 @@ export const PointsTable = () => {
           </p>
         )}
 
-        <div className="glass-panel-card overflow-hidden rounded-[2rem] border border-amber-400/15 shadow-2xl shadow-slate-950/50 ring-1 ring-white/5">
+        <div className="space-y-5">
+        {groupedTables.map(({ group, rows }) => (
+        <div key={group || 'all'} className="glass-panel-card overflow-hidden rounded-[2rem] border border-amber-400/15 shadow-2xl shadow-slate-950/50 ring-1 ring-white/5">
+          {group && <h3 className="border-b border-slate-800 bg-slate-950/80 px-5 py-3 font-sports text-xl tracking-wider text-amber-300">{group}</h3>}
           <div className="overflow-x-auto">
             <table className="w-full table-fixed text-left border-collapse md:table-auto md:min-w-[44rem]">
               <thead>
@@ -129,8 +196,8 @@ export const PointsTable = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60 text-xs sm:text-sm font-medium">
-                {visiblePointsTable.map((row, index) => {
-                  const isTopFour = index < 4;
+                {rows.map((row, index) => {
+                  const isTopFour = !hasGroupStandings && index < 4;
                   const teamObj = teams.find(t => t.id === row.teamId);
 
                   return (
@@ -247,12 +314,16 @@ export const PointsTable = () => {
           <div className="bg-slate-950/90 px-6 py-4 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-2">
             <div className="flex items-center gap-2">
               <Info className="w-4 h-4 text-amber-400" />
-              <span>Tie-breaker priority: 1. Points, 2. Wins, 3. Net Run Rate (NRR), 4. Head-to-Head</span>
+              <span>{hasGroupStandings
+                ? 'Ranked by points, wins, and Net Run Rate (NRR).'
+                : 'Tie-breaker priority: 1. Points, 2. Wins, 3. Net Run Rate (NRR), 4. Head-to-Head'}</span>
             </div>
-            <span className="text-slate-400 font-medium">
+            {!hasGroupStandings && <span className="text-slate-400 font-medium">
               Top 4 Advance to Qualifier 1 & Eliminator
-            </span>
+            </span>}
           </div>
+        </div>
+        ))}
         </div>
       </div>
     </section>

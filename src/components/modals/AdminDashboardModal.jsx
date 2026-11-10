@@ -1963,8 +1963,19 @@ const AdminDashboardContent = ({ onClose }) => {
 
   const teamsForSelectedSession = teams.filter((team) => getTeamSessions(team, seasons.map((season) => season.edition)).includes(selectedSeason));
   const registrationsForSelectedSession = auctionRegistrations.filter((registration) => registration.season === selectedSeason);
+  const selectedSeasonTeamGroups = seasons.find((season) => season.edition === selectedSeason)?.teamGroups || {};
   const adminPointsTable = seasonStandings[selectedSeason]
     || (selectedSeason === seasons[0]?.edition ? pointsTable : []);
+  const updateTeamGroup = (teamId, group) => {
+    setSeasons((previousSeasons) => previousSeasons.map((season) => {
+      if (season.edition !== teamSessionFocus) return season;
+      const teamGroups = { ...(season.teamGroups || {}) };
+      if (group) teamGroups[teamId] = group;
+      else delete teamGroups[teamId];
+      return { ...season, teamGroups };
+    }));
+    showToast(`Team group updated for ${teamSessionFocus}.`);
+  };
   const confirmStandingAdjustment = () => {
     if (!pendingStandingAdjustment) return;
     const { teamId, season } = pendingStandingAdjustment;
@@ -3163,9 +3174,22 @@ const AdminDashboardContent = ({ onClose }) => {
                             <div className="flex flex-wrap items-center justify-between gap-3">
                               <div>
                                 <p className="font-bold text-white">{team.name}</p>
-                                <p className="text-[10px] text-slate-400">This session only</p>
+                                <p className="text-[10px] text-slate-400">This session only · {teamSessionFocus}</p>
                               </div>
                               <div className="flex flex-wrap gap-2">
+                                <label className="flex items-center gap-2 rounded-lg border border-sky-800 bg-sky-950/40 px-2 py-1 text-[10px] font-bold uppercase text-sky-200">
+                                  Group
+                                  <select
+                                    aria-label={`${team.name} group in ${teamSessionFocus}`}
+                                    value={seasons.find((season) => season.edition === teamSessionFocus)?.teamGroups?.[team.id] || ''}
+                                    onChange={(event) => updateTeamGroup(team.id, event.target.value)}
+                                    className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs normal-case text-white"
+                                  >
+                                    <option value="">Unassigned</option>
+                                    <option value="Group A">Group A</option>
+                                    <option value="Group B">Group B</option>
+                                  </select>
+                                </label>
                                 <button
                                   type="button"
                                   onClick={() => handleToggleTeamActive(team.id)}
@@ -3290,6 +3314,7 @@ const AdminDashboardContent = ({ onClose }) => {
                     <thead>
                       <tr className="border-b border-slate-800 text-slate-500 uppercase text-[10px] font-bold">
                         <th className="py-2.5 px-3">Team</th>
+                        <th className="py-2.5 px-2 text-center">Group</th>
                         <th className="py-2.5 px-2 text-center">Played</th>
                         <th className="py-2.5 px-2 text-center">Won</th>
                         <th className="py-2.5 px-2 text-center">Lost</th>
@@ -3303,6 +3328,9 @@ const AdminDashboardContent = ({ onClose }) => {
                         <tr key={row.teamId} className="hover:bg-slate-900/40">
                           <td className="py-2.5 px-3 font-bold text-white">
                             {row.short} - {row.team}
+                          </td>
+                          <td className="py-2.5 px-2 text-center text-sky-300">
+                            {selectedSeasonTeamGroups[row.teamId] || '—'}
                           </td>
                           <td className="py-2.5 px-2 text-center text-slate-300 font-mono">{row.p}</td>
                           <td className="py-2.5 px-2 text-center text-emerald-400 font-mono font-bold">{row.w}</td>
