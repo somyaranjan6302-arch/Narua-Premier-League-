@@ -408,7 +408,7 @@ const AdminDashboardContent = ({ onClose }) => {
   const [teamError, setTeamError] = useState('');
   const [galleryDraft, setGalleryDraft] = useState({
     title: '',
-    category: 'MATCH DAY',
+    category: '',
     caption: '',
     date: '',
     season: selectedSeason
@@ -777,11 +777,7 @@ const AdminDashboardContent = ({ onClose }) => {
     event.preventDefault();
     if (adminUser?.role !== 'owner') return;
 
-    const title = galleryDraft.title.trim();
-    if (!title) {
-      showToast('Enter a title for the gallery photo.', 'error');
-      return;
-    }
+    const title = galleryDraft.title.trim() || `Photo from ${galleryDraft.season || selectedSeason}`;
 
     if (editingGalleryItemId) {
       setGallery((previousGallery) => previousGallery.map((item) => (
@@ -798,7 +794,7 @@ const AdminDashboardContent = ({ onClose }) => {
       )));
       showToast(`"${title}" was updated.`);
       setEditingGalleryItemId(null);
-      setGalleryDraft({ title: '', category: 'MATCH DAY', caption: '', date: '', season: selectedSeason });
+      setGalleryDraft({ title: '', category: '', caption: '', date: '', season: selectedSeason });
       return;
     }
 
@@ -809,10 +805,10 @@ const AdminDashboardContent = ({ onClose }) => {
       title,
       caption: galleryDraft.caption.trim(),
       image: '/assets/stadium.jpg',
-      date: galleryDraft.date.trim() || selectedSeason
+      date: galleryDraft.date.trim()
     };
     setGallery((previousGallery) => [newItem, ...previousGallery]);
-    setGalleryDraft({ title: '', category: 'MATCH DAY', caption: '', date: '', season: selectedSeason });
+    setGalleryDraft({ title: '', category: '', caption: '', date: '', season: selectedSeason });
     showToast(`Gallery photo slot added to ${selectedSeason}. Upload its image in Owner Media.`);
   };
 
@@ -820,7 +816,7 @@ const AdminDashboardContent = ({ onClose }) => {
     setEditingGalleryItemId(item.id);
     setGalleryDraft({
       title: item.title || '',
-      category: item.category || 'MATCH DAY',
+      category: item.category || '',
       caption: item.caption || '',
       date: item.date || '',
       season: item.season || item.session || selectedSeason
@@ -837,7 +833,7 @@ const AdminDashboardContent = ({ onClose }) => {
 
   const handleCancelGalleryEdit = () => {
     setEditingGalleryItemId(null);
-    setGalleryDraft({ title: '', category: 'MATCH DAY', caption: '', date: '', season: selectedSeason });
+    setGalleryDraft({ title: '', category: '', caption: '', date: '', season: selectedSeason });
   };
 
   const handleRemoveSessionGalleryItem = async (itemId) => {
@@ -2628,7 +2624,7 @@ const AdminDashboardContent = ({ onClose }) => {
                         {editingGalleryItemId ? 'EDIT GALLERY PHOTO' : `ADD PHOTO TO ${selectedSeason.toUpperCase()}`}
                       </h5>
                       <p className="text-xs text-slate-400">
-                        {editingGalleryItemId ? 'Update the photo information. The uploaded image will stay unchanged.' : 'The new photo slot belongs only to this session. Gallery photos display in a 5:4 landscape frame.'}
+                        {editingGalleryItemId ? 'Photo details are optional. The uploaded image will stay unchanged.' : 'Photo details are optional; blank titles get an automatic name. Photos display in a 5:4 landscape frame.'}
                       </p>
                     </div>
                     {!editingGalleryItemId && (
@@ -2636,12 +2632,13 @@ const AdminDashboardContent = ({ onClose }) => {
                     )}
                   </div>
                   <label className="text-xs font-bold text-slate-400">
-                    Photo title
-                    <input required value={galleryDraft.title} onChange={(event) => setGalleryDraft((current) => ({ ...current, title: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white" />
+                    Photo title (optional)
+                    <input value={galleryDraft.title} onChange={(event) => setGalleryDraft((current) => ({ ...current, title: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white" placeholder="Optional" />
                   </label>
                   <label className="text-xs font-bold text-slate-400">
-                    Category
+                    Category (optional)
                     <select value={galleryDraft.category} onChange={(event) => setGalleryDraft((current) => ({ ...current, category: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white">
+                      <option value="">No category</option>
                       {['MATCH DAY', 'FINALS', 'CHAMPIONS', 'AUCTION', 'TEAMS', 'PLAYERS', 'CELEBRATIONS', 'BEHIND THE SCENES'].map((category) => <option key={category}>{category}</option>)}
                     </select>
                   </label>
@@ -2660,12 +2657,12 @@ const AdminDashboardContent = ({ onClose }) => {
                     </label>
                   )}
                   <label className="text-xs font-bold text-slate-400">
-                    Caption
+                    Caption (optional)
                     <textarea value={galleryDraft.caption} onChange={(event) => setGalleryDraft((current) => ({ ...current, caption: event.target.value }))} rows={2} className="mt-1 w-full resize-y rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white" />
                   </label>
                   <label className="text-xs font-bold text-slate-400">
-                    Date or event
-                    <input value={galleryDraft.date} onChange={(event) => setGalleryDraft((current) => ({ ...current, date: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white" placeholder={selectedSeason} />
+                    Date or event (optional)
+                    <input value={galleryDraft.date} onChange={(event) => setGalleryDraft((current) => ({ ...current, date: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white" placeholder="Optional" />
                   </label>
                   <div className="sm:col-span-2 flex flex-col gap-2 sm:flex-row sm:justify-end">
                     {editingGalleryItemId && (
