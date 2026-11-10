@@ -1150,16 +1150,28 @@ const AdminDashboardContent = ({ onClose }) => {
     try {
       formData.append('image', pendingMedia.file);
       const response = await fetch('/api/admin/media', { method: 'POST', body: formData });
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const responseBody = await response.text();
+        const htmlResponse = /<!doctype html|<html[\s>]/i.test(responseBody);
+        throw new Error(htmlResponse
+          ? `Image upload failed (HTTP ${response.status}). The hosting service returned an HTML error page. Try an image under 8 MB; if it still fails, the production upload endpoint needs checking.`
+          : `Image upload failed (HTTP ${response.status}). ${responseBody.slice(0, 180) || 'The server returned an unexpected response.'}`);
+      }
+
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'Image upload failed.');
-      await refreshSiteMedia();
+      if (!response.ok) throw new Error(result.error || `Image upload failed (HTTP ${response.status}).`);
+      if (!result.url) throw new Error('The server saved no image URL. Please retry the upload.');
+      const mediaRefreshed = await refreshSiteMedia({ [mediaKey]: result.url });
       revokeMediaPreviewUrl(pendingMedia.previewUrl);
       setPendingMediaFiles((current) => {
         const next = { ...current };
         delete next[mediaKey];
         return next;
       });
-      showToast('Website image updated successfully.');
+      showToast(mediaRefreshed
+        ? 'Website image updated successfully.'
+        : 'Image saved successfully. Reload the page if its preview does not update.');
     } catch (error) {
       setMediaError(error.message || 'Image upload failed.');
     } finally {

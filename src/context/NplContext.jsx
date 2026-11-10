@@ -751,10 +751,18 @@ export const NplProvider = ({ children }) => {
     };
   }, [isAuctionDemo, selectedSeason, syncScoredMatch]);
 
-  const refreshSiteMedia = async () => {
-    const response = await fetch('/api/site-media');
-    if (!response.ok) throw new Error('Could not refresh site images.');
-    setSiteMedia(localizeOfflineMedia(await response.json()));
+  const refreshSiteMedia = async (fallbackMedia = {}) => {
+    try {
+      const response = await fetch('/api/site-media');
+      if (!response.ok) throw new Error(`Could not refresh site images (HTTP ${response.status}).`);
+      const refreshedMedia = localizeOfflineMedia(await response.json());
+      setSiteMedia({ ...refreshedMedia, ...fallbackMedia });
+      return true;
+    } catch (error) {
+      if (Object.keys(fallbackMedia).length === 0) throw error;
+      setSiteMedia((currentMedia) => ({ ...currentMedia, ...fallbackMedia }));
+      return false;
+    }
   };
 
   // Auction Registration submission
