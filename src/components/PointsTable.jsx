@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNpl } from '../context/NplContext';
 import { TeamBadge } from './TeamBadge';
 import { Trophy, Info } from 'lucide-react';
+import { getTeamGroupId, getTournamentGroups } from '../utils/tournamentStructure';
 
 const previewTeamLogo = '/uploads/points-table-team-logo-preview.png';
 
@@ -16,8 +17,8 @@ export const PointsTable = () => {
   const visiblePointsTable = showDemoStandings
     ? demoStandings || []
     : liveEngineTable || seasonStandings[selectedSeason] || [];
-  const teamGroups = seasonInfo?.teamGroups || {};
-  const hasGroupStandings = Object.values(teamGroups).some((group) => group === 'Group A' || group === 'Group B');
+  const tournamentGroups = getTournamentGroups(seasonInfo);
+  const hasGroupStandings = tournamentGroups.length > 0;
   const normalizedPointsTable = visiblePointsTable.map((row) => {
     const teamId = row.teamId || row.id;
     const team = teams.find((candidate) => candidate.id === teamId);
@@ -60,24 +61,32 @@ export const PointsTable = () => {
     }))
   ];
   const groupedTables = hasGroupStandings
-    ? ['Group A', 'Group B'].map((group) => ({
-      group,
+    ? tournamentGroups.map((group) => ({
+      id: group.id,
+      label: `${seasonInfo?.rounds?.find((round) => round.id === group.roundId)?.name
+        ? `${seasonInfo.rounds.find((round) => round.id === group.roundId).name} · `
+        : ''}${group.name}`,
       rows: completePointsTable
-        .filter((row) => teamGroups[row.teamId] === group)
+        .filter((row) => getTeamGroupId(seasonInfo, row.teamId, group.roundId || '') === group.id)
         .sort((left, right) => right.pts - left.pts || right.w - left.w || Number(right.nrr) - Number(left.nrr))
         .map((row, index) => ({ ...row, pos: index + 1 }))
     })).concat(
-      completePointsTable.some((row) => !teamGroups[row.teamId])
-        ? [{
-          group: 'Unassigned',
-          rows: completePointsTable
-            .filter((row) => !teamGroups[row.teamId])
+      [...new Set(tournamentGroups.map((group) => group.roundId || ''))]
+        .map((roundId) => {
+          const round = seasonInfo?.rounds?.find((item) => item.id === roundId);
+          const rows = completePointsTable
+            .filter((row) => !getTeamGroupId(seasonInfo, row.teamId, roundId))
             .sort((left, right) => right.pts - left.pts || right.w - left.w || Number(right.nrr) - Number(left.nrr))
-            .map((row, index) => ({ ...row, pos: index + 1 }))
-        }]
-        : []
+            .map((row, index) => ({ ...row, pos: index + 1 }));
+          return {
+            id: `unassigned-${roundId || 'legacy'}`,
+            label: `${round ? `${round.name} · ` : ''}Unassigned`,
+            rows
+          };
+        })
+        .filter((table) => table.rows.length > 0)
     )
-    : [{ group: '', rows: completePointsTable }];
+    : [{ id: 'all', label: '', rows: completePointsTable }];
 
   useEffect(() => {
     fetch(`/api/tournaments/${encodeURIComponent(selectedSeason)}/points-table`)
@@ -127,7 +136,7 @@ export const PointsTable = () => {
             </h2>
             <p className="text-slate-400 text-sm sm:text-base mt-2">
               {hasGroupStandings
-                ? 'Teams are ranked separately within their assigned groups. Updated after every concluded match.'
+                ? 'Teams are ranked separately within their assigned groups for each configured round.'
                 : 'Top 4 teams qualify for the championship playoffs. Updated after every concluded match.'}
             </p>
           </div>
@@ -176,9 +185,9 @@ export const PointsTable = () => {
         )}
 
         <div className="space-y-5">
-        {groupedTables.map(({ group, rows }) => (
-        <div key={group || 'all'} className="glass-panel-card overflow-hidden rounded-[2rem] border border-amber-400/15 shadow-2xl shadow-slate-950/50 ring-1 ring-white/5">
-          {group && <h3 className="border-b border-slate-800 bg-slate-950/80 px-5 py-3 font-sports text-xl tracking-wider text-amber-300">{group}</h3>}
+        {groupedTables.map(({ id, label, rows }) => (
+        <div key={id} className="glass-panel-card overflow-hidden rounded-[2rem] border border-amber-400/15 shadow-2xl shadow-slate-950/50 ring-1 ring-white/5">
+          {label && <h3 className="border-b border-slate-800 bg-slate-950/80 px-5 py-3 font-sports text-xl tracking-wider text-amber-300">{label}</h3>}
           <div className="overflow-x-auto">
             <table className="w-full table-fixed text-left border-collapse md:table-auto md:min-w-[44rem]">
               <thead>
@@ -196,6 +205,13 @@ export const PointsTable = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60 text-xs sm:text-sm font-medium">
+                {rows.length === 0 && (
+                  <tr>
+                    <td colSpan={10} className="px-4 py-8 text-center text-sm text-slate-400">
+                      No teams are assigned to {label} yet.
+                    </td>
+                  </tr>
+                )}
                 {rows.map((row, index) => {
                   const isTopFour = !hasGroupStandings && index < 4;
                   const teamObj = teams.find(t => t.id === row.teamId);

@@ -9,6 +9,7 @@ import { session3Performers } from '../../data/session3Data';
 import { session4Performers } from '../../data/session4Data';
 import { session5Performers } from '../../data/session5Data';
 import { session1Performers } from '../../data/session1Performers';
+import { createTournamentStructureId, getTeamGroupId, getTournamentGroups, tournamentRoundTemplates } from '../../utils/tournamentStructure';
 import {
   X,
   Shield,
@@ -345,6 +346,12 @@ const AdminDashboardContent = ({ onClose }) => {
   const [teamSessionFocus, setTeamSessionFocus] = useState(selectedSeason || seasons[0]?.edition || 'Season 5');
   const [isSessionWorkspaceOpen, setIsSessionWorkspaceOpen] = useState(false);
   const [alsoAddNextSeason, setAlsoAddNextSeason] = useState(false);
+  const [roundFormat, setRoundFormat] = useState('Round Robin');
+  const [roundTemplate, setRoundTemplate] = useState('League Matches');
+  const [customRoundName, setCustomRoundName] = useState('');
+  const [groupRoundDraft, setGroupRoundDraft] = useState('');
+  const [teamGroupRoundId, setTeamGroupRoundId] = useState('');
+  const [groupNameDraft, setGroupNameDraft] = useState('Group A');
   const [sessionDraft, setSessionDraft] = useState({
     edition: '',
     year: String(new Date().getFullYear()),
@@ -1963,18 +1970,165 @@ const AdminDashboardContent = ({ onClose }) => {
 
   const teamsForSelectedSession = teams.filter((team) => getTeamSessions(team, seasons.map((season) => season.edition)).includes(selectedSeason));
   const registrationsForSelectedSession = auctionRegistrations.filter((registration) => registration.season === selectedSeason);
-  const selectedSeasonTeamGroups = seasons.find((season) => season.edition === selectedSeason)?.teamGroups || {};
+  const teamSessionSeason = seasons.find((season) => season.edition === teamSessionFocus);
+  const teamSessionRounds = Array.isArray(teamSessionSeason?.rounds) ? teamSessionSeason.rounds : [];
+  const teamSessionGroups = getTournamentGroups(teamSessionSeason);
+  const activeTeamGroupRoundId = teamSessionRounds.some((round) => round.id === teamGroupRoundId)
+    ? teamGroupRoundId
+    : teamSessionRounds[0]?.id || '';
+  const teamGroupOptions = teamSessionGroups.filter((group) => (
+    !group.roundId || group.roundId === activeTeamGroupRoundId
+  ));
+  const selectedSeasonRecord = seasons.find((season) => season.edition === selectedSeason);
   const adminPointsTable = seasonStandings[selectedSeason]
     || (selectedSeason === seasons[0]?.edition ? pointsTable : []);
   const updateTeamGroup = (teamId, group) => {
+    const roundId = teamSessionRounds.some((round) => round.id === teamGroupRoundId)
+      ? teamGroupRoundId
+      : teamSessionRounds[0]?.id;
+    if (!roundId) return;
     setSeasons((previousSeasons) => previousSeasons.map((season) => {
       if (season.edition !== teamSessionFocus) return season;
       const teamGroups = { ...(season.teamGroups || {}) };
-      if (group) teamGroups[teamId] = group;
-      else delete teamGroups[teamId];
+      const roundAssignments = { ...(teamGroups[roundId] || {}) };
+      if (group) roundAssignments[teamId] = group;
+      else delete roundAssignments[teamId];
+      teamGroups[roundId] = roundAssignments;
       return { ...season, teamGroups };
     }));
-    showToast(`Team group updated for ${teamSessionFocus}.`);
+    const roundName = teamSessionRounds.find((round) => round.id === roundId)?.name;
+    showToast(`Team group updated for ${roundName} in ${teamSessionFocus}.`);
+  };
+  const handleAddTournamentRound = () => {
+    if (adminUser?.role !== 'owner') return;
+    const name = customRoundName.trim() || roundTemplate;
+    if (!name) return;
+    if (teamSessionRounds.some((round) => round.name.toLowerCase() === name.toLowerCase())) {
+      showToast(`${name} already exists in ${teamSessionFocus}.`, 'error');
+      return;
+    }
+    const id = createTournamentStructureId('round');
+    setSeasons((previousSeasons) => previousSeasons.map((season) => (
+      season.edition === teamSessionFocus
+        ? { ...season, rounds: [...(Array.isArray(season.rounds) ? season.rounds : []), { id, name, format: roundFormat }] }
+        : season
+    )));
+    setGroupRoundDraft(id);
+    setTeamGroupRoundId(id);
+    setCustomRoundName('');
+    showToast(`${name} round added to ${teamSessionFocus}.`);
+  };
+  const handleAddTournamentGroup = () => {
+    if (adminUser?.role !== 'owner') return;
+    const name = groupNameDraft.trim();
+    const round = teamSessionRounds.find((item) => item.id === groupRoundDraft) || teamSessionRounds[0];
+    if (!round) {
+      showToast('Add a tournament round before creating groups.', 'error');
+      return;
+    }
+    if (!name) {
+      showToast('Enter a group name.', 'error');
+      return;
+    }
+    if ((Array.isArray(teamSessionSeason?.groups) ? teamSessionSeason.groups : []).some((group) => (
+      group.roundId === round.id && group.name.toLowerCase() === name.toLowerCase()
+    ))) {
+      showToast(`${name} already exists in ${round.name}.`, 'error');
+      return;
+    }
+    const group = {
+      id: createTournamentStructureId('group'),
+      name,
+      roundId: round.id
+    };
+    setSeasons((previousSeasons) => previousSeasons.map((season) => {
+      if (season.edition !== teamSessionFocus) return season;
+      const legacyGroup = getTournamentGroups(season).find((entry) => (
+        entry.id.startsWith('legacy-') && entry.name.toLowerCase() === name.toLowerCase()
+      ));
+      const teamGroups = { ...(season.teamGroups || {}) };
+      if (legacyGroup) {
+        const roundAssignments = { ...(teamGroups[round.id] || {}) };
+        Object.entries(teamGroups).forEach(([teamId, assignedGroup]) => {
+          if (typeof assignedGroup === 'string' && assignedGroup.toLowerCase() === legacyGroup.name.toLowerCase()) {
+            roundAssignments[teamId] = group.id;
+            delete teamGroups[teamId];
+          }
+        });
+        teamGroups[round.id] = roundAssignments;
+      }
+      return {
+        ...season,
+        groups: [...getTournamentGroups(season).filter((entry) => !entry.id.startsWith('legacy-')), group],
+        teamGroups
+      };
+    }));
+    setGroupRoundDraft(round.id);
+    setTeamGroupRoundId(round.id);
+    setGroupNameDraft(name.toLowerCase() === 'group a' ? 'Group B' : '');
+    showToast(`${name} added to ${round.name}.`);
+  };
+  const handleRemoveTournamentGroup = (groupId) => {
+    setSeasons((previousSeasons) => previousSeasons.map((season) => {
+      if (season.edition !== teamSessionFocus) return season;
+      const removedGroup = getTournamentGroups(season).find((group) => group.id === groupId);
+      const groups = getTournamentGroups(season).filter((group) => group.id !== groupId && !group.id.startsWith('legacy-'));
+      const teamGroups = Object.fromEntries(Object.entries(season.teamGroups || {}).map(([roundId, assignments]) => [
+        roundId,
+        assignments && typeof assignments === 'object'
+          ? Object.fromEntries(Object.entries(assignments).filter(([, assignedGroup]) => (
+            assignedGroup !== groupId && assignedGroup !== removedGroup?.name
+          )))
+          : assignments
+      ]).filter(([, assignments]) => (
+        assignments && typeof assignments === 'object'
+          ? Object.keys(assignments).length > 0
+          : assignments !== groupId && assignments !== removedGroup?.name
+      )));
+      return { ...season, groups, teamGroups };
+    }));
+    showToast('Group removed; its assigned teams are now unassigned.');
+  };
+  const handleRemoveTournamentRound = (roundId) => {
+    setSeasons((previousSeasons) => previousSeasons.map((season) => {
+      if (season.edition !== teamSessionFocus) return season;
+      const removedGroupIds = new Set(getTournamentGroups(season)
+        .filter((group) => group.roundId === roundId)
+        .map((group) => group.id));
+      const removedGroupNames = new Set(getTournamentGroups(season)
+        .filter((group) => group.roundId === roundId)
+        .map((group) => group.name.toLowerCase()));
+      const groups = getTournamentGroups(season).filter((group) => (
+        group.roundId !== roundId && !group.id.startsWith('legacy-')
+      ));
+      const teamGroups = Object.fromEntries(Object.entries(season.teamGroups || {})
+        .filter(([key, assignments]) => (
+          key !== roundId
+          && !(typeof assignments === 'string'
+            && (removedGroupIds.has(assignments)
+              || (removedGroupNames.has(assignments.toLowerCase())
+                && !groups.some((group) => group.name.toLowerCase() === assignments.toLowerCase()))))
+        ))
+        .map(([teamId, assignedGroup]) => [
+          teamId,
+          assignedGroup && typeof assignedGroup === 'object'
+            ? Object.fromEntries(Object.entries(assignedGroup).filter(([, groupId]) => (
+              !removedGroupIds.has(groupId)
+              && !(typeof groupId === 'string'
+                && removedGroupNames.has(groupId.toLowerCase())
+                && !groups.some((group) => group.name.toLowerCase() === groupId.toLowerCase()))
+            )))
+            : assignedGroup
+        ]));
+      return {
+        ...season,
+        rounds: (season.rounds || []).filter((round) => round.id !== roundId),
+        groups,
+        teamGroups
+      };
+    }));
+    if (groupRoundDraft === roundId) setGroupRoundDraft('');
+    showToast('Round and its groups were removed.');
   };
   const confirmStandingAdjustment = () => {
     if (!pendingStandingAdjustment) return;
@@ -3030,7 +3184,7 @@ const AdminDashboardContent = ({ onClose }) => {
                         >
                           <header className="flex items-center justify-between gap-4 border-b border-slate-800 px-4 py-3 sm:px-6">
                             <div>
-                              <p className="text-[10px] font-bold uppercase tracking-widest text-amber-400">Independent team workspace</p>
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-amber-400">Tournament setup workspace</p>
                               <h3 id="session-team-workspace-title" className="font-sports text-xl text-white">{teamSessionFocus}</h3>
                             </div>
                             <button
@@ -3043,6 +3197,144 @@ const AdminDashboardContent = ({ onClose }) => {
                             </button>
                           </header>
                           <div className="space-y-4 overflow-y-auto p-4 sm:p-6">
+                    <section className="space-y-4 rounded-2xl border border-sky-800/60 bg-sky-950/20 p-3 sm:p-4">
+                      <div>
+                        <h4 className="font-sports text-lg tracking-wider text-sky-200">ROUNDS &amp; GROUPS</h4>
+                        <p className="mt-1 text-xs text-slate-300">Create tournament stages first, then add groups to a round and assign each team to a group.</p>
+                      </div>
+                      <div className="grid gap-4 xl:grid-cols-2">
+                        <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+                          <h5 className="text-xs font-black uppercase tracking-wider text-white">1. Add a round</h5>
+                          <div className="flex flex-wrap gap-2">
+                            {Object.keys(tournamentRoundTemplates).map((format) => (
+                              <button
+                                key={format}
+                                type="button"
+                                onClick={() => {
+                                  setRoundFormat(format);
+                                  setRoundTemplate(tournamentRoundTemplates[format][0]);
+                                }}
+                                aria-pressed={roundFormat === format}
+                                className={`rounded-lg border px-3 py-1.5 text-xs font-bold ${roundFormat === format ? 'border-sky-400 bg-sky-500/20 text-sky-200' : 'border-slate-700 text-slate-400 hover:text-white'}`}
+                              >
+                                {format}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="grid max-h-32 grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3">
+                            {tournamentRoundTemplates[roundFormat].map((template) => (
+                              <button
+                                key={template}
+                                type="button"
+                                onClick={() => setRoundTemplate(template)}
+                                aria-pressed={roundTemplate === template}
+                                className={`rounded-lg border px-2 py-2 text-left text-[11px] font-semibold ${roundTemplate === template ? 'border-amber-500 bg-amber-500/15 text-amber-200' : 'border-slate-800 bg-slate-900 text-slate-300 hover:border-slate-600'}`}
+                              >
+                                {template}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="flex flex-col gap-2 sm:flex-row">
+                            <input
+                              value={customRoundName}
+                              onChange={(event) => setCustomRoundName(event.target.value)}
+                              maxLength={60}
+                              aria-label="Custom round name"
+                              placeholder={`Custom round name (defaults to ${roundTemplate})`}
+                              className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleAddTournamentRound}
+                              className="inline-flex items-center justify-center gap-1 rounded-lg bg-sky-500 px-3 py-2 text-xs font-black text-slate-950 hover:bg-sky-400"
+                            >
+                              <Plus className="h-4 w-4" /> Add round
+                            </button>
+                          </div>
+                          <div className="space-y-2">
+                            {teamSessionRounds.map((round) => (
+                              <div key={round.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 px-3 py-2">
+                                <span className="min-w-0">
+                                  <span className="block text-sm font-bold text-white">{round.name}</span>
+                                  <span className="text-[10px] uppercase tracking-wide text-slate-400">{round.format}</span>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveTournamentRound(round.id)}
+                                  aria-label={`Remove ${round.name} round`}
+                                  className="rounded-md border border-rose-900/70 p-1.5 text-rose-300 hover:bg-rose-950"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            ))}
+                            {teamSessionRounds.length === 0 && <p className="text-xs text-slate-500">No rounds yet.</p>}
+                          </div>
+                        </div>
+
+                        <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+                          <h5 className="text-xs font-black uppercase tracking-wider text-white">2. Create groups in a round</h5>
+                          {teamSessionRounds.length > 0 ? (
+                            <>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                Round
+                                <select
+                                  value={teamSessionRounds.some((round) => round.id === groupRoundDraft) ? groupRoundDraft : teamSessionRounds[0].id}
+                                  onChange={(event) => setGroupRoundDraft(event.target.value)}
+                                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white"
+                                >
+                                  {teamSessionRounds.map((round) => <option key={round.id} value={round.id}>{round.name} · {round.format}</option>)}
+                                </select>
+                              </label>
+                              <div className="flex flex-col gap-2 sm:flex-row">
+                                <input
+                                  value={groupNameDraft}
+                                  onChange={(event) => setGroupNameDraft(event.target.value)}
+                                  maxLength={40}
+                                  aria-label="Group name"
+                                  placeholder="Group A"
+                                  className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={handleAddTournamentGroup}
+                                  className="inline-flex items-center justify-center gap-1 rounded-lg bg-amber-500 px-3 py-2 text-xs font-black text-slate-950 hover:bg-amber-400"
+                                >
+                                  <Plus className="h-4 w-4" /> Add group
+                                </button>
+                              </div>
+                            </>
+                          ) : (
+                            <p className="rounded-lg border border-dashed border-slate-700 p-3 text-xs text-slate-400">Add a round before creating groups.</p>
+                          )}
+                          <div className="space-y-2">
+                            {teamSessionGroups.map((group) => {
+                              const round = teamSessionRounds.find((item) => item.id === group.roundId);
+                              const assignedTeams = teams.filter((team) => (
+                                getTeamGroupId(teamSessionSeason, team.id, group.roundId || activeTeamGroupRoundId) === group.id
+                              )).length;
+                              return (
+                                <div key={group.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 px-3 py-2">
+                                  <span>
+                                    <span className="block text-sm font-bold text-white">{group.name}</span>
+                                    <span className="text-[10px] text-slate-400">{round?.name || 'Legacy group'} · {assignedTeams} teams</span>
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveTournamentGroup(group.id)}
+                                    aria-label={`Remove ${group.name} group`}
+                                    className="rounded-md border border-rose-900/70 p-1.5 text-rose-300 hover:bg-rose-950"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                            {teamSessionGroups.length === 0 && <p className="text-xs text-slate-500">No groups yet. Create one or more groups under a round.</p>}
+                          </div>
+                        </div>
+                      </div>
+                    </section>
                     <form onSubmit={handleAddTeam} className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                         Team Name
@@ -3165,7 +3457,21 @@ const AdminDashboardContent = ({ onClose }) => {
                     </form>
 
                     <div className="space-y-2">
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Teams in {teamSessionFocus}</p>
+                      <div className="flex flex-wrap items-end justify-between gap-3">
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Teams in {teamSessionFocus}</p>
+                        {teamSessionRounds.length > 0 && (
+                          <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                            Assign groups for round
+                            <select
+                              value={activeTeamGroupRoundId}
+                              onChange={(event) => setTeamGroupRoundId(event.target.value)}
+                              className="ml-2 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs font-semibold normal-case text-white"
+                            >
+                              {teamSessionRounds.map((round) => <option key={round.id} value={round.id}>{round.name}</option>)}
+                            </select>
+                          </label>
+                        )}
+                      </div>
                       <div className="space-y-2">
                         {teams.filter((team) => {
                           return getTeamSessions(team, seasons.map((season) => season.edition)).includes(teamSessionFocus);
@@ -3181,13 +3487,13 @@ const AdminDashboardContent = ({ onClose }) => {
                                   Group
                                   <select
                                     aria-label={`${team.name} group in ${teamSessionFocus}`}
-                                    value={seasons.find((season) => season.edition === teamSessionFocus)?.teamGroups?.[team.id] || ''}
+                                    value={getTeamGroupId(teamSessionSeason, team.id, activeTeamGroupRoundId)}
                                     onChange={(event) => updateTeamGroup(team.id, event.target.value)}
+                                    disabled={teamGroupOptions.length === 0 || !activeTeamGroupRoundId}
                                     className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs normal-case text-white"
                                   >
                                     <option value="">Unassigned</option>
-                                    <option value="Group A">Group A</option>
-                                    <option value="Group B">Group B</option>
+                                    {teamGroupOptions.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
                                   </select>
                                 </label>
                                 <button
@@ -3330,7 +3636,13 @@ const AdminDashboardContent = ({ onClose }) => {
                             {row.short} - {row.team}
                           </td>
                           <td className="py-2.5 px-2 text-center text-sky-300">
-                            {selectedSeasonTeamGroups[row.teamId] || '—'}
+                            {getTournamentGroups(selectedSeasonRecord)
+                              .filter((group) => getTeamGroupId(selectedSeasonRecord, row.teamId, group.roundId || '') === group.id)
+                              .map((group) => {
+                                const roundName = selectedSeasonRecord?.rounds?.find((round) => round.id === group.roundId)?.name;
+                                return roundName ? `${roundName}: ${group.name}` : group.name;
+                              })
+                              .join(', ') || '—'}
                           </td>
                           <td className="py-2.5 px-2 text-center text-slate-300 font-mono">{row.p}</td>
                           <td className="py-2.5 px-2 text-center text-emerald-400 font-mono font-bold">{row.w}</td>
