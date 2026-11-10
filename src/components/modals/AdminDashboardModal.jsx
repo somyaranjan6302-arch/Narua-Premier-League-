@@ -812,6 +812,24 @@ const AdminDashboardContent = ({ onClose }) => {
     showToast(`Gallery photo slot added to ${selectedSeason}. Upload its image in Owner Media.`);
   };
 
+  const handleQuickAddGallerySlot = () => {
+    if (adminUser?.role !== 'owner') return;
+
+    const newItem = {
+      id: `gallery-${Date.now()}`,
+      season: mediaSessionFilter,
+      category: '',
+      title: `Photo from ${mediaSessionFilter}`,
+      caption: '',
+      image: '/assets/stadium.jpg',
+      date: ''
+    };
+
+    setGallery((previousGallery) => [newItem, ...previousGallery]);
+    setMediaSearch('');
+    showToast(`Blank photo slot added to ${mediaSessionFilter}. Choose and save its image below.`);
+  };
+
   const handleEditSessionGalleryItem = (item) => {
     setEditingGalleryItemId(item.id);
     setGalleryDraft({
@@ -2919,6 +2937,20 @@ const AdminDashboardContent = ({ onClose }) => {
                         >
                           <Plus className="h-4 w-4" />
                           Add teams to {mediaSessionFilter}
+                        </button>
+                      </div>
+                    ) : mediaCategory === 'gallery' && adminUser?.role === 'owner' ? (
+                      <div className="flex flex-col items-center gap-3 px-3 py-8 text-center">
+                        <p className="text-sm text-slate-300">
+                          No gallery image slots match this filter for {mediaSessionFilter}.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleQuickAddGallerySlot}
+                          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-xs font-black uppercase tracking-wide text-slate-950 transition hover:bg-amber-400"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Add image slot to {mediaSessionFilter}
                         </button>
                       </div>
                     ) : (
