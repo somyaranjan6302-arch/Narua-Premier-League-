@@ -42,6 +42,9 @@ export const LiveAuctionArenaModal = ({ onClose, isAdminControl = false, standal
     siteMedia,
     callLiveAuctionPlayer,
     setLiveAuctionPurseCap,
+    setLiveAuctionTeamPurseCap,
+    setLiveAuctionMinimumBidIncrement,
+    setLiveAuctionMaxSquadSize,
     setLiveAuctionStatus,
     placeLiveBid,
     sellLivePlayer,
@@ -63,17 +66,32 @@ export const LiveAuctionArenaModal = ({ onClose, isAdminControl = false, standal
     const sessions = Array.isArray(team.sessions) ? team.sessions
       : Array.isArray(team.seasons) ? team.seasons
         : team.session ? [team.session] : [selectedSeason];
-    return sessions.includes(selectedSeason);
+    return team.active !== false && sessions.includes(selectedSeason);
   }), [selectedSeason, teams]);
 
   const purseCap = auctionLiveState.purseCap ?? DEFAULT_AUCTION_PURSE_CAP;
-  const bidIncrementOptions = [50, 100, 200, 500, 1000];
+  const minimumBidIncrement = auctionLiveState.minimumBidIncrement ?? 100;
+  const squadSizeLimit = auctionLiveState.maxSquadSize ?? SQUAD_SLOTS;
+  const bidIncrementOptions = [...new Set([
+    minimumBidIncrement,
+    minimumBidIncrement * 2,
+    minimumBidIncrement * 3,
+    minimumBidIncrement * 5,
+    minimumBidIncrement * 10
+  ])].filter(Number.isSafeInteger);
 
   const [activeTab, setActiveTab] = useState('arena'); // 'arena' | 'bidTape' | 'soldHistory' | 'wallets'
   const [selectedPlayerId, setSelectedPlayerId] = useState('');
-  const [selectedIncrement, setSelectedIncrement] = useState(100);
+  const [selectedIncrement, setSelectedIncrement] = useState(minimumBidIncrement);
   const [customIncrement, setCustomIncrement] = useState('');
   const [purseCapDraft, setPurseCapDraft] = useState(String(purseCap));
+  const [minimumBidIncrementDraft, setMinimumBidIncrementDraft] = useState(String(minimumBidIncrement));
+  const [maxSquadSizeDraft, setMaxSquadSizeDraft] = useState(String(squadSizeLimit));
+  const [teamPurseCapDrafts, setTeamPurseCapDrafts] = useState({});
+  const [auctionAuditLog, setAuctionAuditLog] = useState([]);
+  const [auctionAuditError, setAuctionAuditError] = useState('');
+  const [reauctionPlayer, setReauctionPlayer] = useState(null);
+  const [exceptionReason, setExceptionReason] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [auctionError, setAuctionError] = useState('');
   const [showExtras, setShowExtras] = useState(false);
@@ -254,19 +272,20 @@ export const LiveAuctionArenaModal = ({ onClose, isAdminControl = false, standal
   const teamInsight = useCallback((team) => {
     const boughtList = getSoldPlayersForTeam(team);
     const bought = boughtList.length;
-    const slotsLeft = Math.max(0, SQUAD_SLOTS - bought);
+    const slotsLeft = Math.max(0, squadSizeLimit - bought);
 
     let remainingPurse = auctionLiveState.teamPurses?.[team.id];
     if (remainingPurse === undefined) {
+      const teamPurseCap = auctionLiveState.teamPurseCaps?.[team.id] ?? purseCap;
       const spent = boughtList.reduce((acc, p) => {
         return acc + (Number(String(p.soldPrice || '').replace(/[^\d]/g, '')) || 0);
       }, 0);
-      remainingPurse = Math.max(0, purseCap - spent);
+      remainingPurse = Math.max(0, teamPurseCap - spent);
     }
 
     const maxBid = slotsLeft <= 0 ? 0 : remainingPurse;
     return { remainingPurse, bought, slotsLeft, maxBid, boughtList };
-  }, [getSoldPlayersForTeam, auctionLiveState.teamPurses, purseCap]);
+  }, [getSoldPlayersForTeam, auctionLiveState.teamPurseCaps, auctionLiveState.teamPurses, purseCap, squadSizeLimit]);
 
   // Lot number & style chips for current player
   const lotNumber = useMemo(() => {
@@ -308,7 +327,39 @@ export const LiveAuctionArenaModal = ({ onClose, isAdminControl = false, standal
 
   useEffect(() => {
     setPurseCapDraft(String(purseCap));
-  }, [purseCap, selectedSeason]);
+    setMinimumBidIncrementDraft(String(minimumBidIncrement));
+    setMaxSquadSizeDraft(String(squadSizeLimit));
+    setSelectedIncrement(minimumBidIncrement);
+    setTeamPurseCapDrafts(Object.fromEntries(sessionTeams.map((team) => [
+      team.id,
+      String(auctionLiveState.teamPurseCaps?.[team.id] ?? purseCap)
+    ])));
+  }, [auctionLiveState.teamPurseCaps, minimumBidIncrement, purseCap, selectedSeason, sessionTeams, squadSizeLimit]);
+
+  useEffect(() => {
+    if (!canControlAuction) {
+      setAuctionAuditLog([]);
+      setAuctionAuditError('');
+      return undefined;
+    }
+
+    let active = true;
+    setAuctionAuditError('');
+    fetch(`/api/admin/auction/audit?season=${encodeURIComponent(selectedSeason)}`, { cache: 'no-store' })
+      .then(async (response) => {
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || 'Could not load the auction audit log.');
+        return result.entries;
+      })
+      .then((entries) => {
+        if (active) setAuctionAuditLog(Array.isArray(entries) ? entries : []);
+      })
+      .catch((error) => {
+        if (active) setAuctionAuditError(error.message || 'Could not load the auction audit log.');
+      });
+
+    return () => { active = false; };
+  }, [auctionLiveState.updatedAt, canControlAuction, selectedSeason]);
 
   const performAction = async (action) => {
     setAuctionError('');
@@ -350,6 +401,54 @@ export const LiveAuctionArenaModal = ({ onClose, isAdminControl = false, standal
       return;
     }
     performAction(() => setLiveAuctionPurseCap(nextPurseCap, selectedSeason));
+  };
+
+  const handleSaveMinimumBidIncrement = () => {
+    const nextMinimum = Number(minimumBidIncrementDraft);
+    if (!Number.isSafeInteger(nextMinimum) || nextMinimum <= 0) {
+      setAuctionError('Enter a minimum bid increment greater than zero rupees.');
+      return;
+    }
+    performAction(() => setLiveAuctionMinimumBidIncrement(nextMinimum, selectedSeason));
+  };
+
+  const handleSaveMaxSquadSize = () => {
+    const nextSize = Number(maxSquadSizeDraft);
+    if (!Number.isSafeInteger(nextSize) || nextSize < 1 || nextSize > 30) {
+      setAuctionError('Squad size must be from 1 to 30 players.');
+      return;
+    }
+    performAction(() => setLiveAuctionMaxSquadSize(nextSize, selectedSeason));
+  };
+
+  const handleSaveTeamPurseCap = (teamId) => {
+    const nextCap = Number(teamPurseCapDrafts[teamId]);
+    if (!Number.isSafeInteger(nextCap) || nextCap <= 0) {
+      setAuctionError('Enter a team purse cap greater than zero rupees.');
+      return;
+    }
+    performAction(() => setLiveAuctionTeamPurseCap(teamId, nextCap, selectedSeason));
+  };
+
+  const handleReauction = () => {
+    const player = auctionRegistrations.find((registration) =>
+      registration.id === reauctionPlayer?.playerId &&
+      registration.season === selectedSeason &&
+      registration.status === 'UNSOLD'
+    );
+    if (!player) {
+      setAuctionError('This unsold player is no longer available for re-auction.');
+      return;
+    }
+    if (exceptionReason.trim().length < 5 || exceptionReason.trim().length > 500) {
+      setAuctionError('Enter a re-auction exception reason between 5 and 500 characters.');
+      return;
+    }
+    performAction(async () => {
+      await callLiveAuctionPlayer(player, selectedSeason, { exceptionReason: exceptionReason.trim() });
+      setReauctionPlayer(null);
+      setExceptionReason('');
+    });
   };
 
   const handleUnsold = () => {
@@ -511,6 +610,20 @@ export const LiveAuctionArenaModal = ({ onClose, isAdminControl = false, standal
               <Wallet className="h-3.5 w-3.5" />
               <span>Team Wallets</span>
             </button>
+            {canControlAuction && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('audit')}
+                className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap shrink-0 ${
+                  activeTab === 'audit'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 scale-102'
+                    : 'bg-white/5 text-blue-200/80 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                <History className="h-3.5 w-3.5" />
+                <span>Audit Log</span>
+              </button>
+            )}
           </div>
         </nav>
 
@@ -522,7 +635,7 @@ export const LiveAuctionArenaModal = ({ onClose, isAdminControl = false, standal
                 <Sparkles className="h-4 w-4 text-amber-400" />
                 <span><strong>Purse Cap per Franchise:</strong> {formatCompactRupees(purseCap)}</span>
                 <span className="text-white/40">•</span>
-                <span><strong>Slots:</strong> {SQUAD_SLOTS} Max</span>
+                <span><strong>Slots:</strong> {squadSizeLimit} Max</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
@@ -950,7 +1063,7 @@ export const LiveAuctionArenaModal = ({ onClose, isAdminControl = false, standal
                                 Slots Left
                               </p>
                               <p className="mt-0.5 text-sm sm:text-base font-black text-slate-900">
-                                {insight.slotsLeft}/{SQUAD_SLOTS}
+                                {insight.slotsLeft}/{squadSizeLimit}
                               </p>
                             </div>
                           </div>
@@ -1176,7 +1289,7 @@ export const LiveAuctionArenaModal = ({ onClose, isAdminControl = false, standal
                                 <div>
                                   <h5 className="font-black text-white text-base leading-tight">{team.name}</h5>
                                   <p className="text-[10px] text-blue-200 font-semibold">
-                                    {teamSold.length}/{SQUAD_SLOTS} slots filled • {formatCompactRupees(purseCap - insight.remainingPurse)} spent
+                                    {teamSold.length}/{squadSizeLimit} slots filled • {formatCompactRupees(purseCap - insight.remainingPurse)} spent
                                   </p>
                                 </div>
                               </div>
@@ -1283,8 +1396,23 @@ export const LiveAuctionArenaModal = ({ onClose, isAdminControl = false, standal
                       <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-white/10">
                         {auctionLiveState.unsoldPlayers.map((u, i) => (
                           <div key={i} className="flex items-center justify-between rounded-xl bg-white/5 p-2 text-xs">
-                            <span className="text-white font-bold">{u.playerName || u.name}</span>
-                            <span className="text-slate-400">{u.role} • Base {u.basePrice}</span>
+                            <div>
+                              <span className="text-white font-bold">{u.playerName || u.name}</span>
+                              <span className="ml-2 text-slate-400">{u.role} • Base {u.basePrice}</span>
+                            </div>
+                            {canControlAuction && (
+                              <button
+                                type="button"
+                                disabled={isSaving || Boolean(currentPlayer) || liveStatus === 'completed'}
+                                onClick={() => {
+                                  setReauctionPlayer(u);
+                                  setExceptionReason('');
+                                }}
+                                className="ml-2 shrink-0 rounded-full border border-amber-400/40 px-2.5 py-1 font-bold text-amber-200 hover:bg-amber-400/10 disabled:opacity-40"
+                              >
+                                Re-auction
+                              </button>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -1333,11 +1461,64 @@ export const LiveAuctionArenaModal = ({ onClose, isAdminControl = false, standal
                   </div>
                 )}
 
+                {canControlAuction && (
+                  <div className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-[#091535] p-3.5 sm:flex-row sm:items-end">
+                    <label className="min-w-0 flex-1 text-[10px] font-bold uppercase tracking-wider text-blue-200">
+                      Minimum Bid Increment (₹):
+                      <input
+                        type="number"
+                        min="1"
+                        max={purseCap}
+                        step="1"
+                        value={minimumBidIncrementDraft}
+                        onChange={(event) => setMinimumBidIncrementDraft(event.target.value)}
+                        disabled={isSaving}
+                        className="mt-1 min-h-10 w-full rounded-xl border border-white/15 bg-[#071126] px-3 text-sm font-bold text-white"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      disabled={isSaving}
+                      onClick={handleSaveMinimumBidIncrement}
+                      className="min-h-10 shrink-0 rounded-full bg-blue-600 px-5 py-2 text-xs font-black uppercase text-white hover:bg-blue-500 disabled:opacity-50"
+                    >
+                      {isSaving ? 'Saving...' : 'Update Minimum'}
+                    </button>
+                  </div>
+                )}
+
+                {canControlAuction && (
+                  <div className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-[#091535] p-3.5 sm:flex-row sm:items-end">
+                    <label className="min-w-0 flex-1 text-[10px] font-bold uppercase tracking-wider text-blue-200">
+                      Maximum Squad Size:
+                      <input
+                        type="number"
+                        min="1"
+                        max="30"
+                        step="1"
+                        value={maxSquadSizeDraft}
+                        onChange={(event) => setMaxSquadSizeDraft(event.target.value)}
+                        disabled={isSaving}
+                        className="mt-1 min-h-10 w-full rounded-xl border border-white/15 bg-[#071126] px-3 text-sm font-bold text-white"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      disabled={isSaving}
+                      onClick={handleSaveMaxSquadSize}
+                      className="min-h-10 shrink-0 rounded-full bg-blue-600 px-5 py-2 text-xs font-black uppercase text-white hover:bg-blue-500 disabled:opacity-50"
+                    >
+                      {isSaving ? 'Saving...' : 'Update Squad Limit'}
+                    </button>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {sessionTeams.map((team) => {
                     const insight = teamInsight(team);
-                    const spent = purseCap - insight.remainingPurse;
-                    const spentPercentage = Math.min(100, Math.round((spent / purseCap) * 100));
+                    const teamPurseCap = auctionLiveState.teamPurseCaps?.[team.id] ?? purseCap;
+                    const spent = teamPurseCap - insight.remainingPurse;
+                    const spentPercentage = Math.min(100, Math.round((spent / teamPurseCap) * 100));
 
                     return (
                       <article key={team.id} className="rounded-2xl bg-[#091535] border border-blue-500/20 p-4 space-y-3">
@@ -1358,7 +1539,7 @@ export const LiveAuctionArenaModal = ({ onClose, isAdminControl = false, standal
                         <div className="space-y-1">
                           <div className="flex justify-between text-[10px] font-bold text-blue-200">
                             <span>Spent: {formatCompactRupees(spent)} ({spentPercentage}%)</span>
-                            <span>Cap: {formatCompactRupees(purseCap)}</span>
+                            <span>Cap: {formatCompactRupees(teamPurseCap)}</span>
                           </div>
                           <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
                             <div
@@ -1371,13 +1552,41 @@ export const LiveAuctionArenaModal = ({ onClose, isAdminControl = false, standal
                         <div className="grid grid-cols-2 gap-2 text-xs border-t border-white/10 pt-2 text-blue-100">
                           <div>
                             <span className="text-[10px] text-blue-300/70 block">Slots Left:</span>
-                            <span className="font-extrabold text-white">{insight.slotsLeft}/{SQUAD_SLOTS}</span>
+                            <span className="font-extrabold text-white">{insight.slotsLeft}/{squadSizeLimit}</span>
                           </div>
                           <div>
                             <span className="text-[10px] text-blue-300/70 block">Max Permissible Bid:</span>
                             <span className="font-extrabold text-emerald-400">{formatCompactRupees(insight.maxBid)}</span>
                           </div>
                         </div>
+                        {canControlAuction && (
+                          <div className="flex items-end gap-2 border-t border-white/10 pt-3">
+                            <label className="min-w-0 flex-1 text-[10px] font-bold uppercase tracking-wider text-blue-200">
+                              Team Purse Cap (₹)
+                              <input
+                                type="number"
+                                min={spent}
+                                step="10000"
+                                aria-label={`${team.name} purse cap`}
+                                value={teamPurseCapDrafts[team.id] ?? String(teamPurseCap)}
+                                onChange={(event) => setTeamPurseCapDrafts((previous) => ({
+                                  ...previous,
+                                  [team.id]: event.target.value
+                                }))}
+                                disabled={isSaving}
+                                className="mt-1 min-h-9 w-full rounded-lg border border-white/15 bg-[#071126] px-2 text-xs font-bold text-white"
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              disabled={isSaving || Number(teamPurseCapDrafts[team.id] ?? teamPurseCap) === teamPurseCap}
+                              onClick={() => handleSaveTeamPurseCap(team.id)}
+                              className="min-h-9 shrink-0 rounded-full bg-blue-600 px-3 py-2 text-[10px] font-black uppercase text-white hover:bg-blue-500 disabled:opacity-50"
+                            >
+                              Save
+                            </button>
+                          </div>
+                        )}
                       </article>
                     );
                   })}
@@ -1385,9 +1594,81 @@ export const LiveAuctionArenaModal = ({ onClose, isAdminControl = false, standal
               </div>
             )}
 
+            {activeTab === 'audit' && canControlAuction && (
+              <section className="space-y-4">
+                <header className="rounded-[26px] bg-gradient-to-r from-[#0a1838] via-[#12398b] to-[#1c53d4] p-5 text-white shadow-xl">
+                  <h4 className="flex items-center gap-2 text-lg font-black">
+                    <History className="h-5 w-5 text-amber-300" />
+                    Auction Transaction Audit
+                  </h4>
+                  <p className="mt-1 text-xs text-blue-200/80">
+                    Administrator actions, bids, player outcomes, and rule changes for {selectedSeason}.
+                  </p>
+                </header>
+                {auctionAuditError && <p role="alert" className="rounded-xl border border-rose-500/40 bg-rose-950/70 p-3 text-sm text-rose-200">{auctionAuditError}</p>}
+                {!auctionAuditError && auctionAuditLog.length === 0 && (
+                  <p className="rounded-xl border border-white/10 bg-[#091535] p-5 text-sm text-blue-100">
+                    No auction actions have been recorded for this season yet.
+                  </p>
+                )}
+                <ol className="space-y-2">
+                  {[...auctionAuditLog].reverse().map((entry) => (
+                    <li key={entry.id} className="rounded-xl border border-white/10 bg-[#091535] p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <strong className="text-xs font-black uppercase tracking-wide text-amber-200">
+                          {entry.action.replaceAll('_', ' ')}
+                        </strong>
+                        <time className="text-[10px] text-slate-400" dateTime={entry.timestamp}>
+                          {new Date(entry.timestamp).toLocaleString()}
+                        </time>
+                      </div>
+                      <p className="mt-1 text-xs text-blue-100">
+                        By {entry.actorId} ({entry.actorRole})
+                        {entry.details?.playerId ? ` • Player ${entry.details.playerId}` : ''}
+                        {entry.details?.teamId ? ` • Team ${entry.details.teamId}` : ''}
+                        {entry.details?.amount ? ` • ₹${Number(entry.details.amount).toLocaleString('en-IN')}` : ''}
+                      </p>
+                      {entry.details?.reason && (
+                        <p className="mt-1 text-xs text-slate-300">Reason: {entry.details.reason}</p>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            )}
+
           </div>
         </div>
       </div>
+      {reauctionPlayer && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4">
+          <section role="dialog" aria-modal="true" aria-labelledby="reauction-title" className="w-full max-w-md rounded-2xl border border-amber-400/30 bg-[#091535] p-5 text-white shadow-2xl">
+            <h4 id="reauction-title" className="font-sports text-xl font-black">Authorize Re-auction</h4>
+            <p className="mt-2 text-sm text-blue-100">
+              {reauctionPlayer.playerName || reauctionPlayer.name} was previously marked unsold. Record why this exception is approved.
+            </p>
+            <label className="mt-4 block text-xs font-bold uppercase tracking-wide text-blue-200">
+              Exception reason (5–500 characters)
+              <textarea
+                autoFocus
+                maxLength={500}
+                minLength={5}
+                value={exceptionReason}
+                onChange={(event) => setExceptionReason(event.target.value)}
+                className="mt-2 min-h-24 w-full rounded-xl border border-white/15 bg-[#071126] p-3 text-sm normal-case text-white"
+              />
+            </label>
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" disabled={isSaving} onClick={() => setReauctionPlayer(null)} className="rounded-full border border-white/20 px-4 py-2 text-xs font-bold text-white disabled:opacity-50">
+                Cancel
+              </button>
+              <button type="button" disabled={isSaving || exceptionReason.trim().length < 5} onClick={handleReauction} className="rounded-full bg-amber-400 px-4 py-2 text-xs font-black text-slate-950 disabled:opacity-50">
+                {isSaving ? 'Saving…' : 'Confirm Re-auction'}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 };

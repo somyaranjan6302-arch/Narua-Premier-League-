@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS npl_admin_users (
   admin_id TEXT PRIMARY KEY,
-  role TEXT NOT NULL CHECK (role IN ('owner', 'admin')),
+  role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'scorer')),
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   salt TEXT NOT NULL,
   password_hash TEXT NOT NULL,

@@ -15,6 +15,21 @@ import { mergeOfficialSession2Content } from '../src/data/session2Data.js';
 import { mergeOfficialSession1Content } from '../src/data/session1Performers.js';
 import { ScoringStore, registerMatchListener } from './scoringStore.js';
 import { calculateTournamentNetRunRate } from './cricketEngine.js';
+import { initialAuctionLiveState, initialSessionTeams } from '../src/data/nplData.js';
+import {
+  appendAuctionBidAudit,
+  applyAuctionBid,
+  auditAuctionTransition,
+  AuctionBidError,
+  auctionBidSnapshot,
+  isAuctionTeamEligible,
+  publicAuctionState
+} from '../functions/api/auctionState.js';
+import {
+  createPublicRegistration,
+  matchesRegistrationIdentity,
+  PlayerRegistrationError
+} from '../functions/api/registrationState.js';
 
 const scrypt = promisify(scryptCallback);
 const serverDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -32,6 +47,7 @@ const port = Number(process.env.PORT || 5173);
 const sessionDurationSeconds = 8 * 60 * 60;
 const loginAttempts = new Map();
 const registrationAttempts = new Map();
+const registrationStatusAttempts = new Map();
 let liveAuctionSaveQueue = Promise.resolve();
 const { Pool } = pg;
 const database = process.env.DATABASE_URL
@@ -43,7 +59,7 @@ const imageExtensions = {
   'image/webp': '.webp',
   'image/gif': '.gif'
 };
-const publicMediaKeyPattern = /^(news|champion|team-logo|team|match-banner|gallery|memory-photo|highlight|performer|featured-performer|player-photo|section-photo|record):[A-Za-z0-9 ._-]{1,80}$/;
+const publicMediaKeyPattern = /^(news|champion|team-logo|team|match-banner|gallery|memory-photo|highlight|performer|featured-performer|player-photo|season|section-photo|record):[A-Za-z0-9 ._-]{1,80}$/;
 
 const migrateLegacyMediaToRepository = async (legacyMedia) => {
   const sharedMedia = await readJson(mediaFile, {});
@@ -291,7 +307,7 @@ const start = async () => {
   const broadcastAuctionState = (season, state) => {
     const subscribers = auctionSubscribers.get(season);
     if (!subscribers) return;
-    const message = JSON.stringify({ type: 'auction-state', season, state });
+    const message = JSON.stringify({ type: 'auction-state', season, state: publicAuctionState(state) });
     for (const socket of subscribers) {
       if (socket.readyState === WebSocket.OPEN) socket.send(message);
     }
@@ -416,7 +432,107 @@ const start = async () => {
       state = states[season] || null;
     }
 
-    return res.json({ state });
+    return res.json({ state: publicAuctionState(state) });
+  });
+
+  app.get('/api/admin/auction/audit', requireAdmin, async (req, res) => {
+    const season = typeof req.query.season === 'string' ? req.query.season.trim() : '';
+    if (!season || season.length > 60) return res.status(400).json({ error: 'Choose a valid auction season.' });
+    let state;
+    if (database) {
+      const result = await database.query(
+        'SELECT value FROM npl_site_data WHERE data_key = $1',
+        [`auction-live:${season}`]
+      );
+      state = result.rows[0]?.value || null;
+    } else {
+      const states = await readJson(liveAuctionFile, {});
+      state = states[season] || null;
+    }
+    return res.json({ entries: state?.auditLog || [] });
+  });
+
+  app.post('/api/admin/auction/bid', requireAdmin, async (req, res) => {
+    const season = typeof req.body?.season === 'string' ? req.body.season.trim() : '';
+    if (!season || season.length > 60) return res.status(400).json({ error: 'Choose a valid auction season.' });
+
+    let teamsForSeason = initialSessionTeams;
+    if (database) {
+      const result = await database.query("SELECT value FROM npl_site_data WHERE data_key = 'public-content'");
+      teamsForSeason = result.rows[0]?.value?.teams || [];
+    }
+    const team = teamsForSeason.find((item) => item.id === req.body.teamId);
+    if (!isAuctionTeamEligible(team, season)) {
+      return res.status(409).json({ error: 'Choose an active franchise assigned to this auction season.' });
+    }
+
+    const actor = publicUser(req.adminUser);
+    let savedState;
+    try {
+      if (database) {
+        const client = await database.connect();
+        try {
+          await client.query('BEGIN');
+          const key = `auction-live:${season}`;
+          await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [key]);
+          const result = await client.query(
+            'SELECT value FROM npl_site_data WHERE data_key = $1 FOR UPDATE',
+            [key]
+          );
+          const currentState = result.rows[0]?.value || initialAuctionLiveState;
+          savedState = appendAuctionBidAudit(
+            applyAuctionBid(currentState, {
+              teamId: team.id,
+              teamName: team.name,
+              increment: req.body.increment
+            }),
+            actor,
+            { teamId: team.id, teamName: team.name }
+          );
+          await client.query(
+            `INSERT INTO npl_site_data (data_key, value) VALUES ($1, $2::jsonb)
+             ON CONFLICT (data_key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+            [key, JSON.stringify(savedState)]
+          );
+          await client.query('COMMIT');
+        } catch (error) {
+          await client.query('ROLLBACK');
+          throw error;
+        } finally {
+          client.release();
+        }
+      } else {
+        const pendingSave = liveAuctionSaveQueue.catch(() => {}).then(async () => {
+          const states = await readJson(liveAuctionFile, {});
+          const currentState = states[season] || initialAuctionLiveState;
+          savedState = appendAuctionBidAudit(
+            applyAuctionBid(currentState, {
+              teamId: team.id,
+              teamName: team.name,
+              increment: req.body.increment
+            }),
+            actor,
+            { teamId: team.id, teamName: team.name }
+          );
+          states[season] = savedState;
+          await writeJson(liveAuctionFile, states);
+          return savedState;
+        });
+        liveAuctionSaveQueue = pendingSave;
+        await pendingSave;
+      }
+    } catch (error) {
+      if (error instanceof AuctionBidError) {
+        return res.status(error.status).json({
+          error: error.message,
+          bid: error.state ? auctionBidSnapshot(error.state) : null
+        });
+      }
+      throw error;
+    }
+
+    broadcastAuctionState(season, savedState);
+    return res.json({ bid: auctionBidSnapshot(savedState) });
   });
 
   app.get('/api/auction/live/ws', async (req, res) => {
@@ -441,7 +557,13 @@ const start = async () => {
       !Array.isArray(state.soldPlayers) || state.soldPlayers.length > 500 ||
       !Array.isArray(state.unsoldPlayers) || state.unsoldPlayers.length > 500 ||
       !state.teamPurses || typeof state.teamPurses !== 'object' || Array.isArray(state.teamPurses) ||
+      (state.teamPurseCaps !== undefined &&
+        (!state.teamPurseCaps || typeof state.teamPurseCaps !== 'object' || Array.isArray(state.teamPurseCaps) ||
+          Object.values(state.teamPurseCaps).some((purse) => !Number.isSafeInteger(purse) || purse <= 0))) ||
       (state.purseCap !== undefined && (!Number.isSafeInteger(state.purseCap) || state.purseCap <= 0)) ||
+      (state.minimumBidIncrement !== undefined && (!Number.isSafeInteger(state.minimumBidIncrement) || state.minimumBidIncrement <= 0)) ||
+      (state.minimumBidIncrement ?? 100) > (state.purseCap ?? 5000000) ||
+      (state.maxSquadSize !== undefined && (!Number.isSafeInteger(state.maxSquadSize) || state.maxSquadSize < 1 || state.maxSquadSize > 30)) ||
       Object.values(state.teamPurses).some((purse) => !Number.isSafeInteger(purse) || purse < 0)) {
       return res.status(400).json({ error: 'Auction state is invalid.' });
     }
@@ -462,6 +584,8 @@ const start = async () => {
     const safeState = {
       status: state.status,
       purseCap: state.purseCap ?? 5000000,
+      minimumBidIncrement: state.minimumBidIncrement ?? 100,
+      maxSquadSize: state.maxSquadSize ?? 13,
       currentPlayer: safeCurrentPlayer,
       currentBid: state.currentBid,
       currentBiddingTeam: state.currentBiddingTeam,
@@ -472,9 +596,22 @@ const start = async () => {
       })),
       soldPlayers: state.soldPlayers.slice(0, 500),
       unsoldPlayers: state.unsoldPlayers.slice(0, 500),
-      teamPurses: state.teamPurses
+      teamPurses: state.teamPurses,
+      teamPurseCaps: state.teamPurseCaps || {}
     };
     const seasonKey = season.trim();
+    const auditPreviousState = (currentState) => currentState || {
+      status: safeState.status,
+      purseCap: safeState.purseCap,
+      minimumBidIncrement: safeState.minimumBidIncrement,
+      maxSquadSize: safeState.maxSquadSize,
+      currentPlayer: null,
+      soldPlayers: [],
+      unsoldPlayers: [],
+      teamPurses: {},
+      teamPurseCaps: {},
+      auditLog: []
+    };
 
     const save = async () => {
       if (database) {
@@ -489,15 +626,19 @@ const start = async () => {
             await client.query('ROLLBACK');
             return { conflict: true, state: currentState };
           }
-          safeState.version = (Number.isSafeInteger(currentState?.version) ? currentState.version : 0) + 1;
-          safeState.updatedAt = new Date().toISOString();
+          const nextState = auditAuctionTransition(auditPreviousState(currentState), safeState, {
+            actor: publicUser(req.adminUser),
+            exceptionReason: req.body.exceptionReason
+          });
+          nextState.version = (Number.isSafeInteger(currentState?.version) ? currentState.version : 0) + 1;
+          nextState.updatedAt = new Date().toISOString();
           await client.query(
             `INSERT INTO npl_site_data (data_key, value) VALUES ($1, $2::jsonb)
              ON CONFLICT (data_key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
-            [key, JSON.stringify(safeState)]
+            [key, JSON.stringify(nextState)]
           );
           await client.query('COMMIT');
-          return { state: safeState };
+          return { state: nextState };
         } catch (error) {
           await client.query('ROLLBACK');
           throw error;
@@ -512,17 +653,27 @@ const start = async () => {
         if ((currentState?.updatedAt || null) !== (expectedUpdatedAt || null)) {
           return { conflict: true, state: currentState };
         }
-        safeState.version = (Number.isSafeInteger(currentState?.version) ? currentState.version : 0) + 1;
-        safeState.updatedAt = new Date().toISOString();
-        states[seasonKey] = safeState;
+        const nextState = auditAuctionTransition(auditPreviousState(currentState), safeState, {
+          actor: publicUser(req.adminUser),
+          exceptionReason: req.body.exceptionReason
+        });
+        nextState.version = (Number.isSafeInteger(currentState?.version) ? currentState.version : 0) + 1;
+        nextState.updatedAt = new Date().toISOString();
+        states[seasonKey] = nextState;
         await writeJson(liveAuctionFile, states);
-        return { state: safeState };
+        return { state: nextState };
       });
       liveAuctionSaveQueue = pendingSave;
       return pendingSave;
     };
 
-    const result = await save();
+    let result;
+    try {
+      result = await save();
+    } catch (error) {
+      if (error instanceof AuctionBidError) return res.status(error.status).json({ error: error.message });
+      throw error;
+    }
     if (result.conflict) return res.status(409).json({ error: 'The live auction changed in another session. Refreshing its latest state.', state: result.state });
     broadcastAuctionState(seasonKey, result.state);
     return res.json({ state: result.state });
@@ -566,22 +717,74 @@ const start = async () => {
     if (attempt && attempt.count >= 5 && now - attempt.startedAt < 60 * 60 * 1000) {
       return res.status(429).json({ error: 'Too many registrations. Try again later.' });
     }
-    if (!req.body || typeof req.body !== 'object' || typeof req.body.id !== 'string' ||
-      typeof req.body.fullName !== 'string' || typeof req.body.phone !== 'string' || req.body.consent !== true) {
-      return res.status(400).json({ error: 'Registration details are incomplete.' });
+    const body = req.body;
+    const seasonEdition = typeof body?.season === 'string' ? body.season.trim() : '';
+    const contentResult = await database.query("SELECT value FROM npl_site_data WHERE data_key = 'public-content'");
+    const season = contentResult.rows[0]?.value?.seasons?.find((item) => item.edition === seasonEdition);
+    const year = String(season?.year || season?.season || new Date().getFullYear()).replace(/\D/g, '').slice(0, 4);
+    let registration;
+    try {
+      registration = createPublicRegistration(body, season, {
+        id: `reg-${randomBytes(12).toString('hex')}`,
+        registrationId: `NPL${year || new Date().getFullYear()}-${randomBytes(4).toString('hex').toUpperCase()}`
+      });
+    } catch (error) {
+      if (error instanceof PlayerRegistrationError) return res.status(error.status).json({ error: error.message });
+      throw error;
     }
-    const currentResult = await database.query("SELECT value FROM npl_site_data WHERE data_key = 'auction-registrations'");
-    const registrations = currentResult.rows[0]?.value || [];
-    const existingIndex = registrations.findIndex((registration) => registration.id === req.body.id);
-    if (existingIndex >= 0) registrations.splice(existingIndex, 1);
-    registrations.unshift(req.body);
-    await database.query(
-      `INSERT INTO npl_site_data (data_key, value) VALUES ('auction-registrations', $1::jsonb)
-       ON CONFLICT (data_key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
-      [JSON.stringify(registrations)]
-    );
+
+    const client = await database.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query("SELECT pg_advisory_xact_lock(hashtextextended('npl-player-registrations', 0))");
+      const currentResult = await client.query(
+        "SELECT value FROM npl_site_data WHERE data_key = 'auction-registrations' FOR UPDATE"
+      );
+      const registrations = Array.isArray(currentResult.rows[0]?.value) ? currentResult.rows[0].value : [];
+      registrations.unshift(registration);
+      await client.query(
+        `INSERT INTO npl_site_data (data_key, value) VALUES ('auction-registrations', $1::jsonb)
+         ON CONFLICT (data_key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+        [JSON.stringify(registrations)]
+      );
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
     registrationAttempts.set(ip, { count: (attempt?.count || 0) + 1, startedAt: attempt?.startedAt || now });
-    return res.status(201).json({ id: req.body.id });
+    return res.status(201).json({ id: registration.id, registrationId: registration.registrationId, status: registration.status });
+  });
+
+  app.post('/api/auction-registrations/status', async (req, res) => {
+    if (!database) return res.status(503).json({ error: 'Registration status lookup is not configured.' });
+    const now = Date.now();
+    const ip = req.ip || req.socket.remoteAddress;
+    const attempt = registrationStatusAttempts.get(ip);
+    if (attempt && attempt.count >= 10 && now - attempt.startedAt < 10 * 60 * 1000) {
+      return res.status(429).json({ error: 'Too many status checks. Try again later.' });
+    }
+
+    const registrationId = typeof req.body?.registrationId === 'string'
+      ? req.body.registrationId.trim().toUpperCase()
+      : '';
+    const phone = typeof req.body?.phone === 'string' ? req.body.phone.replace(/\D/g, '') : '';
+    if (!registrationId || registrationId.length > 40 || phone.length < 7 || phone.length > 15) {
+      return res.status(400).json({ error: 'Enter a valid registration ID and mobile number.' });
+    }
+
+    const result = await database.query("SELECT value FROM npl_site_data WHERE data_key = 'auction-registrations'");
+    const registrations = Array.isArray(result.rows[0]?.value) ? result.rows[0].value : [];
+    const registration = registrations.find((item) => matchesRegistrationIdentity(item, registrationId, phone));
+    registrationStatusAttempts.set(ip, { count: (attempt?.count || 0) + 1, startedAt: attempt?.startedAt || now });
+    if (!registration) return res.status(404).json({ error: 'No registration matches those details.' });
+    return res.json({
+      registrationId: registration.registrationId,
+      season: registration.season,
+      status: registration.status
+    });
   });
 
   app.post('/api/admin/login', async (req, res) => {
@@ -1024,7 +1227,7 @@ const start = async () => {
         client.on('close', removeSubscriber);
         client.on('error', removeSubscriber);
         client.on('message', () => client.close(1008, 'Auction rooms are read-only for spectators.'));
-        client.send(JSON.stringify({ type: 'auction-state', season, state }));
+        client.send(JSON.stringify({ type: 'auction-state', season, state: publicAuctionState(state) }));
       });
     };
 

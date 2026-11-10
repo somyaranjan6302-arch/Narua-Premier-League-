@@ -7,12 +7,20 @@ import staticSiteMedia from '../staticSiteMedia.js';
 import {
   auctionPhotoByteLength,
   auctionBidSnapshot,
+  auditAuctionTransition,
   AuctionBidError,
   commitAuctionBid,
   compactAuctionState,
+  isAuctionTeamEligible,
   isAuctionPlayerPhotoUrl,
-  MAX_AUCTION_PHOTO_BYTES
+  MAX_AUCTION_PHOTO_BYTES,
+  publicAuctionState
 } from './auctionState.js';
+import {
+  createPublicRegistration,
+  matchesRegistrationIdentity,
+  PlayerRegistrationError
+} from './registrationState.js';
 import { handleLiveScoringApi } from './liveScoring.js';
 
 const SESSION_COOKIE = 'npl_admin_session';
@@ -20,7 +28,7 @@ const SESSION_SECONDS = 8 * 60 * 60;
 const PASSWORD_ITERATIONS = 100000;
 const MEDIA_CHUNK_SIZE = 96 * 1024;
 const mediaTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
-const mediaKeyPattern = /^(news|champion|team-logo|team|match-banner|gallery|memory-photo|highlight|performer|featured-performer|player-photo|auction-player-photo|section-photo|record):[A-Za-z0-9 ._-]{1,80}$/;
+const mediaKeyPattern = /^(news|champion|team-logo|team|match-banner|gallery|memory-photo|highlight|performer|featured-performer|player-photo|auction-player-photo|season|section-photo|record):[A-Za-z0-9 ._-]{1,80}$/;
 const allowedMediaKeys = new Set(['logo', 'trophy', 'stadium']);
 const AUCTION_PHOTO_PATTERN = /^data:image\/(jpeg|png|webp|gif);base64,([A-Za-z0-9+/]+={0,2})$/;
 
@@ -115,7 +123,10 @@ const compactStoredAuction = async (env, season, state, executionContext) => {
   if (!saved) return readSiteValue(env, key);
 
   const persistedState = JSON.parse(saved.value);
-  await publishAuctionUpdate(env, season, { state: persistedState }, executionContext);
+  await publishAuctionUpdate(env, season, {
+    type: 'auction-state',
+    state: publicAuctionState(persistedState)
+  }, executionContext);
   return persistedState;
 };
 
@@ -437,7 +448,7 @@ const apiRequest = async (request, env, executionContext) => {
     const season = url.searchParams.get('season')?.trim() || '';
     if (!season || season.length > 60) return errorResponse('Choose a valid auction season.', 400);
     const state = await readSiteValue(env, `auction-live:${season}`);
-    return json({ state: await compactStoredAuction(env, season, state, executionContext) });
+    return json({ state: publicAuctionState(await compactStoredAuction(env, season, state, executionContext)) });
   }
 
   if (method === 'GET' && path === '/api/auction/live/ws') {
@@ -459,28 +470,63 @@ const apiRequest = async (request, env, executionContext) => {
       return errorResponse('Too many registrations. Try again later.', 429);
     }
     const body = await readJson(request);
-    if (!body || typeof body !== 'object' || typeof body.id !== 'string' ||
-      !/^[A-Za-z0-9._:-]{1,120}$/.test(body.id) ||
-      typeof body.fullName !== 'string' || typeof body.phone !== 'string' || body.consent !== true) {
-      return errorResponse('Registration details are incomplete.', 400);
+    const seasonEdition = typeof body?.season === 'string' ? body.season.trim() : '';
+    const publicContent = await readSiteValue(env, 'public-content');
+    const season = publicContent?.seasons?.find((item) => item.edition === seasonEdition);
+    const year = String(season?.year || season?.season || new Date().getFullYear()).replace(/\D/g, '').slice(0, 4);
+    let registration;
+    try {
+      registration = createPublicRegistration(body, season, {
+        id: `reg-${crypto.randomUUID()}`,
+        registrationId: `NPL${year || new Date().getFullYear()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`
+      });
+    } catch (error) {
+      if (error instanceof PlayerRegistrationError) return errorResponse(error.message, error.status);
+      throw error;
     }
     let playerPhoto = '';
     try {
-      playerPhoto = await saveAuctionPlayerPhoto(env, body.id, body.photo || '');
+      playerPhoto = await saveAuctionPlayerPhoto(env, registration.id, registration.photo || '');
     } catch (error) {
       return errorResponse(error.message, 400);
     }
-    const registration = { ...body, photo: playerPhoto };
+    registration.photo = playerPhoto;
     await run(
       env,
       `INSERT INTO npl_auction_registrations (registration_id, value, created_at)
-       VALUES (?, ?, ?)
-       ON CONFLICT(registration_id) DO UPDATE SET value = excluded.value, created_at = excluded.created_at`,
-      body.id,
+       VALUES (?, ?, ?)`,
+      registration.id,
       JSON.stringify(registration),
       Date.now()
     );
-    return json({ id: body.id }, 201);
+    return json({ id: registration.id, registrationId: registration.registrationId, status: registration.status }, 201);
+  }
+
+  if (method === 'POST' && path === '/api/auction-registrations/status') {
+    const rateKey = await getRateKey(request, 'registration-status');
+    if (!await checkRateLimit(env, rateKey, 10, 600)) {
+      return errorResponse('Too many status checks. Try again later.', 429);
+    }
+    const body = await readJson(request);
+    const registrationId = typeof body?.registrationId === 'string' ? body.registrationId.trim().toUpperCase() : '';
+    const phone = typeof body?.phone === 'string' ? body.phone.replace(/\D/g, '') : '';
+    if (!registrationId || registrationId.length > 40 || phone.length < 7 || phone.length > 15) {
+      return errorResponse('Enter a valid registration ID and mobile number.', 400);
+    }
+    const row = await first(
+      env,
+      "SELECT value FROM npl_auction_registrations WHERE json_extract(value, '$.registrationId') = ?",
+      registrationId
+    );
+    const registration = row ? JSON.parse(row.value) : null;
+    if (!matchesRegistrationIdentity(registration, registrationId, phone)) {
+      return errorResponse('No registration matches those details.', 404);
+    }
+    return json({
+      registrationId: registration.registrationId,
+      season: registration.season,
+      status: registration.status
+    });
   }
 
   if (method === 'POST' && path === '/api/admin/login') {
@@ -521,6 +567,15 @@ const apiRequest = async (request, env, executionContext) => {
   const requireOwner = () => user?.role === 'owner'
     ? null
     : errorResponse(user ? 'Only the developer owner can manage admin accounts.' : 'Sign in required.', user ? 403 : 401);
+
+  if (method === 'GET' && path === '/api/admin/auction/audit') {
+    const denied = requireAdmin();
+    if (denied) return denied;
+    const season = url.searchParams.get('season')?.trim() || '';
+    if (!season || season.length > 60) return errorResponse('Choose a valid auction season.', 400);
+    const state = await readSiteValue(env, `auction-live:${season}`);
+    return json({ entries: state?.auditLog || [] });
+  }
 
   if (method === 'GET' && path === '/api/matches/live/ws') {
     const season = url.searchParams.get('season')?.trim() || '';
@@ -584,9 +639,13 @@ const apiRequest = async (request, env, executionContext) => {
     const adminId = typeof body?.adminId === 'string' ? body.adminId.trim().toLowerCase() : '';
     const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
     const password = typeof body?.password === 'string' ? body.password : '';
+    const role = body?.role === 'scorer' ? 'scorer' : body?.role === 'admin' || body?.role === undefined
+      ? 'admin'
+      : '';
     if (!validAdminId(adminId)) {
       return errorResponse('Admin ID must be 3-32 letters, numbers, dots, underscores, or hyphens.', 400);
     }
+    if (!role) return errorResponse('Choose administrator or scorer access.', 400);
     if (!validEmail(email)) return errorResponse('Enter a valid email address for this admin.', 400);
     if (password.length < 6) return errorResponse('Password must be at least 6 characters.', 400);
     const existing = await first(
@@ -600,14 +659,15 @@ const apiRequest = async (request, env, executionContext) => {
     const created = await run(
       env,
       `INSERT OR IGNORE INTO npl_admin_users (admin_id, role, email, salt, password_hash)
-       VALUES (?, 'admin', ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?)`,
       adminId,
+      role,
       email,
       credentials.salt,
       credentials.hash
     );
     if (!created.meta.changes) return errorResponse('That admin ID or email address is already in use.', 409);
-    return json({ user: { adminId, role: 'admin' } }, 201);
+    return json({ user: { adminId, role } }, 201);
   }
 
   const resetMatch = path.match(/^\/api\/admin\/users\/([^/]+)\/password$/);
@@ -696,12 +756,19 @@ const apiRequest = async (request, env, executionContext) => {
     const season = typeof body?.season === 'string' ? body.season.trim() : '';
     if (!season || season.length > 60) return errorResponse('Choose a valid auction season.', 400);
 
+    const publicContent = await readSiteValue(env, 'public-content');
+    const team = publicContent?.teams?.find((item) => item.id === body.teamId);
+    if (!isAuctionTeamEligible(team, season)) {
+      return errorResponse('Choose an active franchise assigned to this auction season.', 409);
+    }
+
     const key = `auction-live:${season}`;
     let persistedState;
     try {
       persistedState = await commitAuctionBid({
         readState: () => readSiteValue(env, key),
-        bid: body,
+        bid: { ...body, teamName: team.name },
+        actor: publicUser(user),
         compareAndSet: async (nextState, expectedVersion) => {
           const saved = await first(
             env,
@@ -749,7 +816,13 @@ const apiRequest = async (request, env, executionContext) => {
       !Array.isArray(state.soldPlayers) || state.soldPlayers.length > 500 ||
       !Array.isArray(state.unsoldPlayers) || state.unsoldPlayers.length > 500 ||
       !state.teamPurses || typeof state.teamPurses !== 'object' || Array.isArray(state.teamPurses) ||
+      (state.teamPurseCaps !== undefined &&
+        (!state.teamPurseCaps || typeof state.teamPurseCaps !== 'object' || Array.isArray(state.teamPurseCaps) ||
+          Object.values(state.teamPurseCaps).some((purse) => !Number.isSafeInteger(purse) || purse <= 0))) ||
       (state.purseCap !== undefined && (!Number.isSafeInteger(state.purseCap) || state.purseCap <= 0)) ||
+      (state.minimumBidIncrement !== undefined && (!Number.isSafeInteger(state.minimumBidIncrement) || state.minimumBidIncrement <= 0)) ||
+      (state.minimumBidIncrement ?? 100) > (state.purseCap ?? 5000000) ||
+      (state.maxSquadSize !== undefined && (!Number.isSafeInteger(state.maxSquadSize) || state.maxSquadSize < 1 || state.maxSquadSize > 30)) ||
       Object.values(state.teamPurses).some((purse) => !Number.isSafeInteger(purse) || purse < 0)) {
       return errorResponse('Auction state is invalid.', 400);
     }
@@ -770,6 +843,8 @@ const apiRequest = async (request, env, executionContext) => {
     const safeState = {
       status: state.status,
       purseCap: state.purseCap ?? 5000000,
+      minimumBidIncrement: state.minimumBidIncrement ?? 100,
+      maxSquadSize: state.maxSquadSize ?? 13,
       currentPlayer,
       currentBid: state.currentBid,
       currentBiddingTeam: state.currentBiddingTeam,
@@ -780,10 +855,32 @@ const apiRequest = async (request, env, executionContext) => {
       })),
       soldPlayers: state.soldPlayers.slice(0, 500),
       unsoldPlayers: state.unsoldPlayers.slice(0, 500),
-      teamPurses: state.teamPurses
+      teamPurses: state.teamPurses,
+      teamPurseCaps: state.teamPurseCaps || {}
     };
     const key = `auction-live:${season.trim()}`;
     const currentState = await readSiteValue(env, key);
+    try {
+      Object.assign(safeState, auditAuctionTransition(
+        currentState || {
+          status: safeState.status,
+          purseCap: safeState.purseCap,
+          minimumBidIncrement: safeState.minimumBidIncrement,
+          maxSquadSize: safeState.maxSquadSize,
+          currentPlayer: null,
+          soldPlayers: [],
+          unsoldPlayers: [],
+          teamPurses: {},
+          teamPurseCaps: {},
+          auditLog: []
+        },
+        safeState,
+        { actor: publicUser(user), exceptionReason: body.exceptionReason }
+      ));
+    } catch (error) {
+      if (error instanceof AuctionBidError) return errorResponse(error.message, error.status);
+      throw error;
+    }
     safeState.version = (Number.isSafeInteger(currentState?.version) ? currentState.version : 0) + 1;
     safeState.updatedAt = new Date().toISOString();
     const saved = await first(
@@ -803,7 +900,10 @@ const apiRequest = async (request, env, executionContext) => {
       }, 409);
     }
     const persistedState = JSON.parse(saved.value);
-    await publishAuctionUpdate(env, season.trim(), { state: persistedState }, executionContext);
+    await publishAuctionUpdate(env, season.trim(), {
+      type: 'auction-state',
+      state: publicAuctionState(persistedState)
+    }, executionContext);
     return json({ state: persistedState });
   }
 

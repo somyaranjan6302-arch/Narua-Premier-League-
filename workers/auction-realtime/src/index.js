@@ -9,6 +9,12 @@ const json = (value, status = 200) => new Response(JSON.stringify(value), {
 const isValidSeason = (season) =>
   typeof season === 'string' && season.trim().length > 0 && season.length <= 60;
 
+const publicAuctionState = (state) => {
+  if (!state) return state;
+  const { auditLog: _auditLog, ...publicState } = state;
+  return publicState;
+};
+
 export class AuctionRoom {
   constructor(ctx, env) {
     this.ctx = ctx;
@@ -89,7 +95,7 @@ export class AuctionRoom {
         : JSON.stringify({
           type: 'auction-state',
           season: payload.season,
-          state: payload.state
+          state: publicAuctionState(payload.state)
         });
       let delivered = 0;
       for (const socket of this.ctx.getWebSockets()) {
@@ -136,7 +142,7 @@ export class AuctionRoom {
       pair[1].send(JSON.stringify({
         type: 'auction-state',
         season,
-        state,
+        state: publicAuctionState(state),
         version: state?.version || 0
       }));
     }

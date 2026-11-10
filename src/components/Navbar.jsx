@@ -4,20 +4,10 @@ import { useNpl } from '../context/NplContext';
 import { Menu, X, Shield, Award, Calendar, Users, Trophy, Image, Play, Flame, Newspaper, ChevronDown, UserPlus } from 'lucide-react';
 
 export const Navbar = ({ activeSection, setActiveSection }) => {
-  const { matches, matchDataLoaded, openModal, setIsAdminModalOpen, isAdminLoggedIn, siteMedia } = useNpl();
+  const { openModal, setIsAdminModalOpen, isAdminLoggedIn, siteMedia } = useNpl();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMoreOpen, setIsMoreOpen] = useState(false);
-
-  // Find live match or upcoming match for the ticker strip
-  const availableMatches = Array.isArray(matches)
-    ? matches.filter((match) => match && typeof match === 'object')
-    : [];
-  const liveMatch = matchDataLoaded
-    ? availableMatches.find((match) => match.status === 'LIVE') ||
-      availableMatches.find((match) => match.status === 'UPCOMING') ||
-      availableMatches[0]
-    : null;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -56,40 +46,6 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
 
   return (
     <header className="fixed left-0 top-0 z-50 w-screen transition-all duration-300">
-      {/* Top Live Match Strip / Broadcast Ticker */}
-      {liveMatch && (
-        <div className="flex items-center justify-between gap-2 overflow-hidden whitespace-nowrap border-b border-indigo-400/20 bg-[#070744] px-2 py-1.5 text-[10px] font-medium text-slate-200 shadow-[inset_0_-1px_rgba(255,255,255,0.04)] sm:gap-4 sm:px-4 sm:text-xs">
-          <div className="mx-0 flex min-w-0 flex-1 items-center justify-start gap-2 sm:mx-auto sm:gap-3">
-            <span className="flex flex-shrink-0 items-center gap-1.5 rounded-full bg-red-600/90 px-2 py-0.5 text-[9px] font-bold tracking-wider text-white animate-pulse sm:text-[10px]">
-              <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
-              {liveMatch.status || 'MATCH'}
-            </span>
-            <span className="flex-shrink-0 font-semibold text-[#ffdb19]">{liveMatch.matchNumber || 'MATCH'}:</span>
-            <span className="max-w-[5.5rem] min-w-0 truncate font-bold text-white sm:max-w-none">{liveMatch.team1?.shortName || liveMatch.team1?.name || 'TBD'} {liveMatch.team1?.score || ''}</span>
-            <span className="flex-shrink-0 text-slate-400">vs</span>
-            <span className="max-w-[5.5rem] min-w-0 truncate font-bold text-white sm:max-w-none">{liveMatch.team2?.shortName || liveMatch.team2?.name || 'TBD'} {liveMatch.team2?.score || 'Yet to bat'}</span>
-            <span className="hidden md:inline text-slate-400">•</span>
-            <span className="hidden md:inline text-amber-300/90 italic">{liveMatch.equation || liveMatch.preview}</span>
-            <button
-              onClick={() => openModal('match-details', liveMatch)}
-              className="ml-2 hidden flex-shrink-0 text-[11px] font-semibold text-sky-300 underline decoration-sky-300/50 underline-offset-4 transition-colors hover:text-[#ffdb19] sm:inline"
-            >
-              Match Center →
-            </button>
-          </div>
-
-          {/* Quick Admin Access */}
-          <button
-            onClick={() => setIsAdminModalOpen(true)}
-            className="hidden lg:flex items-center gap-1 text-[11px] text-slate-300 hover:text-[#ffdb19] transition-colors ml-4 px-2 py-0.5 rounded bg-indigo-950/80 border border-indigo-300/20"
-            title="Tournament Admin Console"
-          >
-            <Shield className="w-3 h-3 text-amber-500" />
-            <span>{isAdminLoggedIn ? "Admin Panel" : "Admin Login"}</span>
-          </button>
-        </div>
-      )}
-
       {/* Main Sticky Navigation Bar */}
       <nav
         className={`relative w-full overflow-visible border-b transition-all duration-300 ${

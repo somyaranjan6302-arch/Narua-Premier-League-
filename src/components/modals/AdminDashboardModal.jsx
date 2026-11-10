@@ -322,6 +322,7 @@ const AdminDashboardContent = ({ onClose }) => {
   const [newAdminId, setNewAdminId] = useState('');
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [newAdminPassword, setNewAdminPassword] = useState('');
+  const [newAdminRole, setNewAdminRole] = useState('admin');
   const [replacementAdminPassword, setReplacementAdminPassword] = useState('');
   const [confirmAdminPassword, setConfirmAdminPassword] = useState('');
   const [passwordChangeError, setPasswordChangeError] = useState('');
@@ -344,7 +345,19 @@ const AdminDashboardContent = ({ onClose }) => {
   const [teamSessionFocus, setTeamSessionFocus] = useState(selectedSeason || seasons[0]?.edition || 'Season 5');
   const [isSessionWorkspaceOpen, setIsSessionWorkspaceOpen] = useState(false);
   const [alsoAddNextSeason, setAlsoAddNextSeason] = useState(false);
-  const [sessionDraft, setSessionDraft] = useState({ edition: '', year: String(new Date().getFullYear()) });
+  const [sessionDraft, setSessionDraft] = useState({
+    edition: '',
+    year: String(new Date().getFullYear()),
+    registrationOpensAt: '',
+    registrationClosesAt: '',
+    startsAt: '',
+    endsAt: '',
+    registrationStatus: 'CLOSED',
+    auctionStatus: 'NOT_STARTED',
+    tournamentStatus: 'UPCOMING',
+    description: ''
+  });
+  const [editingSeasonEdition, setEditingSeasonEdition] = useState('');
   const [sessionError, setSessionError] = useState('');
   const [newsDraft, setNewsDraft] = useState({
     contentType: 'article',
@@ -366,6 +379,7 @@ const AdminDashboardContent = ({ onClose }) => {
     primaryColor: '#F59E0B',
     secondaryColor: '#0F172A',
     slogan: '',
+    description: '',
     sessions: [selectedSeason || seasons[0]?.edition || 'Season 5']
   });
 
@@ -419,6 +433,7 @@ const AdminDashboardContent = ({ onClose }) => {
   const [pendingStandingAdjustment, setPendingStandingAdjustment] = useState(null);
   const [regSearch, setRegSearch] = useState('');
   const [regStatusFilter, setRegStatusFilter] = useState('ALL');
+  const [registrationRemarksDraft, setRegistrationRemarksDraft] = useState({});
 
   // Handle Login
   const handleLogin = async (e) => {
@@ -442,7 +457,12 @@ const AdminDashboardContent = ({ onClose }) => {
     const response = await fetch('/api/admin/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ adminId: newAdminId, email: newAdminEmail, password: newAdminPassword })
+      body: JSON.stringify({
+        adminId: newAdminId,
+        email: newAdminEmail,
+        password: newAdminPassword,
+        role: newAdminRole
+      })
     });
     const result = await response.json();
     if (!response.ok) {
@@ -452,6 +472,7 @@ const AdminDashboardContent = ({ onClose }) => {
     setNewAdminId('');
     setNewAdminEmail('');
     setNewAdminPassword('');
+    setNewAdminRole('admin');
     await loadAdminAccounts();
   };
 
@@ -525,17 +546,40 @@ const AdminDashboardContent = ({ onClose }) => {
       setSessionError('Enter a session name and year.');
       return;
     }
-    if (seasons.some((season) => season.edition.toLowerCase() === edition.toLowerCase())) {
+    if (!editingSeasonEdition && seasons.some((season) => season.edition.toLowerCase() === edition.toLowerCase())) {
       setSessionError('A session with that name already exists.');
+      return;
+    }
+    if (editingSeasonEdition && !seasons.some((season) => season.edition === editingSeasonEdition)) {
+      setSessionError('Choose an existing season to edit.');
+      return;
+    }
+    if (sessionDraft.registrationOpensAt && sessionDraft.registrationClosesAt &&
+      sessionDraft.registrationClosesAt < sessionDraft.registrationOpensAt) {
+      setSessionError('Registration closing date must be on or after the opening date.');
+      return;
+    }
+    if (sessionDraft.startsAt && sessionDraft.endsAt && sessionDraft.endsAt < sessionDraft.startsAt) {
+      setSessionError('Tournament end date must be on or after its start date.');
       return;
     }
 
     const newSeason = {
       edition,
+      number: Number(edition.match(/\d+/)?.[0]) || null,
       season: year,
       year,
       sampleData: false,
-      status: 'UPCOMING',
+      status: sessionDraft.tournamentStatus,
+      registrationStatus: sessionDraft.registrationStatus,
+      auctionStatus: sessionDraft.auctionStatus,
+      tournamentStatus: sessionDraft.tournamentStatus,
+      registrationOpensAt: sessionDraft.registrationOpensAt || null,
+      registrationClosesAt: sessionDraft.registrationClosesAt || null,
+      startsAt: sessionDraft.startsAt || null,
+      endsAt: sessionDraft.endsAt || null,
+      logo: null,
+      banner: null,
       teamsCount: 0,
       matchesCount: 0,
       champion: 'To be announced',
@@ -543,8 +587,47 @@ const AdminDashboardContent = ({ onClose }) => {
       topScorer: 'To be announced',
       topWicketTaker: 'To be announced',
       playerOfTournament: 'To be announced',
-      description: `${edition} tournament details will be announced soon.`
+      description: sessionDraft.description.trim() || `${edition} tournament details will be announced soon.`,
+      rules: {}
     };
+
+    if (editingSeasonEdition) {
+      setSeasons((previousSeasons) => previousSeasons.map((season) => (
+        season.edition === editingSeasonEdition
+          ? {
+            ...season,
+            season: year,
+            year,
+            number: newSeason.number,
+            status: newSeason.status,
+            registrationStatus: newSeason.registrationStatus,
+            auctionStatus: newSeason.auctionStatus,
+            tournamentStatus: newSeason.tournamentStatus,
+            registrationOpensAt: newSeason.registrationOpensAt,
+            registrationClosesAt: newSeason.registrationClosesAt,
+            startsAt: newSeason.startsAt,
+            endsAt: newSeason.endsAt,
+            description: newSeason.description
+          }
+          : season
+      )));
+      setEditingSeasonEdition('');
+      setSessionDraft({
+        edition: '',
+        year: String(new Date().getFullYear()),
+        registrationOpensAt: '',
+        registrationClosesAt: '',
+        startsAt: '',
+        endsAt: '',
+        registrationStatus: 'CLOSED',
+        auctionStatus: 'NOT_STARTED',
+        tournamentStatus: 'UPCOMING',
+        description: ''
+      });
+      setSessionError('');
+      showToast(`${editingSeasonEdition} settings were saved.`);
+      return;
+    }
 
     setSeasons((previousSeasons) => [newSeason, ...previousSeasons]);
     setSeasonStandings((previousStandings) => ({ ...previousStandings, [edition]: [] }));
@@ -555,7 +638,19 @@ const AdminDashboardContent = ({ onClose }) => {
     setNewsDraft((current) => ({ ...current, season: edition }));
     setActiveTab('teams');
     setIsSessionWorkspaceOpen(true);
-    setSessionDraft({ edition: '', year: String(new Date().getFullYear()) });
+    setSessionDraft({
+      edition: '',
+      year: String(new Date().getFullYear()),
+      registrationOpensAt: '',
+      registrationClosesAt: '',
+      startsAt: '',
+      endsAt: '',
+      registrationStatus: 'CLOSED',
+      auctionStatus: 'NOT_STARTED',
+      tournamentStatus: 'UPCOMING',
+      description: ''
+    });
+    setEditingSeasonEdition('');
     setSessionError('');
     showToast(`${edition} was added and is now available in session selectors.`);
   };
@@ -831,7 +926,9 @@ const AdminDashboardContent = ({ onClose }) => {
       primaryColor: teamDraft.primaryColor || '#F59E0B',
       secondaryColor: teamDraft.secondaryColor || '#0F172A',
       slogan: teamDraft.slogan.trim() || 'Built for glory',
+      description: teamDraft.description.trim(),
       sessions: [session],
+      active: true,
       titles: 0,
       matches: 0,
       wins: 0,
@@ -865,6 +962,7 @@ const AdminDashboardContent = ({ onClose }) => {
       primaryColor: '#F59E0B',
       secondaryColor: '#0F172A',
       slogan: '',
+      description: '',
       sessions: [teamSessionFocus]
     });
     setTeamError('');
@@ -932,6 +1030,18 @@ const AdminDashboardContent = ({ onClose }) => {
     }));
 
     showToast(`${targetTeam.name} was removed from ${teamSessionFocus} only.`);
+  };
+
+  const handleToggleTeamActive = (teamId) => {
+    if (adminUser?.role !== 'owner') return;
+    const targetTeam = teams.find((team) => team.id === teamId);
+    if (!targetTeam) return;
+
+    const active = targetTeam.active === false;
+    setTeams((previousTeams) => previousTeams.map((team) => (
+      team.id === teamId ? { ...team, active } : team
+    )));
+    showToast(`${targetTeam.name} is now ${active ? 'active' : 'inactive'} in team selections.`);
   };
 
   const handleMediaSelection = (mediaKey, event) => {
@@ -1390,6 +1500,29 @@ const AdminDashboardContent = ({ onClose }) => {
     { key: 'logo', category: 'branding', title: 'NPL logo', description: 'Shown in the header and footer.', aspectRatio: 1, fit: true },
     { key: 'stadium', category: 'branding', title: 'Stadium image', description: 'Shown on the home and league story pages.', fallback: '/assets/stadium.jpg', aspectRatio: 16 / 9 },
     { key: 'trophy', category: 'branding', title: 'Championship trophy', description: 'Shown in the trophy showcase.', fallback: '/assets/trophy.jpg', aspectRatio: 4 / 5 },
+    ...seasons.flatMap((season) => [
+      {
+        key: 'season:banner',
+        category: 'season-assets',
+        title: `${season.edition} banner`,
+        description: `Season archive banner • ${season.edition}.`,
+        fallback: season.banner,
+        aspectRatio: 16 / 9,
+        sessionSpecific: true,
+        session: season.edition
+      },
+      {
+        key: 'season:logo',
+        category: 'season-assets',
+        title: `${season.edition} logo`,
+        description: `Season mark • ${season.edition}.`,
+        fallback: season.logo,
+        aspectRatio: 1,
+        fit: true,
+        sessionSpecific: true,
+        session: season.edition
+      }
+    ]),
     ...champions.map((champion, index) => ({
       key: getChampionMediaKey(champions, champion),
       category: 'champions',
@@ -1573,6 +1706,7 @@ const AdminDashboardContent = ({ onClose }) => {
   const mediaCategories = [
     { value: 'all', label: 'All image slots' },
     { value: 'branding', label: 'Brand & venue' },
+    { value: 'season-assets', label: 'Season logos and banners' },
     { value: 'champions', label: 'Champions' },
     { value: 'teams', label: 'Team banners' },
     { value: 'match-banners', label: 'Match card banners' },
@@ -1626,12 +1760,15 @@ const AdminDashboardContent = ({ onClose }) => {
         </div>
         <div className="min-w-0">
           <p className="truncate font-bold text-white">{adminUser.adminId}</p>
-          <p className="text-xs text-amber-300">{adminUser.role === 'owner' ? 'Developer Owner' : 'Administrator'}</p>
+          <p className="text-xs text-amber-300">
+            {adminUser.role === 'owner' ? 'Developer Owner' : adminUser.role === 'scorer' ? 'Match Scorer' : 'Administrator'}
+          </p>
         </div>
       </div>
       <div className="space-y-1 py-3 text-xs text-slate-400">
         <p><span className="font-bold text-slate-200">Developer owner:</span> manages admin members and website media.</p>
         <p><span className="font-bold text-slate-200">Administrator:</span> manages tournament operations.</p>
+        <p><span className="font-bold text-slate-200">Match scorer:</span> can score matches assigned to their account.</p>
       </div>
       <div className="space-y-3 border-t border-slate-800 pt-3">
         <h4 className="font-sports text-lg text-white">CHANGE PASSWORD</h4>
@@ -1694,6 +1831,17 @@ const AdminDashboardContent = ({ onClose }) => {
               onChange={(event) => setNewAdminEmail(event.target.value)}
               className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
             />
+            <label className="block text-xs font-bold text-slate-300">
+              Account role
+              <select
+                value={newAdminRole}
+                onChange={(event) => setNewAdminRole(event.target.value)}
+                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+              >
+                <option value="admin">Administrator</option>
+                <option value="scorer">Match scorer</option>
+              </select>
+            </label>
             <input
               required
               type="password"
@@ -1717,7 +1865,7 @@ const AdminDashboardContent = ({ onClose }) => {
                 <div className="flex items-center justify-between gap-3">
                   <span className="truncate font-semibold text-white">{account.adminId}</span>
                   <span className={account.role === 'owner' ? 'text-amber-300' : 'text-slate-400'}>
-                    {account.role === 'owner' ? 'Developer' : 'Admin'}
+                    {account.role === 'owner' ? 'Developer' : account.role === 'scorer' ? 'Scorer' : 'Admin'}
                   </span>
                 </div>
                 {account.email && <p className="break-all text-slate-500">{account.email}</p>}
@@ -2040,19 +2188,108 @@ const AdminDashboardContent = ({ onClose }) => {
                 </div>
                 <form onSubmit={handleAddSession} className="mb-5 grid grid-cols-1 gap-3 rounded-xl border border-cyan-800/60 bg-cyan-950/20 p-4 sm:grid-cols-[1fr_10rem_auto] sm:items-end">
                   <div className="sm:col-span-3">
-                    <h5 className="font-sports text-base text-cyan-200">ADD A SESSION</h5>
-                    <p className="mt-1 text-xs text-slate-400">New sessions are immediately added to session drop-downs across the website.</p>
+                    <h5 className="font-sports text-base text-cyan-200">{editingSeasonEdition ? 'EDIT SEASON SETTINGS' : 'ADD A SESSION'}</h5>
+                    <p className="mt-1 text-xs text-slate-400">New seasons are immediately added to season selectors. Existing season settings can be updated here.</p>
                   </div>
+                  <label className="sm:col-span-3 text-xs font-bold text-slate-400">
+                    Edit an existing season
+                    <select
+                      value={editingSeasonEdition}
+                      onChange={(event) => {
+                        const edition = event.target.value;
+                        const season = seasons.find((item) => item.edition === edition);
+                        setEditingSeasonEdition(edition);
+                        setSessionError('');
+                        setSessionDraft(season ? {
+                          edition: season.edition,
+                          year: String(season.year || season.season || new Date().getFullYear()),
+                          registrationOpensAt: season.registrationOpensAt || '',
+                          registrationClosesAt: season.registrationClosesAt || '',
+                          startsAt: season.startsAt || '',
+                          endsAt: season.endsAt || '',
+                          registrationStatus: season.registrationStatus || 'CLOSED',
+                          auctionStatus: season.auctionStatus || 'NOT_STARTED',
+                          tournamentStatus: season.tournamentStatus || season.status || 'UPCOMING',
+                          description: season.description || ''
+                        } : {
+                          edition: '',
+                          year: String(new Date().getFullYear()),
+                          registrationOpensAt: '',
+                          registrationClosesAt: '',
+                          startsAt: '',
+                          endsAt: '',
+                          registrationStatus: 'CLOSED',
+                          auctionStatus: 'NOT_STARTED',
+                          tournamentStatus: 'UPCOMING',
+                          description: ''
+                        });
+                      }}
+                      className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white"
+                    >
+                      <option value="">Create a new season</option>
+                      {seasons.map((season) => <option key={season.edition} value={season.edition}>{season.edition} ({season.year || season.season})</option>)}
+                    </select>
+                  </label>
                   <label className="text-xs font-bold text-slate-400">
                     Session name
-                    <input required maxLength={60} value={sessionDraft.edition} onChange={(event) => setSessionDraft((current) => ({ ...current, edition: event.target.value }))} placeholder="Season 6" className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white" />
+                    <input required disabled={Boolean(editingSeasonEdition)} maxLength={60} value={sessionDraft.edition} onChange={(event) => setSessionDraft((current) => ({ ...current, edition: event.target.value }))} placeholder="Season 6" className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white disabled:opacity-60" />
                   </label>
                   <label className="text-xs font-bold text-slate-400">
                     Year
                     <input required type="number" min="1900" max="9999" value={sessionDraft.year} onChange={(event) => setSessionDraft((current) => ({ ...current, year: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white" />
                   </label>
+                  <details className="sm:col-span-3 rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+                    <summary className="cursor-pointer text-xs font-bold uppercase tracking-wide text-cyan-200">Season dates and status</summary>
+                    <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      <label className="text-xs font-bold text-slate-400">
+                        Registration opens
+                        <input type="date" value={sessionDraft.registrationOpensAt} onChange={(event) => setSessionDraft((current) => ({ ...current, registrationOpensAt: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white" />
+                      </label>
+                      <label className="text-xs font-bold text-slate-400">
+                        Registration closes
+                        <input type="date" value={sessionDraft.registrationClosesAt} onChange={(event) => setSessionDraft((current) => ({ ...current, registrationClosesAt: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white" />
+                      </label>
+                      <label className="text-xs font-bold text-slate-400">
+                        Tournament starts
+                        <input type="date" value={sessionDraft.startsAt} onChange={(event) => setSessionDraft((current) => ({ ...current, startsAt: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white" />
+                      </label>
+                      <label className="text-xs font-bold text-slate-400">
+                        Tournament ends
+                        <input type="date" value={sessionDraft.endsAt} onChange={(event) => setSessionDraft((current) => ({ ...current, endsAt: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white" />
+                      </label>
+                      <label className="text-xs font-bold text-slate-400">
+                        Registration status
+                        <select value={sessionDraft.registrationStatus} onChange={(event) => setSessionDraft((current) => ({ ...current, registrationStatus: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white">
+                          <option value="OPEN">Open</option>
+                          <option value="PAUSED">Paused</option>
+                          <option value="CLOSED">Closed</option>
+                        </select>
+                      </label>
+                      <label className="text-xs font-bold text-slate-400">
+                        Auction status
+                        <select value={sessionDraft.auctionStatus} onChange={(event) => setSessionDraft((current) => ({ ...current, auctionStatus: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white">
+                          <option value="NOT_STARTED">Not started</option>
+                          <option value="LIVE">Live</option>
+                          <option value="PAUSED">Paused</option>
+                          <option value="COMPLETED">Completed</option>
+                        </select>
+                      </label>
+                      <label className="text-xs font-bold text-slate-400">
+                        Tournament status
+                        <select value={sessionDraft.tournamentStatus} onChange={(event) => setSessionDraft((current) => ({ ...current, tournamentStatus: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white">
+                          <option value="UPCOMING">Upcoming</option>
+                          <option value="IN_PROGRESS">In progress</option>
+                          <option value="COMPLETED">Completed</option>
+                        </select>
+                      </label>
+                      <label className="text-xs font-bold text-slate-400 sm:col-span-2 lg:col-span-3">
+                        Season description
+                        <textarea maxLength={2000} value={sessionDraft.description} onChange={(event) => setSessionDraft((current) => ({ ...current, description: event.target.value }))} rows={2} className="mt-1 w-full resize-y rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white" />
+                      </label>
+                    </div>
+                  </details>
                   <button type="submit" className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-cyan-400 sm:w-auto">
-                    <Plus className="h-4 w-4" /> Add session
+                    {editingSeasonEdition ? <Save className="h-4 w-4" /> : <Plus className="h-4 w-4" />} {editingSeasonEdition ? 'Save settings' : 'Add season'}
                   </button>
                   {sessionError && <p role="alert" className="sm:col-span-3 text-sm text-rose-300">{sessionError}</p>}
                 </form>
@@ -2605,6 +2842,7 @@ const AdminDashboardContent = ({ onClose }) => {
                         <th className="py-3 px-3">ROLE</th>
                         <th className="py-3 px-3">BASE PRICE (₹)</th>
                         <th className="py-3 px-3">STATUS</th>
+                        <th className="py-3 px-3">INTERNAL REMARKS</th>
                         <th className="py-3 px-3 text-right">DIRECTOR ACTIONS</th>
                       </tr>
                     </thead>
@@ -2616,9 +2854,30 @@ const AdminDashboardContent = ({ onClose }) => {
                           </td>
                           <td className="py-3 px-3">
                             <div className="flex items-center gap-2">
-                              <img src={reg.photo} alt={reg.fullName} className="w-7 h-7 rounded-full object-cover" />
+                              {reg.photo && <img src={reg.photo} alt={reg.fullName} className="w-7 h-7 rounded-full object-cover" />}
                               <span className="font-bold text-white">{reg.fullName || reg.name}</span>
                             </div>
+                            <details className="mt-2 max-w-sm rounded-lg border border-slate-800 bg-slate-900/70 p-2">
+                              <summary className="cursor-pointer text-[10px] font-bold uppercase text-sky-300">View full application</summary>
+                              <div className="mt-2 space-y-1 text-[10px] text-slate-300">
+                                {[
+                                  ['Mobile', reg.phone],
+                                  ['Email', reg.email],
+                                  ['Date of birth', reg.dob],
+                                  ['Location', reg.location],
+                                  ['Batting style', reg.battingStyle],
+                                  ['Bowling style', reg.bowlingStyle],
+                                  ['Experience', reg.previousExperience],
+                                  ['Previous team', reg.previousTeam],
+                                  ['Previous season', reg.previousSeason],
+                                  ['Profile', reg.bio],
+                                  ['Social', reg.instagram],
+                                  ['Submitted', reg.createdAt]
+                                ].filter(([, value]) => value).map(([label, value]) => (
+                                  <p key={label}><span className="font-bold text-slate-400">{label}:</span> {value}</p>
+                                ))}
+                              </div>
+                            </details>
                           </td>
                           <td className="py-3 px-3 text-slate-300">
                             {reg.role}
@@ -2654,6 +2913,31 @@ const AdminDashboardContent = ({ onClose }) => {
                             }`}>
                               {reg.status}
                             </span>
+                          </td>
+                          <td className="py-3 px-3">
+                            <div className="flex min-w-56 items-center gap-2">
+                              <input
+                                type="text"
+                                maxLength={500}
+                                aria-label={`Internal remarks for ${reg.fullName || reg.name}`}
+                                value={registrationRemarksDraft[reg.id] ?? reg.adminRemarks ?? ''}
+                                onChange={(event) => setRegistrationRemarksDraft((previous) => ({
+                                  ...previous,
+                                  [reg.id]: event.target.value
+                                }))}
+                                className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-white"
+                              />
+                              <button
+                                type="button"
+                                disabled={(registrationRemarksDraft[reg.id] ?? reg.adminRemarks ?? '') === (reg.adminRemarks || '')}
+                                onClick={() => updateRegistrationStatus(reg.id, reg.status, {
+                                  adminRemarks: registrationRemarksDraft[reg.id] ?? reg.adminRemarks ?? ''
+                                })}
+                                className="rounded bg-slate-800 px-2 py-1.5 text-[10px] font-bold text-slate-200 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                Save
+                              </button>
+                            </div>
                           </td>
                           <td className="py-3 px-3 text-right">
                             <div className="flex items-center justify-end gap-1.5">
@@ -2831,6 +3115,17 @@ const AdminDashboardContent = ({ onClose }) => {
                         />
                       </label>
 
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 md:col-span-2">
+                        Team Description
+                        <textarea
+                          value={teamDraft.description}
+                          maxLength={1000}
+                          rows={3}
+                          onChange={(event) => setTeamDraft((current) => ({ ...current, description: event.target.value }))}
+                          className="mt-1 w-full resize-y rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus:border-amber-500 outline-none"
+                        />
+                      </label>
+
                       <label className="md:col-span-2 flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-slate-200">
                         <input
                           type="checkbox"
@@ -2871,6 +3166,13 @@ const AdminDashboardContent = ({ onClose }) => {
                                 <p className="text-[10px] text-slate-400">This session only</p>
                               </div>
                               <div className="flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleTeamActive(team.id)}
+                                  className={`rounded-lg border px-2 py-1 text-[10px] font-bold uppercase ${team.active === false ? 'border-emerald-800 bg-emerald-950/60 text-emerald-300 hover:bg-emerald-900' : 'border-amber-800 bg-amber-950/60 text-amber-300 hover:bg-amber-900'}`}
+                                >
+                                  {team.active === false ? 'Activate' : 'Deactivate'}
+                                </button>
                                 <button
                                   type="button"
                                   disabled={teams.some((candidate) => candidate.name === team.name && getTeamSessions(candidate, seasons.map((season) => season.edition)).includes(nextTeamSession))}

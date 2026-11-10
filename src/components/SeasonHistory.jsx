@@ -1,11 +1,18 @@
 import React from 'react';
 import { useNpl } from '../context/NplContext';
+import { getSiteMedia } from '../utils/siteMedia';
 import { Calendar, Trophy, Award, Users, Flame, ChevronRight } from 'lucide-react';
 
 export const SeasonHistory = () => {
-  const { seasons, selectedSeason, setSelectedSeason } = useNpl();
+  const { seasons, selectedSeason, setSelectedSeason, siteMedia } = useNpl();
 
   const currentSeasonData = seasons.find(s => s.edition === selectedSeason) || seasons[0];
+  const seasonBanner = currentSeasonData
+    ? getSiteMedia(siteMedia, 'season:banner', currentSeasonData.edition, currentSeasonData.banner)
+    : null;
+  const seasonLogo = currentSeasonData
+    ? getSiteMedia(siteMedia, 'season:logo', currentSeasonData.edition, currentSeasonData.logo)
+    : null;
 
   return (
     <section id="history" className="npl-section-bg border-t border-slate-800/80 py-20">
@@ -43,6 +50,17 @@ export const SeasonHistory = () => {
         {/* Season Information Board */}
         {currentSeasonData && (
           <div className="glass-panel-card rounded-3xl p-6 sm:p-10 border border-slate-800 shadow-2xl">
+            {(seasonBanner || seasonLogo) && (
+              <div className="relative mb-6 flex min-h-28 items-center gap-4 overflow-hidden rounded-xl border border-slate-800 bg-slate-950/80 p-4 sm:min-h-36 sm:p-6">
+                {seasonBanner && <img src={seasonBanner} alt="" className="absolute inset-0 h-full w-full object-cover opacity-45" />}
+                <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/60 to-transparent" />
+                {seasonLogo && <img src={seasonLogo} alt={`${currentSeasonData.edition} logo`} className="relative z-10 h-16 w-16 shrink-0 object-contain sm:h-20 sm:w-20" />}
+                <div className="relative z-10">
+                  <p className="text-xs font-bold uppercase tracking-widest text-amber-300">Season identity</p>
+                  <p className="mt-1 font-sports text-xl text-white sm:text-2xl">{currentSeasonData.edition}</p>
+                </div>
+              </div>
+            )}
             {/* Top header row */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-slate-800/80 gap-4">
               <div>

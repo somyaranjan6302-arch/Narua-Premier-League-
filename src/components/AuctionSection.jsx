@@ -18,6 +18,16 @@ export const AuctionSection = () => {
   const sessionRegistrations = auctionRegistrations.filter((registration) => registration.season === selectedSeason);
   const totalRegistered = sessionRegistrations.length;
   const verifiedCount = sessionRegistrations.filter(r => r.status === 'VERIFIED' || r.status === 'SHORTLISTED' || r.status === 'AUCTIONED').length;
+    const selectedSeasonData = seasons.find((season) => season.edition === selectedSeason);
+    const today = new Date().toISOString().slice(0, 10);
+    const isRegistrationOpen = selectedSeasonData?.registrationStatus === 'OPEN' &&
+      (!selectedSeasonData.registrationOpensAt || today >= selectedSeasonData.registrationOpensAt) &&
+      (!selectedSeasonData.registrationClosesAt || today <= selectedSeasonData.registrationClosesAt);
+    const registrationStatusLabel = isRegistrationOpen
+      ? 'REGISTRATION OPEN'
+      : selectedSeasonData?.registrationStatus === 'PAUSED'
+        ? 'REGISTRATION PAUSED'
+        : 'REGISTRATION CLOSED';
   const isAuctionLive = auctionLiveState.status === 'live';
   const isAuctionActive = isAuctionLive || auctionLiveState.status === 'paused';
 
@@ -89,11 +99,13 @@ export const AuctionSection = () => {
                 <SessionSelector seasons={seasons} selectedSeason={selectedSeason} setSelectedSeason={setSelectedSeason} />
                 {/* Register Button */}
                 <button
+                  type="button"
+                  disabled={!isRegistrationOpen}
                   onClick={() => openModal('auction-register')}
-                  className="px-8 py-4 rounded-2xl font-sports text-xl tracking-wider uppercase bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 text-slate-950 font-black shadow-[0_0_25px_rgba(245,158,11,0.6)] hover:shadow-[0_0_35px_rgba(245,158,11,0.9)] hover:scale-105 active:scale-95 transition-all flex items-center gap-2.5"
+                  className="px-8 py-4 rounded-2xl font-sports text-xl tracking-wider uppercase bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 text-slate-950 font-black shadow-[0_0_25px_rgba(245,158,11,0.6)] hover:shadow-[0_0_35px_rgba(245,158,11,0.9)] hover:scale-105 active:scale-95 transition-all flex items-center gap-2.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none disabled:hover:scale-100"
                 >
                   <Flame className="w-5 h-5 text-slate-950 fill-current animate-pulse" />
-                  <span>REGISTER FOR AUCTION</span>
+                  <span>{isRegistrationOpen ? 'REGISTER FOR AUCTION' : 'REGISTRATION CLOSED'}</span>
                 </button>
 
                 {/* Public auction broadcast */}

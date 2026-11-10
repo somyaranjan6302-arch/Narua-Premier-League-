@@ -1,10 +1,10 @@
 // Narua Premier League (NPL) - Official Tournament Data Store
 // Established Since 2024 | All data is dynamically editable via Admin Dashboard
-import { session3Champion, session3Matches, session3Records, session3Season, session3Standings, session3Teams } from './session3Data';
-import { session4Champion, session4Matches, session4Records, session4Standings, session4Teams } from './session4Data';
-import { session5Champion, session5Matches, session5Records, session5Season, session5Standings, session5Teams } from './session5Data';
-import { session2Champion, session2Matches, session2Records, session2Season, session2Standings, session2Teams } from './session2Data';
-import { session1Champion, session1Season } from './session1Performers';
+import { session3Champion, session3Matches, session3Records, session3Season, session3Standings, session3Teams } from './session3Data.js';
+import { session4Champion, session4Matches, session4Records, session4Season, session4Standings, session4Teams } from './session4Data.js';
+import { session5Champion, session5Matches, session5Records, session5Season, session5Standings, session5Teams } from './session5Data.js';
+import { session2Champion, session2Matches, session2Records, session2Season, session2Standings, session2Teams } from './session2Data.js';
+import { session1Champion, session1Season } from './session1Performers.js';
 
 export const initialTournamentInfo = {
   name: "Narua Premier League",
@@ -754,6 +754,8 @@ export const DEFAULT_AUCTION_PURSE_CAP = 5000000;
 export const initialAuctionLiveState = {
   status: 'waiting',
   purseCap: DEFAULT_AUCTION_PURSE_CAP,
+  minimumBidIncrement: 100,
+  maxSquadSize: 13,
   currentPlayer: null,
   currentBid: 0,
   currentBiddingTeam: null,
@@ -761,6 +763,8 @@ export const initialAuctionLiveState = {
   soldPlayers: [],
   unsoldPlayers: [],
   teamPurses: {},
+  teamPurseCaps: {},
+  auditLog: [],
   updatedAt: null
 };
 

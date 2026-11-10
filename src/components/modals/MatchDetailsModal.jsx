@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import confetti from 'canvas-confetti';
 import { useNpl } from '../../context/NplContext';
 import { TeamBadge } from '../TeamBadge';
 import { ArrowLeft, Award, BarChart3, Share2, MoreVertical, Trophy } from 'lucide-react';
@@ -23,12 +24,43 @@ export const MatchDetailsModal = ({ match: initialMatch, onClose }) => {
     let socketOpened = false;
     let fallbackStarted = false;
     let lastUpdatedAt = '';
+    let previousScorecard = null;
     const season = initialMatch.season || 'Season 6';
     const applyScorecard = (data) => {
       if (!active || !data?.match) return;
       const updatedAt = data.match.updatedAt || '';
       if (lastUpdatedAt && updatedAt && updatedAt < lastUpdatedAt) return;
       lastUpdatedAt = updatedAt;
+
+      const currentInningsIndex = Math.max((data.currentInningsNumber || 1) - 1, 0);
+      const currentDeliveries = data.innings?.[currentInningsIndex]?.deliveries || [];
+      const previousInningsIndex = Math.max((previousScorecard?.currentInningsNumber || 1) - 1, 0);
+      const previousDeliveries = previousScorecard?.innings?.[previousInningsIndex]?.deliveries || [];
+      const latestDelivery = currentDeliveries[currentDeliveries.length - 1];
+      const previousLatestDelivery = previousDeliveries[previousDeliveries.length - 1];
+      const isNewDelivery = currentDeliveries.length > previousDeliveries.length ||
+        (latestDelivery && previousLatestDelivery &&
+          latestDelivery.sequenceNumber !== previousLatestDelivery.sequenceNumber);
+
+      if (previousScorecard && isNewDelivery && latestDelivery &&
+        (latestDelivery.isWicket || latestDelivery.batRuns === 4 || latestDelivery.batRuns === 6) &&
+        !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        const isWicket = Boolean(latestDelivery.isWicket);
+        const isSix = latestDelivery.batRuns === 6;
+        confetti({
+          particleCount: isWicket ? 110 : isSix ? 90 : 55,
+          spread: isWicket ? 85 : isSix ? 75 : 60,
+          startVelocity: isWicket ? 42 : 34,
+          origin: { y: 0.6 },
+          colors: isWicket
+            ? ['#ef233c', '#ff8a00', '#ffffff']
+            : isSix
+              ? ['#ffdb19', '#ff8a00', '#e52bd1', '#ffffff']
+              : ['#3b5bff', '#e52bd1', '#ffdb19', '#ffffff']
+        });
+      }
+
+      previousScorecard = data;
       setScorecard(data);
       setMatch(data.match);
       syncScoredMatch(data.match, data);
@@ -122,6 +154,16 @@ export const MatchDetailsModal = ({ match: initialMatch, onClose }) => {
     Math.max(scorecardInnings.length - 1, 0)
   );
   const mobileInnings = scorecardInnings[liveInningsIndex];
+  const currentStriker = liveSummary?.currentStriker;
+  const currentBowler = liveSummary?.currentBowler;
+  const isCurrentStriker = (batter) => match.status === 'LIVE' && Boolean(currentStriker) && (
+    (currentStriker.id && batter.id === currentStriker.id) ||
+    (currentStriker.name && batter.name === currentStriker.name)
+  );
+  const isCurrentBowler = (bowler) => match.status === 'LIVE' && Boolean(currentBowler) && (
+    (currentBowler.id && bowler.id === currentBowler.id) ||
+    (currentBowler.name && bowler.name === currentBowler.name)
+  );
   const firstTeamId = match.teamAId || team1Obj.id;
   const mobileBattingTeam = mobileInnings?.teamId
     ? (mobileInnings.teamId === firstTeamId ? team1Obj : team2Obj)
@@ -290,19 +332,19 @@ export const MatchDetailsModal = ({ match: initialMatch, onClose }) => {
           </button>
         </header>
 
-        <nav aria-label="Match details" className="sticky top-[82px] z-20 flex h-[58px] items-stretch overflow-x-auto border-b border-[#303033] bg-[#090909] sm:hidden">
+        <nav aria-label="Match details" className="sticky top-[82px] z-20 grid min-h-[58px] grid-cols-4 items-stretch border-b border-[#303033] bg-[#090909] sm:hidden">
           {mobileTabs.map(([tab, label]) => (
             <button
               type="button"
               key={tab}
               onClick={() => setMobileTab(tab)}
               aria-current={selectedMobileTab === tab ? 'page' : undefined}
-              className={`relative min-w-[92px] flex-1 px-3 text-[19px] font-normal transition-colors ${
+              className={`relative flex min-w-0 items-center justify-center px-1 py-2 text-center text-sm font-medium leading-tight transition-colors ${
                 selectedMobileTab === tab ? 'text-[#ed1c2b]' : 'text-[#929296]'
               }`}
             >
               {label}
-              {selectedMobileTab === tab && <span className="absolute inset-x-3 bottom-0 h-1 rounded-t-full bg-[#ed1c2b]" />}
+              {selectedMobileTab === tab && <span className="absolute inset-x-1 bottom-0 h-1 rounded-t-full bg-[#ed1c2b]" />}
             </button>
           ))}
         </nav>
@@ -389,7 +431,10 @@ export const MatchDetailsModal = ({ match: initialMatch, onClose }) => {
                 </div>
                 {(mobileInnings?.batting || []).map((batter, index) => (
                   <div key={batter.id || batter.name || index} className="grid grid-cols-[minmax(0,1fr)_repeat(5,minmax(25px,auto))] items-center gap-x-2 border-b border-[#303033] py-3 text-[15px]">
-                    <span className="truncate text-[#75c6c1]">{batter.name}{!batter.isOut && '*'}</span>
+                    <span className={`truncate ${isCurrentStriker(batter) ? 'font-semibold text-[#75c6c1]' : 'text-[#75c6c1]'}`}>
+                      {isCurrentStriker(batter) && <span aria-label="Currently facing" className="mr-1">*</span>}
+                      {batter.name}{!batter.isOut && !isCurrentStriker(batter) && '*'}
+                    </span>
                     <span className="text-right">{batter.runs || 0}</span>
                     <span className="text-right">{batter.balls || 0}</span>
                     <span className="text-right">{batter.fours || 0}</span>
@@ -418,7 +463,10 @@ export const MatchDetailsModal = ({ match: initialMatch, onClose }) => {
                 </div>
                 {(mobileInnings?.bowling || []).map((bowler, index) => (
                   <div key={bowler.id || bowler.name || index} className="grid grid-cols-[minmax(0,1fr)_repeat(5,minmax(25px,auto))] items-center gap-x-2 border-t border-[#303033] py-3 text-[15px]">
-                    <span className="truncate text-[#75c6c1]">{bowler.name}</span>
+                    <span className={`truncate ${isCurrentBowler(bowler) ? 'font-semibold text-[#75c6c1]' : 'text-[#75c6c1]'}`}>
+                      {isCurrentBowler(bowler) && <span aria-label="Currently bowling" className="mr-1">*</span>}
+                      {bowler.name}
+                    </span>
                     <span className="text-right">{bowler.overs || '0.0'}</span>
                     <span className="text-right">{bowler.maidens || 0}</span>
                     <span className="text-right">{bowler.runs ?? bowler.runsConceded ?? 0}</span>
@@ -521,21 +569,21 @@ export const MatchDetailsModal = ({ match: initialMatch, onClose }) => {
                 <p className="mt-5 text-[19px] leading-7 text-white">{match.result || 'Match completed'}</p>
               </section>
 
-              <div className="flex flex-wrap gap-3">
+              <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2">
                 <button
                   type="button"
                   onClick={() => setMobileTab('scorecard')}
-                  className="inline-flex min-h-12 items-center gap-2 rounded-full border border-[#303033] bg-[#242426] px-5 text-base font-semibold text-white active:bg-[#343436]"
+                  className="inline-flex min-h-12 min-w-0 items-center justify-center gap-2 rounded-full border border-[#303033] bg-[#242426] px-3 text-center text-sm font-semibold leading-tight text-white active:bg-[#343436] min-[400px]:px-4"
                 >
-                  <BarChart3 className="h-5 w-5" />
+                  <BarChart3 className="h-5 w-5 shrink-0" />
                   Detailed scorecard
                 </button>
                 <button
                   type="button"
                   onClick={() => setMobileTab('insights')}
-                  className="inline-flex min-h-12 items-center gap-2 rounded-full border border-[#303033] bg-[#242426] px-5 text-base font-semibold text-white active:bg-[#343436]"
+                  className="inline-flex min-h-12 min-w-0 items-center justify-center gap-2 rounded-full border border-[#303033] bg-[#242426] px-3 text-center text-sm font-semibold leading-tight text-white active:bg-[#343436] min-[400px]:px-4"
                 >
-                  <Trophy className="h-5 w-5" />
+                  <Trophy className="h-5 w-5 shrink-0" />
                   Match insights
                 </button>
               </div>

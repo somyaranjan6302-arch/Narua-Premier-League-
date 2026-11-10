@@ -17,7 +17,7 @@ export const TeamsSection = () => {
           ? [team.session]
           : seasons.map((season) => season.edition);
 
-    return teamSessions.includes(selectedSeason);
+    return team.active !== false && teamSessions.includes(selectedSeason);
   });
 
   return (

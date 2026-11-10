@@ -42,9 +42,15 @@ const compressAuctionPhoto = async (file) => {
 };
 
 export const AuctionRegistrationModal = ({ onClose }) => {
-  const { registerPlayerForAuction, selectedSeason } = useNpl();
+  const { registerPlayerForAuction, checkAuctionRegistrationStatus, selectedSeason } = useNpl();
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [registeredData, setRegisteredData] = useState(null);
+  const [submissionError, setSubmissionError] = useState('');
+  const [statusLookup, setStatusLookup] = useState({ registrationId: '', phone: '' });
+  const [lookedUpStatus, setLookedUpStatus] = useState(null);
+  const [statusLookupError, setStatusLookupError] = useState('');
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -123,16 +129,37 @@ export const AuctionRegistrationModal = ({ onClose }) => {
     setPhotoCropFile(null);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setSubmissionError('');
     if (!formData.fullName || !formData.phone || !formData.consent) {
-      alert("Please enter full name, mobile number and accept consent.");
+      setSubmissionError('Enter your name and mobile number, then accept the consent statement.');
       return;
     }
 
-    const newPlayer = registerPlayerForAuction(formData);
-    setRegisteredData(newPlayer);
-    setIsSubmitted(true);
+    setIsSubmitting(true);
+    try {
+      const newPlayer = await registerPlayerForAuction(formData);
+      setRegisteredData(newPlayer);
+      setIsSubmitted(true);
+    } catch (error) {
+      setSubmissionError(error.message || 'Could not submit the registration. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCheckStatus = async () => {
+    setStatusLookupError('');
+    setLookedUpStatus(null);
+    setIsCheckingStatus(true);
+    try {
+      setLookedUpStatus(await checkAuctionRegistrationStatus(statusLookup.registrationId, statusLookup.phone));
+    } catch (error) {
+      setStatusLookupError(error.message || 'Could not check the registration status.');
+    } finally {
+      setIsCheckingStatus(false);
+    }
   };
 
   return (
@@ -164,6 +191,33 @@ export const AuctionRegistrationModal = ({ onClose }) => {
 
         {/* Modal Body */}
         <div className="p-6 sm:p-8 overflow-y-auto space-y-6">
+          <details className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
+            <summary className="cursor-pointer text-xs font-bold uppercase tracking-wider text-amber-300">Already registered? Check status</summary>
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                Registration ID
+                <input
+                  value={statusLookup.registrationId}
+                  onChange={(event) => setStatusLookup((current) => ({ ...current, registrationId: event.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white"
+                />
+              </label>
+              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                Mobile number
+                <input
+                  type="tel"
+                  value={statusLookup.phone}
+                  onChange={(event) => setStatusLookup((current) => ({ ...current, phone: event.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white"
+                />
+              </label>
+              <button type="button" disabled={isCheckingStatus} onClick={handleCheckStatus} className="rounded-lg bg-slate-800 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-700 disabled:opacity-50">
+                {isCheckingStatus ? 'Checking...' : 'Check'}
+              </button>
+            </div>
+            {statusLookupError && <p role="alert" className="mt-3 text-xs text-rose-300">{statusLookupError}</p>}
+            {lookedUpStatus && <p role="status" className="mt-3 text-xs text-emerald-300">{lookedUpStatus.registrationId} • {lookedUpStatus.season} • {lookedUpStatus.status}</p>}
+          </details>
           {!isSubmitted ? (
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Step 1: Personal Details */}
@@ -377,12 +431,14 @@ export const AuctionRegistrationModal = ({ onClose }) => {
               </div>
 
               {/* Submit CTA */}
+              {submissionError && <p role="alert" className="rounded-lg border border-rose-800 bg-rose-950/60 px-3 py-2 text-sm text-rose-300">{submissionError}</p>}
               <button
                 type="submit"
-                className="w-full py-4 rounded-2xl font-sports text-xl tracking-wider uppercase bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-black hover:opacity-95 transition-opacity shadow-[0_0_25px_rgba(245,158,11,0.5)] flex items-center justify-center gap-2"
+                disabled={isSubmitting}
+                className="w-full py-4 rounded-2xl font-sports text-xl tracking-wider uppercase bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-black hover:opacity-95 transition-opacity shadow-[0_0_25px_rgba(245,158,11,0.5)] flex items-center justify-center gap-2 disabled:cursor-wait disabled:opacity-60"
               >
                 <Flame className="w-5 h-5 fill-current" />
-                <span>REGISTER FOR NPL AUCTION</span>
+                <span>{isSubmitting ? 'SUBMITTING...' : 'REGISTER FOR NPL AUCTION'}</span>
               </button>
             </form>
           ) : (

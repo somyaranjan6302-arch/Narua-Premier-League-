@@ -51,7 +51,7 @@ export const TeamDetailsModal = ({ team, onClose }) => {
         : candidate.session
           ? [candidate.session]
           : [selectedSeason];
-    return sessions.includes(selectedSeason);
+    return candidate.active !== false && sessions.includes(selectedSeason);
   });
   const primaryColor = currentTeam?.primaryColor || '#1d4ed8';
   const teamLogo = getSiteMedia(siteMedia, `team-logo:${currentTeam?.id}`, selectedSeason, currentTeam?.logo);
@@ -155,6 +155,7 @@ export const TeamDetailsModal = ({ team, onClose }) => {
                   {currentTeam.name}
                 </h1>
                 {currentTeam.slogan && <p className="mt-3 text-sm font-semibold text-white/85 sm:text-base">{currentTeam.slogan}</p>}
+                {currentTeam.description && <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/75">{currentTeam.description}</p>}
                 {currentTeam.titles > 0 && (
                   <span className="mt-5 inline-flex items-center gap-2 rounded-lg bg-black/30 px-3 py-2 text-sm font-extrabold text-amber-200">
                     <Trophy className="h-4 w-4" />

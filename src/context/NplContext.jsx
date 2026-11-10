@@ -26,6 +26,10 @@ import {
   auctionDemoSeason,
   auctionDemoTeams
 } from '../data/auctionDemoData';
+import {
+  hasAuctionProcessedPlayer,
+  setAuctionTeamPurseCap
+} from '../../functions/api/auctionState.js';
 
 const NplContext = (typeof window !== 'undefined' && window.__NPL_CONTEXT__)
   ? window.__NPL_CONTEXT__
@@ -754,31 +758,49 @@ export const NplProvider = ({ children }) => {
   };
 
   // Auction Registration submission
-  const registerPlayerForAuction = (formData) => {
-    const randomNum = Math.floor(1000 + Math.random() * 9000);
-    const regId = `NPL26-${randomNum}`;
-    const newPlayer = {
-      id: `reg-${Date.now()}`,
-      registrationId: regId,
+  const registerPlayerForAuction = async (formData) => {
+    const season = seasons.find((item) => item.edition === selectedSeason);
+    const today = new Date().toISOString().slice(0, 10);
+    if (season?.registrationStatus !== 'OPEN' ||
+      (season.registrationOpensAt && today < season.registrationOpensAt) ||
+      (season.registrationClosesAt && today > season.registrationClosesAt)) {
+      throw new Error('Player registration is closed for this season.');
+    }
+
+    const registration = {
       ...formData,
-      basePrice: formData.basePrice || '₹100',
+      basePrice: '₹100',
       season: selectedSeason,
       status: 'PENDING',
       createdAt: new Date().toISOString(),
       photo: formData.photo || ''
     };
-
-    setAuctionRegistrations(prev => [newPlayer, ...prev]);
+    let newPlayer = registration;
     if (import.meta.env.PROD && !isAuctionDemo) {
-      fetch('/api/auction-registrations', {
+      const response = await fetch('/api/auction-registrations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newPlayer)
-      }).then((response) => {
-        if (!response.ok) throw new Error('Could not securely save your registration. Please contact the NPL team.');
-      }).catch((error) => showToast(error.message, 'error'));
+        body: JSON.stringify(registration)
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Could not securely save your registration. Please contact the NPL team.');
+      newPlayer = {
+        ...registration,
+        id: result.id,
+        registrationId: result.registrationId,
+        status: result.status || 'PENDING'
+      };
+    } else {
+      const randomNum = Math.floor(1000 + Math.random() * 9000);
+      newPlayer = {
+        ...registration,
+        id: `reg-${Date.now()}`,
+        registrationId: `NPL26-${randomNum}`
+      };
     }
-    showToast(`Registration Successful! Assigned ID: ${regId}`, 'success');
+
+    setAuctionRegistrations((previous) => [newPlayer, ...previous]);
+    showToast(`Registration Successful! Assigned ID: ${newPlayer.registrationId}`, 'success');
     confetti({
       particleCount: 80,
       spread: 70,
@@ -786,6 +808,30 @@ export const NplProvider = ({ children }) => {
     });
     sound.playCheer();
     return newPlayer;
+  };
+
+  const checkAuctionRegistrationStatus = async (registrationId, phone) => {
+    if (import.meta.env.PROD && !isAuctionDemo) {
+      const response = await fetch('/api/auction-registrations/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ registrationId, phone })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Could not check the registration status.');
+      return result;
+    }
+
+    const registration = auctionRegistrations.find((item) => (
+      item.registrationId?.toUpperCase() === registrationId.trim().toUpperCase() &&
+      item.phone?.replace(/\D/g, '') === phone.replace(/\D/g, '')
+    ));
+    if (!registration) throw new Error('No registration matches those details.');
+    return {
+      registrationId: registration.registrationId,
+      season: registration.season,
+      status: registration.status
+    };
   };
 
   const addDemoAuctionPlayers = (season = selectedSeason) => {
@@ -828,7 +874,7 @@ export const NplProvider = ({ children }) => {
     setAuctionRegistrations(prev =>
       prev.map(item => item.id === id ? { ...item, status: newStatus, ...extra } : item)
     );
-    showToast(`Player status updated to ${newStatus}`);
+    showToast(Object.hasOwn(extra, 'adminRemarks') ? 'Administrative remarks saved.' : `Player status updated to ${newStatus}`);
   };
 
   const updateAuctionPlayerBasePrice = (id, basePrice) => {
@@ -844,7 +890,7 @@ export const NplProvider = ({ children }) => {
     showToast('Player base price updated.');
   };
 
-  const updateAuctionLiveState = async (season, updater) => {
+  const updateAuctionLiveState = async (season, updater, { exceptionReason } = {}) => {
     if (isAuctionDemo) throw new Error('The Session 6 demo is read-only and cannot update the real auction.');
     if (!adminUser) throw new Error('Sign in as an administrator to control the live auction.');
     const previousState = auctionLiveStates[season] || initialAuctionLiveState;
@@ -855,7 +901,8 @@ export const NplProvider = ({ children }) => {
       body: JSON.stringify({
         season,
         state: nextState,
-        expectedUpdatedAt: previousState.updatedAt || null
+        expectedUpdatedAt: previousState.updatedAt || null,
+        exceptionReason
       })
     });
     const result = await response.json().catch(() => ({}));
@@ -867,9 +914,20 @@ export const NplProvider = ({ children }) => {
     return result.state;
   };
 
-  const callLiveAuctionPlayer = async (player, season = selectedSeason) => {
-    if (!player || player.season !== season || ['AUCTIONED', 'REJECTED'].includes(player.status)) {
+  const callLiveAuctionPlayer = async (player, season = selectedSeason, { exceptionReason } = {}) => {
+    const previousState = auctionLiveStates[season] || initialAuctionLiveState;
+    const isReauction = player?.status === 'UNSOLD';
+    if (!player || player.season !== season ||
+      (!['VERIFIED', 'SHORTLISTED'].includes(player.status) && !isReauction)) {
       throw new Error('Choose an eligible player from this auction session.');
+    }
+    if (previousState.currentPlayer) throw new Error('Finish the current player before calling another player.');
+    if ((previousState.soldPlayers || []).some((soldPlayer) => soldPlayer.playerId === player.id)) {
+      throw new Error('A sold player cannot be re-auctioned.');
+    }
+    if (hasAuctionProcessedPlayer(previousState, player.id) &&
+      (!isReauction || typeof exceptionReason !== 'string' || exceptionReason.trim().length < 5)) {
+      throw new Error('This player was already processed and cannot re-enter the normal auction.');
     }
     const basePrice = Number(String(player.basePrice || '').replace(/[^\d]/g, '')) || 100;
     const publicPlayer = Object.fromEntries(
@@ -885,7 +943,7 @@ export const NplProvider = ({ children }) => {
       const sessions = Array.isArray(team.sessions) ? team.sessions
         : Array.isArray(team.seasons) ? team.seasons
           : team.session ? [team.session] : [season];
-      return sessions.includes(season);
+      return team.active !== false && sessions.includes(season);
     });
     return updateAuctionLiveState(season, (previous) => ({
       ...previous,
@@ -893,11 +951,21 @@ export const NplProvider = ({ children }) => {
       currentBid: basePrice,
       currentBiddingTeam: null,
       bidHistory: [],
-      teamPurses: {
+      teamPurseCaps: {
         ...Object.fromEntries(seasonTeams.map((team) => [team.id, previous.purseCap ?? DEFAULT_AUCTION_PURSE_CAP])),
+        ...previous.teamPurseCaps
+      },
+      unsoldPlayers: (previous.unsoldPlayers || []).filter((entry) =>
+        (entry.playerId || entry.id) !== player.id
+      ),
+      teamPurses: {
+        ...Object.fromEntries(seasonTeams.map((team) => [
+          team.id,
+          previous.teamPurseCaps?.[team.id] ?? previous.purseCap ?? DEFAULT_AUCTION_PURSE_CAP
+        ])),
         ...previous.teamPurses
       }
-    }));
+    }), { exceptionReason });
   };
 
   const setLiveAuctionPurseCap = async (purseCap, season = selectedSeason) => {
@@ -906,16 +974,21 @@ export const NplProvider = ({ children }) => {
     }
 
     return updateAuctionLiveState(season, (previous) => {
+      if ((previous.minimumBidIncrement ?? 100) > purseCap) {
+        throw new Error('The purse cap cannot be lower than the minimum bid increment.');
+      }
       const currentCap = previous.purseCap ?? DEFAULT_AUCTION_PURSE_CAP;
       const seasonTeams = teams.filter((team) => {
         const sessions = Array.isArray(team.sessions) ? team.sessions
           : Array.isArray(team.seasons) ? team.seasons
             : team.session ? [team.session] : [season];
-        return sessions.includes(season);
+        return team.active !== false && sessions.includes(season);
       });
+      const teamPurseCaps = Object.fromEntries(seasonTeams.map((team) => [team.id, purseCap]));
       const teamPurses = Object.fromEntries(seasonTeams.map((team) => {
-        const remaining = previous.teamPurses?.[team.id] ?? currentCap;
-        const spent = Math.max(0, currentCap - remaining);
+        const previousTeamCap = previous.teamPurseCaps?.[team.id] ?? currentCap;
+        const remaining = previous.teamPurses?.[team.id] ?? previousTeamCap;
+        const spent = Math.max(0, previousTeamCap - remaining);
         if (spent > purseCap) {
           throw new Error(`${team.name} has already spent more than the new purse cap.`);
         }
@@ -930,8 +1003,53 @@ export const NplProvider = ({ children }) => {
         throw new Error('The new cap cannot be lower than a franchise’s spending plus its current bid.');
       }
 
-      return { ...previous, purseCap, teamPurses };
+      return { ...previous, purseCap, teamPurseCaps, teamPurses };
     });
+  };
+
+  const setLiveAuctionTeamPurseCap = async (teamId, purseCap, season = selectedSeason) => {
+    if (!Number.isSafeInteger(purseCap) || purseCap <= 0) {
+      throw new Error('Enter a team purse cap greater than zero rupees.');
+    }
+    const team = teams.find((candidate) => candidate.id === teamId && candidate.active !== false);
+    const teamSessions = Array.isArray(team?.sessions) ? team.sessions
+      : Array.isArray(team?.seasons) ? team.seasons
+        : team?.session ? [team.session] : [season];
+    if (!team || !teamSessions.includes(season)) {
+      throw new Error('Choose an active franchise assigned to this auction season.');
+    }
+
+    return updateAuctionLiveState(season, (previous) =>
+      setAuctionTeamPurseCap(previous, teamId, purseCap)
+    );
+  };
+
+  const setLiveAuctionMinimumBidIncrement = async (minimumBidIncrement, season = selectedSeason) => {
+    if (!Number.isSafeInteger(minimumBidIncrement) || minimumBidIncrement <= 0) {
+      throw new Error('Enter a minimum bid increment greater than zero rupees.');
+    }
+    const purseCap = auctionLiveStates[season]?.purseCap ?? DEFAULT_AUCTION_PURSE_CAP;
+    if (minimumBidIncrement > purseCap) throw new Error('The minimum bid increment cannot exceed the team purse cap.');
+    return updateAuctionLiveState(season, (previous) => ({ ...previous, minimumBidIncrement }));
+  };
+
+  const setLiveAuctionMaxSquadSize = async (maxSquadSize, season = selectedSeason) => {
+    if (!Number.isSafeInteger(maxSquadSize) || maxSquadSize < 1 || maxSquadSize > 30) {
+      throw new Error('Squad size must be from 1 to 30 players.');
+    }
+    const previousState = auctionLiveStates[season] || initialAuctionLiveState;
+    const seasonTeams = teams.filter((team) => {
+      const sessions = Array.isArray(team.sessions) ? team.sessions
+        : Array.isArray(team.seasons) ? team.seasons
+          : team.session ? [team.session] : [season];
+      return sessions.includes(season);
+    });
+    const overLimitTeam = seasonTeams.find((team) => (previousState.soldPlayers || []).filter((player) => (
+      player.teamId === team.id ||
+      (!player.teamId && player.team?.toLowerCase() === team.name?.toLowerCase())
+    )).length > maxSquadSize);
+    if (overLimitTeam) throw new Error(`${overLimitTeam.name} already exceeds that squad size.`);
+    return updateAuctionLiveState(season, (previous) => ({ ...previous, maxSquadSize }));
   };
 
   const setLiveAuctionStatus = async (status, season = selectedSeason) => {
@@ -948,13 +1066,17 @@ export const NplProvider = ({ children }) => {
 
   const placeLiveBid = async (teamId, increment, season = selectedSeason) => {
     const team = teams.find((candidate) => candidate.id === teamId);
-    if (!team) throw new Error('Choose a valid franchise.');
+    if (!team || team.active === false) throw new Error('Choose an active franchise.');
     const teamSessions = Array.isArray(team.sessions) ? team.sessions
       : Array.isArray(team.seasons) ? team.seasons
         : team.session ? [team.session] : [season];
     if (!teamSessions.includes(season)) throw new Error('Choose a franchise assigned to this auction season.');
 
     const previousState = auctionLiveStates[season] || initialAuctionLiveState;
+    const minimumBidIncrement = previousState.minimumBidIncrement ?? 100;
+    if (Number.isSafeInteger(increment) && increment < minimumBidIncrement) {
+      throw new Error(`The minimum bid increment is ₹${minimumBidIncrement}.`);
+    }
     const optimisticAmount = previousState.currentBid + increment;
     if (!Number.isSafeInteger(increment) || increment <= 0 ||
       !Number.isSafeInteger(optimisticAmount)) {
@@ -1039,6 +1161,7 @@ export const NplProvider = ({ children }) => {
           role: player.role || 'Player',
           basePrice: player.basePrice || '₹100',
           soldPrice: formattedPrice,
+          teamId: winningTeam.id,
           team: winningTeam.name,
           teamShort: winningTeam.shortName,
           teamColor: winningTeam.primaryColor
@@ -1097,10 +1220,12 @@ export const NplProvider = ({ children }) => {
           playerId: player.id,
           playerName: player.fullName || player.name,
           role: player.role || 'Player'
-        }, ...(previous.unsoldPlayers || [])]
+        }, ...(previous.unsoldPlayers || []).filter((entry) =>
+          (entry.playerId || entry.id) !== player.id
+        )]
       };
     });
-    updateRegistrationStatus(player.id, 'SHORTLISTED', { unsold: true });
+    updateRegistrationStatus(player.id, 'UNSOLD', { unsold: true });
     showToast(`${player.fullName || player.name} marked unsold.`);
   };
 
@@ -1198,6 +1323,7 @@ export const NplProvider = ({ children }) => {
         setNews,
         auctionRegistrations,
         registerPlayerForAuction,
+        checkAuctionRegistrationStatus,
         addDemoAuctionPlayers,
         updateRegistrationStatus,
         updateAuctionPlayerBasePrice,
@@ -1205,6 +1331,9 @@ export const NplProvider = ({ children }) => {
         auctionSyncStatus,
         callLiveAuctionPlayer,
         setLiveAuctionPurseCap,
+        setLiveAuctionTeamPurseCap,
+        setLiveAuctionMinimumBidIncrement,
+        setLiveAuctionMaxSquadSize,
         setLiveAuctionStatus,
         placeLiveBid,
         sellLivePlayer,
