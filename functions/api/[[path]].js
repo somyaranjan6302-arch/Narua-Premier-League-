@@ -32,7 +32,7 @@ const SESSION_SECONDS = 8 * 60 * 60;
 const PASSWORD_ITERATIONS = 100000;
 const MEDIA_CHUNK_SIZE = 96 * 1024;
 const mediaTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
-const mediaKeyPattern = /^(news|champion|team-logo|team|match-banner|gallery|memory-photo|highlight|performer|featured-performer|player-photo|auction-player-photo|auction-player-cutout|season|section-photo|record):[A-Za-z0-9 ._-]{1,80}$/;
+const mediaKeyPattern = /^(news|champion|team-logo|team|match-banner|gallery|memory-photo|highlight|performer|featured-performer|player-photo|auction-player-photo|auction-player-cutout|season|section-photo|record|franchise-owner|owner-photo):[A-Za-z0-9 ._-]{1,80}$/;
 const allowedMediaKeys = new Set(['logo', 'trophy', 'stadium']);
 const AUCTION_PHOTO_PATTERN = /^data:image\/(jpeg|png|webp|gif);base64,([A-Za-z0-9+/]+={0,2})$/;
 

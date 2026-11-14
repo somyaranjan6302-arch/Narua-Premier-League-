@@ -59,7 +59,7 @@ const imageExtensions = {
   'image/webp': '.webp',
   'image/gif': '.gif'
 };
-const publicMediaKeyPattern = /^(news|champion|team-logo|team|match-banner|gallery|memory-photo|highlight|performer|featured-performer|player-photo|season|section-photo|record):[A-Za-z0-9 ._-]{1,80}$/;
+const publicMediaKeyPattern = /^(news|champion|team-logo|team|match-banner|gallery|memory-photo|highlight|performer|featured-performer|player-photo|season|section-photo|record|franchise-owner|owner-photo):[A-Za-z0-9 ._-]{1,80}$/;
 
 const migrateLegacyMediaToRepository = async (legacyMedia) => {
   const sharedMedia = await readJson(mediaFile, {});
@@ -569,7 +569,7 @@ const start = async () => {
     }
 
     const safeCurrentPlayer = state.currentPlayer ? Object.fromEntries(
-      ['id', 'registrationId', 'fullName', 'name', 'role', 'basePrice']
+      ['id', 'registrationId', 'fullName', 'name', 'role', 'basePrice', 'battingStyle', 'bowlingStyle']
         .filter((key) => typeof state.currentPlayer[key] === 'string')
         .map((key) => [key, state.currentPlayer[key].slice(0, 2000)])
     ) : null;
@@ -707,6 +707,42 @@ const start = async () => {
       [JSON.stringify(req.body.registrations)]
     );
     return res.status(204).end();
+  });
+
+  app.delete('/api/admin/registrations/:id', requireAdmin, async (req, res) => {
+    if (!database) return res.status(503).json({ error: 'Persistent database is not configured.' });
+    const registrationId = req.params.id;
+    if (!/^[A-Za-z0-9._:-]{1,120}$/.test(registrationId)) {
+      return res.status(400).json({ error: 'Choose a valid player registration.' });
+    }
+
+    const client = await database.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query("SELECT pg_advisory_xact_lock(hashtextextended('npl-player-registrations', 0))");
+      const currentResult = await client.query(
+        "SELECT value FROM npl_site_data WHERE data_key = 'auction-registrations' FOR UPDATE"
+      );
+      const registrations = Array.isArray(currentResult.rows[0]?.value) ? currentResult.rows[0].value : [];
+      const remainingRegistrations = registrations.filter((registration) => registration.id !== registrationId);
+      if (remainingRegistrations.length === registrations.length) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Player registration was not found.' });
+      }
+
+      await client.query(
+        `INSERT INTO npl_site_data (data_key, value) VALUES ('auction-registrations', $1::jsonb)
+         ON CONFLICT (data_key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+        [JSON.stringify(remainingRegistrations)]
+      );
+      await client.query('COMMIT');
+      return res.status(204).end();
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   });
 
   app.post('/api/auction-registrations', async (req, res) => {
