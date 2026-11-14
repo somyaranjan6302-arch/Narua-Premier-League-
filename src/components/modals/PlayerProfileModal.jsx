@@ -8,15 +8,15 @@ export const PlayerProfileModal = ({ player, onClose }) => {
   const teamName = player.teamName || player.team || 'NPL';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md overflow-y-auto">
-      <div className="relative my-4 flex w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#071022] shadow-2xl shadow-black/60" style={{ '--player-team': teamColor }}>
-        <header className="relative z-10 flex items-center justify-between border-b border-white/10 bg-slate-950/80 px-5 py-3.5">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/85 p-2 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur-md sm:items-center sm:p-4">
+      <div className="relative my-2 flex max-h-[calc(100dvh-1rem)] w-full max-w-xl flex-col overflow-y-auto overscroll-contain rounded-3xl border border-white/10 bg-[#071022] shadow-2xl shadow-black/60 sm:my-4 sm:max-h-[calc(100dvh-2rem)]" style={{ '--player-team': teamColor }}>
+        <header className="sticky top-0 z-30 flex min-h-16 shrink-0 items-center justify-between border-b border-white/10 bg-slate-950/95 px-5 py-3.5 backdrop-blur">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white">NPL • Player Profile</p>
             <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">{teamName}</p>
           </div>
-          <button onClick={onClose} aria-label="Close player profile" className="rounded-xl border border-white/10 bg-slate-900/80 p-2 text-slate-300 transition hover:border-white/30 hover:text-white">
-            <X className="w-5 h-5" />
+          <button type="button" onClick={onClose} aria-label="Close player profile" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/20 bg-slate-900 text-slate-100 transition hover:border-white/40 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400">
+            <X className="h-5 w-5" />
           </button>
         </header>
 

@@ -3,6 +3,7 @@ import { useNpl } from '../../context/NplContext';
 import { TeamBadge } from '../TeamBadge';
 import { SessionSelector } from '../SessionSelector';
 import { ImageCropEditor } from '../ImageCropEditor';
+import { TwoStepConfirmDialog } from '../TwoStepConfirmDialog';
 import { getChampionFallbackMedia, getChampionMediaKey, getRecordMediaKey, getRecordPartnerMediaKey, getSessionMediaKey, isHiddenTournamentRecord } from '../../utils/siteMedia';
 import { session2Performers } from '../../data/session2Data';
 import { session3Performers } from '../../data/session3Data';
@@ -32,7 +33,8 @@ import {
   Activity,
   UserPlus,
   Upload,
-  UserRound
+  UserRound,
+  Crown
 } from 'lucide-react';
 
 const getTeamSessions = (team, seasonEditions) => {
@@ -58,15 +60,6 @@ const createEmptyStanding = (team) => ({
 });
 
 const getMediaSessionId = (session) => getSessionMediaKey('session', session);
-
-const matchBannerColorPresets = [
-  { id: 'royal-blue', label: 'Royal blue & gold', primaryColor: '#1D4ED8', secondaryColor: '#F59E0B' },
-  { id: 'crimson', label: 'Crimson & charcoal', primaryColor: '#E11D48', secondaryColor: '#1F2937' },
-  { id: 'emerald', label: 'Emerald & gold', primaryColor: '#059669', secondaryColor: '#FBBF24' },
-  { id: 'purple', label: 'Purple & silver', primaryColor: '#7C3AED', secondaryColor: '#CBD5E1' },
-  { id: 'orange', label: 'Orange & navy', primaryColor: '#F97316', secondaryColor: '#172554' },
-  { id: 'teal', label: 'Teal & midnight', primaryColor: '#0D9488', secondaryColor: '#0F172A' }
-];
 
 const publicPhotoSections = [
   { id: 'home', label: 'Home' },
@@ -300,6 +293,7 @@ const AdminDashboardContent = ({ onClose }) => {
     auctionRegistrations,
     addDemoAuctionPlayers,
     updateRegistrationStatus,
+    removeAuctionRegistration,
     updateAuctionPlayerBasePrice,
     champions,
     setChampions,
@@ -346,6 +340,10 @@ const AdminDashboardContent = ({ onClose }) => {
   const [teamSessionFocus, setTeamSessionFocus] = useState(selectedSeason || seasons[0]?.edition || 'Season 5');
   const [isSessionWorkspaceOpen, setIsSessionWorkspaceOpen] = useState(false);
   const [alsoAddNextSeason, setAlsoAddNextSeason] = useState(false);
+  const [editingTeamId, setEditingTeamId] = useState(null);
+  const [pendingTeamVerification, setPendingTeamVerification] = useState(null);
+  const [teamVerificationError, setTeamVerificationError] = useState('');
+  const [isCompletingTeamAction, setIsCompletingTeamAction] = useState(false);
   const [roundFormat, setRoundFormat] = useState('Round Robin');
   const [roundTemplate, setRoundTemplate] = useState('League Matches');
   const [customRoundName, setCustomRoundName] = useState('');
@@ -564,6 +562,11 @@ const AdminDashboardContent = ({ onClose }) => {
     if (sessionDraft.registrationOpensAt && sessionDraft.registrationClosesAt &&
       sessionDraft.registrationClosesAt < sessionDraft.registrationOpensAt) {
       setSessionError('Registration closing date must be on or after the opening date.');
+      return;
+    }
+    if (sessionDraft.registrationStatus === 'SCHEDULED' &&
+      (!sessionDraft.registrationOpensAt || !sessionDraft.registrationClosesAt)) {
+      setSessionError('Enter both registration dates to schedule the registration window.');
       return;
     }
     if (sessionDraft.startsAt && sessionDraft.endsAt && sessionDraft.endsAt < sessionDraft.startsAt) {
@@ -854,25 +857,6 @@ const AdminDashboardContent = ({ onClose }) => {
     setGalleryDraft({ title: '', category: '', caption: '', date: '', season: selectedSeason });
   };
 
-  const handleRemoveSessionGalleryItem = async (itemId) => {
-    if (adminUser?.role !== 'owner') return;
-    const targetItem = gallery.find((item) => item.id === itemId);
-    if (!targetItem || !window.confirm(`Delete “${targetItem.title}” and its uploaded image? This cannot be undone.`)) return;
-
-    setMediaError('');
-    try {
-      await deleteMediaImage(`gallery:${targetItem.id}`, false);
-      await refreshSiteMedia();
-    } catch (error) {
-      setMediaError(error.message || 'The gallery photo could not be deleted.');
-      return;
-    }
-
-    setGallery((previousGallery) => previousGallery.filter((item) => item.id !== itemId));
-    if (editingGalleryItemId === itemId) handleCancelGalleryEdit();
-    showToast(`"${targetItem.title}" was deleted from the gallery.`);
-  };
-
   const handleAddSectionPhoto = (event) => {
     event.preventDefault();
     if (adminUser?.role !== 'owner') return;
@@ -924,21 +908,13 @@ const AdminDashboardContent = ({ onClose }) => {
     const cleanCaptain = teamDraft.captain.trim();
     const cleanOwner = teamDraft.owner.trim();
     const cleanHome = teamDraft.home.trim();
-    const targetSessions = alsoAddNextSeason
-      ? [teamSessionFocus, nextTeamSession]
-      : [teamSessionFocus];
 
     if (!cleanName || !cleanCaptain || !cleanOwner || !cleanHome) {
       setTeamError('Name, captain, owner, and home ground are required.');
       return;
     }
 
-    const teamSlug = cleanName
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '') || `team-${Date.now()}`;
-    const newTeams = targetSessions.map((session) => ({
-      id: `${teamSlug}-${session.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+    const updatedDetails = {
       name: cleanName,
       shortName: cleanShortName,
       captain: cleanCaptain,
@@ -947,7 +923,38 @@ const AdminDashboardContent = ({ onClose }) => {
       primaryColor: teamDraft.primaryColor || '#F59E0B',
       secondaryColor: teamDraft.secondaryColor || '#0F172A',
       slogan: teamDraft.slogan.trim() || 'Built for glory',
-      description: teamDraft.description.trim(),
+      description: teamDraft.description.trim()
+    };
+
+    if (editingTeamId) {
+      const currentTeam = teams.find((team) => team.id === editingTeamId);
+      if (!currentTeam) {
+        setTeamError('This team is no longer available. Refresh the team list and try again.');
+        return;
+      }
+      setPendingTeamVerification({
+        type: 'edit',
+        source: 'team-form',
+        teamId: currentTeam.id,
+        teamName: currentTeam.name,
+        season: teamSessionFocus,
+        updates: updatedDetails,
+        confirmationPhrase: `SAVE ${cleanName.toUpperCase()}`
+      });
+      setTeamVerificationError('');
+      return;
+    }
+
+    const targetSessions = alsoAddNextSeason
+      ? [teamSessionFocus, nextTeamSession]
+      : [teamSessionFocus];
+    const teamSlug = cleanName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || `team-${Date.now()}`;
+    const newTeams = targetSessions.map((session) => ({
+      id: `${teamSlug}-${session.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      ...updatedDetails,
       sessions: [session],
       active: true,
       titles: 0,
@@ -989,6 +996,43 @@ const AdminDashboardContent = ({ onClose }) => {
     setTeamError('');
     setAlsoAddNextSeason(false);
     showToast(`${cleanName} has been added to ${targetSessions.join(' and ')}.`);
+  };
+
+  const handleStartTeamEdit = (team) => {
+    if (adminUser?.role !== 'owner') return;
+    setEditingTeamId(team.id);
+    setTeamError('');
+    setAlsoAddNextSeason(false);
+    setTeamDraft({
+      name: team.name || '',
+      shortName: team.shortName || '',
+      captain: team.captain || '',
+      owner: team.owner || '',
+      home: team.home || '',
+      primaryColor: team.primaryColor || '#F59E0B',
+      secondaryColor: team.secondaryColor || '#0F172A',
+      slogan: team.slogan || '',
+      description: team.description || '',
+      sessions: getTeamSessions(team, seasons.map((season) => season.edition))
+    });
+    requestAnimationFrame(() => document.getElementById('team-admin-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  };
+
+  const cancelTeamEdit = () => {
+    setEditingTeamId(null);
+    setTeamError('');
+    setTeamDraft({
+      name: '',
+      shortName: '',
+      captain: '',
+      owner: '',
+      home: '',
+      primaryColor: '#F59E0B',
+      secondaryColor: '#0F172A',
+      slogan: '',
+      description: '',
+      sessions: [teamSessionFocus]
+    });
   };
 
   const handleCopyTeamToNextSession = (team) => {
@@ -1042,15 +1086,14 @@ const AdminDashboardContent = ({ onClose }) => {
     const targetTeam = teams.find((team) => team.id === teamId);
     if (!targetTeam) return;
 
-    setTeams((previousTeams) => previousTeams.map((team) => {
-      if (team.id !== teamId) return team;
-
-      const currentSessions = getTeamSessions(team, seasons.map((season) => season.edition));
-      const nextSessions = currentSessions.filter((session) => session !== teamSessionFocus);
-      return { ...team, sessions: nextSessions };
-    }));
-
-    showToast(`${targetTeam.name} was removed from ${teamSessionFocus} only.`);
+    setPendingTeamVerification({
+      type: 'remove',
+      teamId,
+      teamName: targetTeam.name,
+      season: teamSessionFocus,
+      confirmationPhrase: `REMOVE ${targetTeam.name.toUpperCase()} FROM ${teamSessionFocus.toUpperCase()}`
+    });
+    setTeamVerificationError('');
   };
 
   const handleToggleTeamActive = (teamId) => {
@@ -1059,10 +1102,99 @@ const AdminDashboardContent = ({ onClose }) => {
     if (!targetTeam) return;
 
     const active = targetTeam.active === false;
-    setTeams((previousTeams) => previousTeams.map((team) => (
-      team.id === teamId ? { ...team, active } : team
-    )));
-    showToast(`${targetTeam.name} is now ${active ? 'active' : 'inactive'} in team selections.`);
+    const action = active ? 'ACTIVATE' : 'DEACTIVATE';
+    setPendingTeamVerification({
+      type: 'toggle',
+      teamId,
+      teamName: targetTeam.name,
+      active,
+      season: teamSessionFocus,
+      confirmationPhrase: `${action} ${targetTeam.name.toUpperCase()}`
+    });
+    setTeamVerificationError('');
+  };
+
+  const confirmTeamVerification = async () => {
+    if (!pendingTeamVerification) return false;
+    if (adminUser?.role !== 'owner') {
+      setTeamVerificationError('Only the developer can change team records.');
+      return false;
+    }
+    const action = pendingTeamVerification;
+
+    if (action.type === 'delete-item') {
+      setIsCompletingTeamAction(true);
+      setTeamVerificationError('');
+      let deleted = false;
+      try {
+        deleted = await handleDeleteMediaItem(action.item, true);
+      } catch (error) {
+        setTeamVerificationError(error.message || 'The team could not be deleted. Try again.');
+      } finally {
+        setIsCompletingTeamAction(false);
+      }
+      if (!deleted) {
+        setTeamVerificationError((current) => current || 'The team could not be deleted. Review the error and try again.');
+        return false;
+      }
+      setPendingTeamVerification(null);
+      return true;
+    }
+
+    const currentTeam = teams.find((team) => team.id === action.teamId);
+    if (!currentTeam) {
+      setTeamVerificationError('This team is no longer available. Refresh the page before trying again.');
+      return false;
+    }
+
+    if (action.type === 'remove') {
+      setTeams((previousTeams) => previousTeams.map((team) => {
+        if (team.id !== action.teamId) return team;
+        const currentSessions = getTeamSessions(team, seasons.map((season) => season.edition));
+        return { ...team, sessions: currentSessions.filter((session) => session !== action.season) };
+      }));
+      setSeasonStandings((previousStandings) => ({
+        ...previousStandings,
+        [action.season]: (previousStandings[action.season] || []).filter((row) => row.teamId !== action.teamId)
+      }));
+      showToast(`${action.teamName} was removed from ${action.season} only.`);
+    } else if (action.type === 'toggle') {
+      setTeams((previousTeams) => previousTeams.map((team) => (
+        team.id === action.teamId ? { ...team, active: action.active } : team
+      )));
+      showToast(`${action.teamName} is now ${action.active ? 'active' : 'inactive'} in team selections.`);
+    } else if (action.type === 'edit') {
+      setTeams((previousTeams) => previousTeams.map((team) => (
+        team.id === action.teamId ? { ...team, ...action.updates } : team
+      )));
+      const currentSessions = getTeamSessions(currentTeam, seasons.map((season) => season.edition));
+      setSeasonStandings((previousStandings) => {
+        const nextStandings = { ...previousStandings };
+        currentSessions.forEach((season) => {
+          nextStandings[season] = (nextStandings[season] || []).map((row) => (
+            row.teamId === action.teamId
+              ? {
+                ...row,
+                team: action.updates.name ?? row.team,
+                short: action.updates.shortName ?? row.short,
+                color: action.updates.primaryColor ?? row.color
+              }
+              : row
+          ));
+        });
+        return nextStandings;
+      });
+      if (action.source === 'team-form') cancelTeamEdit();
+      if (action.source === 'media-info') {
+        setEditingMediaInfo(null);
+        setMediaInfoDraft({});
+      }
+      showToast(`${action.updates.name || action.teamName} details were updated for ${action.season}.`);
+    }
+
+    setTeamVerificationError('');
+    setPendingTeamVerification(null);
+    return true;
   };
 
   const handleMediaSelection = (mediaKey, event) => {
@@ -1220,17 +1352,39 @@ const AdminDashboardContent = ({ onClose }) => {
     event.preventDefault();
     if (!editingMediaInfo) return;
     const { target, fields } = editingMediaInfo;
+    setMediaError('');
     const updates = Object.fromEntries(fields.map((field) => [
       field.key,
       field.numeric ? (mediaInfoDraft[field.key] === '' ? 0 : Number(mediaInfoDraft[field.key])) : mediaInfoDraft[field.key]
     ]));
 
-    setMediaError('');
+    if (target.type === 'team') {
+      const currentTeam = teams.find((team) => team.id === target.teamId);
+      if (!currentTeam) {
+        setMediaError('This team is no longer available. Refresh the image library and try again.');
+        return;
+      }
+      const updatedName = String(updates.name ?? currentTeam.name).trim();
+      if (!updatedName) {
+        setMediaError('Enter a team name before saving.');
+        return;
+      }
+      setPendingTeamVerification({
+        type: 'edit',
+        source: 'media-info',
+        teamId: currentTeam.id,
+        teamName: currentTeam.name,
+        season: mediaSessionFilter,
+        updates: { ...updates, name: updatedName },
+        confirmationPhrase: `SAVE ${updatedName.toUpperCase()}`
+      });
+      setTeamVerificationError('');
+      return;
+    }
+
     setIsSavingMediaInfo(true);
     try {
-      if (target.type === 'team') {
-        setTeams((previous) => previous.map((team) => team.id === target.teamId ? { ...team, ...updates } : team));
-      } else if (target.type === 'player') {
+      if (target.type === 'player') {
         setTeams((previous) => previous.map((team) => team.id === target.teamId
           ? { ...team, squad: (team.squad || []).map((player) => player.id === target.playerId ? { ...player, ...updates } : player) }
           : team));
@@ -1262,9 +1416,23 @@ const AdminDashboardContent = ({ onClose }) => {
     }
   };
 
-  const handleDeleteMediaItem = async (item) => {
-    if (!item.editTarget) return;
-    if (!window.confirm(`Delete “${item.title}” and its associated information? This cannot be undone.`)) return;
+  const handleDeleteMediaItem = async (item, verified = false) => {
+    if (!item.editTarget) return false;
+    if (item.editTarget.type === 'team' && !verified) {
+      const currentTeam = teams.find((team) => team.id === item.editTarget.teamId);
+      if (!currentTeam) return;
+      setPendingTeamVerification({
+        type: 'delete-item',
+        item,
+        teamId: currentTeam.id,
+        teamName: currentTeam.name,
+        season: mediaSessionFilter,
+        confirmationPhrase: `DELETE TEAM ${currentTeam.name.toUpperCase()}`
+      });
+      setTeamVerificationError('');
+      return false;
+    }
+    if (!verified && !window.confirm(`Delete “${item.title}” and its associated information? This cannot be undone.`)) return false;
 
     try {
       const target = item.editTarget;
@@ -1282,7 +1450,21 @@ const AdminDashboardContent = ({ onClose }) => {
       for (const key of mediaKeys) await deleteMediaImage(key, false);
       if (mediaKeys.size > 0) await refreshSiteMedia();
 
-      if (target.type === 'team') setTeams((previous) => previous.filter((team) => team.id !== target.teamId));
+      if (target.type === 'team') {
+        const deletedTeam = teams.find((team) => team.id === target.teamId);
+        setTeams((previous) => previous.filter((team) => team.id !== target.teamId));
+        if (deletedTeam) {
+          const deletedSessions = getTeamSessions(deletedTeam, seasons.map((season) => season.edition));
+          setSeasonStandings((previousStandings) => {
+            const nextStandings = { ...previousStandings };
+            deletedSessions.forEach((season) => {
+              nextStandings[season] = (nextStandings[season] || []).filter((row) => row.teamId !== target.teamId);
+            });
+            return nextStandings;
+          });
+        }
+        if (editingTeamId === target.teamId) cancelTeamEdit();
+      }
       else if (target.type === 'player') {
         setTeams((previous) => previous.map((team) => team.id === target.teamId
           ? { ...team, squad: (team.squad || []).filter((player) => player.id !== target.playerId) }
@@ -1320,8 +1502,10 @@ const AdminDashboardContent = ({ onClose }) => {
       }
       if (editingMediaInfo?.item.key === item.key) setEditingMediaInfo(null);
       showToast(`${item.title} and its information were deleted.`);
+      return true;
     } catch (error) {
       setMediaError(error.message || 'The item could not be deleted.');
+      return false;
     }
   };
 
@@ -1334,10 +1518,6 @@ const AdminDashboardContent = ({ onClose }) => {
       : null;
     const bannerPrimaryColor = matchBannerTeam?.primaryColor || '#1d4ed8';
     const bannerSecondaryColor = matchBannerTeam?.secondaryColor || '#0f172a';
-    const selectedBannerPreset = matchBannerColorPresets.find((preset) => (
-      preset.primaryColor.toLowerCase() === bannerPrimaryColor.toLowerCase()
-      && preset.secondaryColor.toLowerCase() === bannerSecondaryColor.toLowerCase()
-    ))?.id || 'custom';
     const activeMediaKey = siteMedia[mediaKey] ? mediaKey : siteMedia[baseMediaKey] ? baseMediaKey : null;
     const pendingMedia = pendingMediaFiles[mediaKey];
     const cropFile = mediaCropFiles[mediaKey];
@@ -1387,58 +1567,13 @@ const AdminDashboardContent = ({ onClose }) => {
         <p className="text-sm font-bold text-white">{title}</p>
         <p className="text-xs text-slate-400">{description}</p>
         {matchBannerTeam && (
-          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-end">
-            <label className="text-[10px] font-bold uppercase tracking-wide text-slate-300">
-              Banner color preset
-              <select
-                value={selectedBannerPreset}
-                aria-label={`${matchBannerTeam.name} banner color preset`}
-                onChange={(event) => {
-                  const preset = matchBannerColorPresets.find((option) => option.id === event.target.value);
-                  if (!preset) return;
-                  setTeams((current) => current.map((team) => (
-                    team.id === matchBannerTeam.id
-                      ? { ...team, primaryColor: preset.primaryColor, secondaryColor: preset.secondaryColor }
-                      : team
-                  )));
-                }}
-                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-xs font-semibold normal-case text-white focus:border-amber-500 focus:outline-none"
-              >
-                <option value="custom">Custom colors</option>
-                {matchBannerColorPresets.map((preset) => (
-                  <option key={preset.id} value={preset.id}>{preset.label}</option>
-                ))}
-              </select>
-            </label>
-            {[
-              { key: 'primaryColor', label: 'Primary', value: bannerPrimaryColor },
-              { key: 'secondaryColor', label: 'Secondary', value: bannerSecondaryColor }
-            ].map((color) => (
-              <label key={color.key} className="text-[10px] font-bold uppercase tracking-wide text-slate-300">
-                {color.label}
-                <span className="mt-1 flex h-9 items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-2">
-                  <input
-                    type="color"
-                    aria-label={`${matchBannerTeam.name} banner ${color.label.toLowerCase()} color`}
-                    value={color.value}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setTeams((current) => current.map((team) => (
-                        team.id === matchBannerTeam.id ? { ...team, [color.key]: value } : team
-                      )));
-                    }}
-                    className="h-6 w-8 cursor-pointer rounded border-0 bg-transparent p-0"
-                  />
-                  <span className="font-mono text-[10px] text-slate-300">{color.value}</span>
-                </span>
-              </label>
-            ))}
+          <div className="mt-3 space-y-2">
             <div
               aria-label={`${matchBannerTeam.name} banner color preview`}
-              className="h-5 rounded-md border border-white/15 sm:col-span-3"
+              className="h-5 rounded-md border border-white/15"
               style={{ background: `linear-gradient(90deg, ${bannerPrimaryColor} 0%, ${bannerSecondaryColor} 100%)` }}
             />
-            <p className="text-[10px] text-slate-400 sm:col-span-3">Color changes save automatically and appear on this team’s Match Center banner.</p>
+            <p className="text-[10px] text-slate-400">Edit team details, including banner colors, from the team manager with confirmation.</p>
           </div>
         )}
         {showPhotoGuide && (
@@ -1734,7 +1869,26 @@ const AdminDashboardContent = ({ onClose }) => {
       showPhotoGuide: true,
       sessionSpecific: true,
       session: mediaSessionFilter
-    }))
+    })),
+    ...teams
+      .filter((team) => {
+        const teamSessions = getTeamSessions(team, seasons.map((season) => season.edition));
+        return teamSessions.some((session) => getMediaSessionId(session) === getMediaSessionId(mediaSessionFilter));
+      })
+      .map((team) => ({
+        key: `franchise-owner:${team.id}`,
+        rowKey: `franchise-owner:${mediaSessionFilter}:${team.id}`,
+        category: 'franchise-owners',
+        sessions: getTeamSessions(team, seasons.map((season) => season.edition)),
+        title: `${team.owner || 'Franchise Owner'} • ${team.name}`,
+        description: `${mediaSessionFilter} • Franchise Owner of ${team.name} • transparent or portrait 9:17 owner photo.`,
+        aspectRatio: 9 / 17,
+        fit: true,
+        showPhotoGuide: true,
+        sessionSpecific: true,
+        session: mediaSessionFilter,
+        fallback: team.ownerPhoto
+      }))
   ];
   const mediaCategories = [
     { value: 'all', label: 'All image slots' },
@@ -1745,6 +1899,7 @@ const AdminDashboardContent = ({ onClose }) => {
     { value: 'match-banners', label: 'Match card banners' },
     { value: 'team-logos', label: 'Team logos' },
     { value: 'player-assets', label: 'Player photos' },
+    { value: 'franchise-owners', label: 'Franchise owner photos' },
     { value: 'news', label: 'News' },
     { value: 'gallery', label: 'Gallery' },
     { value: 'records', label: 'Tournament record photos' },
@@ -1979,6 +2134,22 @@ const AdminDashboardContent = ({ onClose }) => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleRemoveRegistration = async (registration) => {
+    const playerName = registration.fullName || registration.name || 'this player';
+    if (!window.confirm(`Permanently remove ${playerName}'s auction registration? This cannot be undone.`)) return;
+
+    try {
+      await removeAuctionRegistration(registration.id);
+      setRegistrationRemarksDraft((previous) => {
+        const next = { ...previous };
+        delete next[registration.id];
+        return next;
+      });
+    } catch (error) {
+      showToast(error.message || 'Could not remove the player registration.', 'error');
+    }
   };
 
   // Filtered registrations
@@ -2452,9 +2623,11 @@ const AdminDashboardContent = ({ onClose }) => {
                         Registration status
                         <select value={sessionDraft.registrationStatus} onChange={(event) => setSessionDraft((current) => ({ ...current, registrationStatus: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-normal text-white">
                           <option value="OPEN">Open</option>
+                          <option value="SCHEDULED">Scheduled (open between dates)</option>
                           <option value="PAUSED">Paused</option>
                           <option value="CLOSED">Closed</option>
                         </select>
+                        <span className="mt-1 block font-normal text-slate-500">Scheduled registration opens and closes automatically on the dates above.</span>
                       </label>
                       <label className="text-xs font-bold text-slate-400">
                         Auction status
@@ -2706,78 +2879,6 @@ const AdminDashboardContent = ({ onClose }) => {
                     </button>
                   </div>
                 </form>
-                <div className="mb-5 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-                  <h5 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                    All gallery entries ({gallery.length})
-                  </h5>
-                  <p className="mb-3 text-xs text-slate-500">
-                    These are session gallery photos and are managed separately from Memories and Legacy.
-                  </p>
-                  <div className="space-y-2">
-                    {gallery.map((item) => (
-                      <div key={item.id} className="flex flex-col justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950 px-3 py-3 sm:flex-row sm:items-center">
-                        <div className="flex min-w-0 items-center gap-3">
-                          <img
-                            src={pendingMediaFiles[`gallery:${item.id}`]?.previewUrl || siteMedia[getSessionMediaKey(`gallery:${item.id}`, item.season || item.session)] || siteMedia[`gallery:${item.id}`] || item.image}
-                            alt=""
-                            className="h-14 w-[4.375rem] flex-shrink-0 rounded-md border border-slate-800 object-cover"
-                          />
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-white">{item.title}</p>
-                            <p className="mt-1 text-xs text-slate-400">
-                              {item.category} • {item.season || item.session || 'Unassigned'}{item.date ? ` • ${item.date}` : ''}
-                            </p>
-                            {item.caption && <p className="mt-1 line-clamp-2 text-xs text-slate-500">{item.caption}</p>}
-                          </div>
-                        </div>
-                        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-                          <label className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800">
-                            <Upload className="h-4 w-4" />
-                            Choose image
-                            <input
-                              type="file"
-                              accept="image/jpeg,image/png,image/webp,image/gif"
-                              aria-label={`Choose image for ${item.title}`}
-                              className="sr-only"
-                              disabled={Boolean(uploadingMediaKey)}
-                              onChange={(event) => handleDirectMediaSelection(`gallery:${item.id}`, event)}
-                            />
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => handleMediaUpload(`gallery:${item.id}`)}
-                            disabled={!pendingMediaFiles[`gallery:${item.id}`] || Boolean(uploadingMediaKey)}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-700 bg-emerald-950 px-3 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            <Save className="h-4 w-4" />
-                            {uploadingMediaKey === `gallery:${item.id}` ? 'Saving...' : 'Save image'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleEditSessionGalleryItem(item)}
-                            aria-label={`Edit ${item.title}`}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-800 bg-amber-950/50 px-3 py-2 text-xs font-bold text-amber-300 hover:bg-amber-900"
-                          >
-                            <Edit className="h-4 w-4" />
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveSessionGalleryItem(item.id)}
-                            aria-label={`Delete ${item.title}`}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-rose-800 bg-rose-950/60 px-3 py-2 text-xs font-bold text-rose-300 hover:bg-rose-900"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                    {gallery.length === 0 && (
-                      <p className="py-3 text-sm text-slate-500">No gallery entries have been added yet.</p>
-                    )}
-                  </div>
-                </div>
                 <div className="mb-5 flex flex-col gap-3 rounded-xl border border-violet-800/60 bg-violet-950/20 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h5 className="font-sports text-base text-violet-300">MEMORIES AND LEGACY PHOTOS</h5>
@@ -2850,6 +2951,25 @@ const AdminDashboardContent = ({ onClose }) => {
                   >
                     <UserRound className="h-4 w-4" />
                     Manage section photos
+                  </button>
+                </div>
+                <div className="mb-5 flex flex-col gap-3 rounded-xl border border-amber-800/60 bg-amber-950/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h5 className="font-sports text-base text-amber-300">OUR FRANCHISE OWNERS PHOTOS</h5>
+                    <p className="mt-1 text-xs text-slate-300">
+                      Upload transparent portrait cutouts or high-res photos for each franchise owner in {mediaSessionFilter}. Shown in the "Our Franchise Owners" section with the exact Top Performers broadcast styling.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMediaCategory('franchise-owners');
+                      setMediaSearch('');
+                    }}
+                    className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-slate-950 transition hover:bg-amber-400 sm:w-auto"
+                  >
+                    <Crown className="h-4 w-4" />
+                    Manage owner photos
                   </button>
                 </div>
                 <div id="media-image-library" className="mb-4 grid scroll-mt-4 grid-cols-1 gap-3 sm:grid-cols-[minmax(12rem,0.8fr)_minmax(10rem,0.6fr)_minmax(14rem,1fr)]">
@@ -3165,6 +3285,15 @@ const AdminDashboardContent = ({ onClose }) => {
                               >
                                 Reject
                               </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveRegistration(reg)}
+                                aria-label={`Remove ${reg.fullName || reg.name || 'player'} registration`}
+                                className="inline-flex items-center gap-1 rounded border border-rose-700 bg-rose-950/80 px-2 py-1 text-[10px] font-bold text-rose-200 hover:bg-rose-900"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                                Remove
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -3376,7 +3505,10 @@ const AdminDashboardContent = ({ onClose }) => {
                         </div>
                       </div>
                     </section>
-                    <form onSubmit={handleAddTeam} className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <form id="team-admin-form" onSubmit={handleAddTeam} className="grid grid-cols-1 gap-3 rounded-xl border border-slate-800 bg-slate-950/60 p-3 md:grid-cols-2">
+                      <h5 className="font-sports text-base text-white md:col-span-2">
+                        {editingTeamId ? `EDIT TEAM IN ${teamSessionFocus.toUpperCase()}` : `ADD TEAM TO ${teamSessionFocus.toUpperCase()}`}
+                      </h5>
                       <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                         Team Name
                         <input
@@ -3470,15 +3602,17 @@ const AdminDashboardContent = ({ onClose }) => {
                         />
                       </label>
 
-                      <label className="md:col-span-2 flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-slate-200">
-                        <input
-                          type="checkbox"
-                          checked={alsoAddNextSeason}
-                          onChange={(event) => setAlsoAddNextSeason(event.target.checked)}
-                          className="h-4 w-4 accent-amber-500"
-                        />
-                        <span>Add the same team to {nextTeamSession} too</span>
-                      </label>
+                      {!editingTeamId && (
+                        <label className="md:col-span-2 flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-slate-200">
+                          <input
+                            type="checkbox"
+                            checked={alsoAddNextSeason}
+                            onChange={(event) => setAlsoAddNextSeason(event.target.checked)}
+                            className="h-4 w-4 accent-amber-500"
+                          />
+                          <span>Add the same team to {nextTeamSession} too</span>
+                        </label>
+                      )}
 
                       {teamError && (
                         <div className="md:col-span-2 rounded-xl border border-rose-900 bg-rose-950/50 px-3 py-2 text-xs text-rose-300">
@@ -3487,12 +3621,21 @@ const AdminDashboardContent = ({ onClose }) => {
                       )}
 
                       <div className="md:col-span-2 flex justify-stretch sm:justify-end">
+                        {editingTeamId && (
+                          <button
+                            type="button"
+                            onClick={cancelTeamEdit}
+                            className="mr-2 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-800 sm:w-auto"
+                          >
+                            Cancel edit
+                          </button>
+                        )}
                         <button
                           type="submit"
                           className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-amber-400 sm:w-auto"
                         >
-                          <Plus className="h-4 w-4" />
-                          Add Team
+                          {editingTeamId ? <Save className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                          {editingTeamId ? 'Review team changes' : 'Add Team'}
                         </button>
                       </div>
                     </form>
@@ -3524,6 +3667,13 @@ const AdminDashboardContent = ({ onClose }) => {
                                 <p className="text-[10px] text-slate-400">This session only · {teamSessionFocus}</p>
                               </div>
                               <div className="flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartTeamEdit(team)}
+                                  className="rounded-lg border border-sky-800 bg-sky-950/60 px-2 py-1 text-[10px] font-bold uppercase text-sky-200 hover:bg-sky-900"
+                                >
+                                  Edit team
+                                </button>
                                 <label className="flex items-center gap-2 rounded-lg border border-sky-800 bg-sky-950/40 px-2 py-1 text-[10px] font-bold uppercase text-sky-200">
                                   Group
                                   <select
@@ -3567,49 +3717,16 @@ const AdminDashboardContent = ({ onClose }) => {
                               <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-fuchsia-200">
                                 Match banner color combination
                               </p>
-                              <div className="grid grid-cols-2 gap-3">
-                                <label className="text-[10px] font-bold uppercase tracking-wide text-slate-300">
-                                  Primary
-                                  <span className="mt-1 flex h-9 items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-2">
-                                    <input
-                                      type="color"
-                                      aria-label={`${team.name} primary match banner color`}
-                                      value={team.primaryColor || '#1d4ed8'}
-                                      onChange={(event) => {
-                                        const primaryColor = event.target.value;
-                                        setTeams((current) => current.map((entry) => (
-                                          entry.id === team.id ? { ...entry, primaryColor } : entry
-                                        )));
-                                      }}
-                                      className="h-6 w-8 cursor-pointer rounded border-0 bg-transparent p-0"
-                                    />
-                                    <span className="font-mono text-[10px] text-slate-300">{team.primaryColor || '#1d4ed8'}</span>
-                                  </span>
-                                </label>
-                                <label className="text-[10px] font-bold uppercase tracking-wide text-slate-300">
-                                  Secondary
-                                  <span className="mt-1 flex h-9 items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-2">
-                                    <input
-                                      type="color"
-                                      aria-label={`${team.name} secondary match banner color`}
-                                      value={team.secondaryColor || '#0f172a'}
-                                      onChange={(event) => {
-                                        const secondaryColor = event.target.value;
-                                        setTeams((current) => current.map((entry) => (
-                                          entry.id === team.id ? { ...entry, secondaryColor } : entry
-                                        )));
-                                      }}
-                                      className="h-6 w-8 cursor-pointer rounded border-0 bg-transparent p-0"
-                                    />
-                                    <span className="font-mono text-[10px] text-slate-300">{team.secondaryColor || '#0f172a'}</span>
-                                  </span>
-                                </label>
+                              <div className="flex flex-wrap items-center gap-3 text-[10px] font-mono text-slate-300">
+                                <span>Primary: {team.primaryColor || '#1d4ed8'}</span>
+                                <span>Secondary: {team.secondaryColor || '#0f172a'}</span>
                               </div>
                               <div
                                 aria-hidden="true"
                                 className="mt-3 h-5 rounded-md border border-white/15"
                                 style={{ background: `linear-gradient(90deg, ${team.primaryColor || '#1d4ed8'} 0%, ${team.secondaryColor || '#0f172a'} 100%)` }}
                               />
+                              <p className="mt-2 text-[10px] text-slate-400">Use Edit team to change details and banner colors with confirmation.</p>
                             </div>
                             <div className="rounded-lg border border-sky-800/60 bg-sky-950/20 p-3">
                               <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-sky-300">
@@ -3640,6 +3757,22 @@ const AdminDashboardContent = ({ onClose }) => {
                                 uploadLabel: 'Upload match banner',
                                 uploadSession: teamSessionFocus,
                                 previewWide: true
+                              })}
+                            </div>
+                            <div className="rounded-lg border border-purple-800/60 bg-purple-950/20 p-3">
+                              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-purple-300">
+                                Franchise owner portrait photo • 9:17 frame
+                              </p>
+                              {mediaUploadControl({
+                                key: `franchise-owner:${team.id}`,
+                                title: `${team.owner || team.name} owner portrait`,
+                                description: `Franchise owner portrait for ${teamSessionFocus}.`,
+                                aspectRatio: 9 / 17,
+                                fit: true,
+                                showPhotoGuide: true,
+                                sessionSpecific: true,
+                                uploadLabel: 'Upload owner photo',
+                                uploadSession: teamSessionFocus
                               })}
                             </div>
                           </div>
@@ -3785,6 +3918,47 @@ const AdminDashboardContent = ({ onClose }) => {
               </div>
             )}
           </div>
+        )}
+        {pendingTeamVerification && (
+          <TwoStepConfirmDialog
+            title={
+              pendingTeamVerification.type === 'remove'
+                ? `Remove ${pendingTeamVerification.teamName} from ${pendingTeamVerification.season}?`
+                : pendingTeamVerification.type === 'delete-item'
+                  ? `Permanently delete ${pendingTeamVerification.teamName}?`
+                  : pendingTeamVerification.type === 'toggle'
+                    ? `${pendingTeamVerification.active ? 'Activate' : 'Deactivate'} ${pendingTeamVerification.teamName}?`
+                    : `Save ${pendingTeamVerification.teamName} team changes?`
+            }
+            description={
+              pendingTeamVerification.type === 'remove'
+                ? `This removes the team from ${pendingTeamVerification.season} only. Other seasons are unchanged.`
+                : pendingTeamVerification.type === 'delete-item'
+                  ? 'This permanently deletes the team record and its associated team images. It cannot be undone.'
+                  : pendingTeamVerification.type === 'toggle'
+                    ? `This changes whether ${pendingTeamVerification.teamName} can be selected in ${pendingTeamVerification.season}.`
+                    : `This updates the team details for ${pendingTeamVerification.season}. Verify the values in the team editor before continuing.`
+            }
+            confirmationPhrase={pendingTeamVerification.confirmationPhrase}
+            confirmLabel={
+              pendingTeamVerification.type === 'remove'
+                ? 'Remove team'
+                : pendingTeamVerification.type === 'delete-item'
+                  ? 'Delete team'
+                  : pendingTeamVerification.type === 'toggle'
+                    ? pendingTeamVerification.active ? 'Activate team' : 'Deactivate team'
+                    : 'Save team changes'
+            }
+            busy={isCompletingTeamAction}
+            error={teamVerificationError}
+            onConfirm={confirmTeamVerification}
+            onCancel={() => {
+              if (!isCompletingTeamAction) {
+                setPendingTeamVerification(null);
+                setTeamVerificationError('');
+              }
+            }}
+          />
         )}
         {pendingStandingAdjustment && (
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 p-4">

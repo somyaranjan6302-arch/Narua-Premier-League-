@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NplLogo } from './NplLogo';
 import { useNpl } from '../context/NplContext';
-import { Menu, X, Shield, Award, Calendar, Users, Trophy, Image, Play, Flame, Newspaper, ChevronDown, UserPlus } from 'lucide-react';
+import { Menu, X, Shield, Award, Calendar, Users, Trophy, Image, Play, Flame, Newspaper, ChevronDown, UserPlus, Crown } from 'lucide-react';
 
 export const Navbar = ({ activeSection, setActiveSection }) => {
   const { openModal, setIsAdminModalOpen, isAdminLoggedIn, siteMedia } = useNpl();
@@ -22,19 +22,20 @@ export const Navbar = ({ activeSection, setActiveSection }) => {
     { label: "MATCHES", target: "matches", icon: Calendar },
     { label: "POINTS TABLE", target: "standings", icon: Trophy },
     { label: "TEAMS", target: "teams", icon: Users },
+    { label: "OWNERS", target: "owners", icon: Crown },
     { label: "CHAMPIONS", target: "champions", icon: Award },
     { label: "GALLERY", target: "gallery", icon: Image },
     { label: "HIGHLIGHTS", target: "highlights", icon: Play },
     { label: "NEWS", target: "news", icon: Newspaper },
-    { label: "AUCTION", target: "auction", icon: Flame },
+    { label: "TOP PERFORMERS", target: "performers", icon: Award },
   ];
 
   const moreItems = [
+    { label: "Our Franchise Owners", target: "owners" },
     { label: "Tournament Records", target: "records" },
     { label: "About NPL Story", target: "story" },
     { label: "Players", target: "players" },
     { label: "Memories and Legacy", target: "memories" },
-    { label: "Top Performers (Caps)", target: "performers" },
   ];
 
   const handleNavClick = (target) => {

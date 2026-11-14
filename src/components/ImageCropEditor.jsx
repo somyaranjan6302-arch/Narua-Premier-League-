@@ -1,13 +1,18 @@
 import React, { useRef, useState } from 'react';
 import { Check, RotateCcw, X } from 'lucide-react';
 
-export const ImageCropEditor = ({ file, previewUrl, title, aspectRatio = 1, rounded = false, fit = false, onApply, onCancel }) => {
+export const ImageCropEditor = ({ file, previewUrl, title, aspectRatio = 1, rounded = false, fit = false, dragOnly = false, onApply, onCancel }) => {
   const [imageSize, setImageSize] = useState(null);
-  const [zoom, setZoom] = useState(1.15);
+  const [zoom, setZoom] = useState(dragOnly ? 1 : 1.15);
   const [position, setPosition] = useState({ x: 0.5, y: 0.5 });
   const [error, setError] = useState('');
+  const [isApplying, setIsApplying] = useState(false);
   const imageRef = useRef(null);
   const dragStart = useRef(null);
+  const activePointers = useRef(new Map());
+  const pinchStart = useRef(null);
+  const zoomRef = useRef(dragOnly ? 1 : 1.15);
+  const applyingCrop = useRef(false);
 
   const imageAspect = imageSize ? imageSize.width / imageSize.height : 1;
   const previewWidth = imageSize
@@ -27,14 +32,38 @@ export const ImageCropEditor = ({ file, previewUrl, title, aspectRatio = 1, roun
     : 0.2;
   const canMoveHorizontally = Math.abs(previewWidth - 100) > 0.01;
   const canMoveVertically = Math.abs(previewHeight - 100) > 0.01;
+  const clampZoom = (value) => Math.min(3, Math.max(minimumZoom, value));
+
+  const updateZoom = (value) => {
+    const nextZoom = clampZoom(value);
+    zoomRef.current = nextZoom;
+    setZoom(nextZoom);
+  };
 
   const updatePosition = (axis, value) => {
     setPosition((current) => ({ ...current, [axis]: Number(value) / 100 }));
   };
 
+  const startPinch = () => {
+    const [first, second] = [...activePointers.current.entries()].slice(0, 2);
+    if (!first || !second) return;
+    pinchStart.current = {
+      pointerIds: [first[0], second[0]],
+      distance: Math.max(1, Math.hypot(first[1].x - second[1].x, first[1].y - second[1].y)),
+      zoom: zoomRef.current
+    };
+  };
+
   const handlePointerDown = (event) => {
     if (event.button !== 0) return;
     event.currentTarget.setPointerCapture(event.pointerId);
+    activePointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (activePointers.current.size >= 2) {
+      dragStart.current = null;
+      startPinch();
+      return;
+    }
+
     dragStart.current = {
       pointerId: event.pointerId,
       x: event.clientX,
@@ -44,6 +73,19 @@ export const ImageCropEditor = ({ file, previewUrl, title, aspectRatio = 1, roun
   };
 
   const handlePointerMove = (event) => {
+    if (!activePointers.current.has(event.pointerId)) return;
+    activePointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    const pinch = pinchStart.current;
+    if (pinch?.pointerIds.includes(event.pointerId)) {
+      const first = activePointers.current.get(pinch.pointerIds[0]);
+      const second = activePointers.current.get(pinch.pointerIds[1]);
+      if (!first || !second) return;
+      const distance = Math.hypot(first.x - second.x, first.y - second.y);
+      updateZoom(pinch.zoom * distance / pinch.distance);
+      return;
+    }
+
     const start = dragStart.current;
     if (!start || start.pointerId !== event.pointerId) return;
 
@@ -60,13 +102,40 @@ export const ImageCropEditor = ({ file, previewUrl, title, aspectRatio = 1, roun
     });
   };
 
-  const handlePointerUp = () => {
+  const handlePointerUp = (event) => {
+    activePointers.current.delete(event.pointerId);
+    const remaining = [...activePointers.current.entries()];
+    if (remaining.length >= 2) {
+      dragStart.current = null;
+      startPinch();
+      return;
+    }
+
+    pinchStart.current = null;
+    if (remaining.length === 1) {
+      const [pointerId, point] = remaining[0];
+      dragStart.current = {
+        pointerId,
+        x: point.x,
+        y: point.y,
+        position
+      };
+      return;
+    }
+
     dragStart.current = null;
+  };
+
+  const handleWheel = (event) => {
+    event.preventDefault();
+    updateZoom(zoomRef.current * Math.exp(-event.deltaY * 0.002));
   };
 
   const applyCrop = async () => {
     const image = imageRef.current;
-    if (!imageSize || !image?.complete || !image.naturalWidth) return;
+    if (!imageSize || !image?.complete || !image.naturalWidth || applyingCrop.current) return;
+    applyingCrop.current = true;
+    setIsApplying(true);
     setError('');
 
     try {
@@ -91,9 +160,12 @@ export const ImageCropEditor = ({ file, previewUrl, title, aspectRatio = 1, roun
       if (!blob) throw new Error('Could not prepare this crop.');
 
       const baseName = file.name.replace(/\.[^.]+$/, '');
-      onApply(new File([blob], `${baseName}-cropped.png`, { type: 'image/png' }));
+      await onApply(new File([blob], `${baseName}-cropped.png`, { type: 'image/png' }));
     } catch (cropError) {
       setError(cropError.message || 'This image could not be cropped. Try another image.');
+    } finally {
+      applyingCrop.current = false;
+      setIsApplying(false);
     }
   };
 
@@ -103,9 +175,13 @@ export const ImageCropEditor = ({ file, previewUrl, title, aspectRatio = 1, roun
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-sm font-bold text-white">Crop for {title}</p>
-          <p className="text-xs text-slate-400">Preview opens here immediately. Drag or zoom to adjust it.</p>
+          <p className="text-xs text-slate-400">
+            {dragOnly
+              ? 'Drag to position the photo. Pinch with two fingers to zoom.'
+              : 'Drag to position, pinch or scroll to zoom, or use the controls.'}
+          </p>
         </div>
-        <button type="button" onClick={onCancel} className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white" aria-label="Cancel crop">
+        <button type="button" onClick={onCancel} disabled={isApplying} className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white disabled:opacity-50" aria-label="Cancel crop">
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -118,6 +194,7 @@ export const ImageCropEditor = ({ file, previewUrl, title, aspectRatio = 1, roun
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
+          onWheel={handleWheel}
         >
           {previewUrl && (
             <img
@@ -152,55 +229,60 @@ export const ImageCropEditor = ({ file, previewUrl, title, aspectRatio = 1, roun
         </div>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-3">
-        <label className="text-xs text-slate-300">
-          Zoom <span className="float-right font-mono">{Math.round(zoom * 100)}%</span>
-          <input
-            type="range"
-            min={minimumZoom}
-            max="3"
-            step="0.05"
-            value={zoom}
-            onChange={(event) => setZoom(Number(event.target.value))}
-            aria-label={`Adjust zoom for ${title}`}
-            className="mt-1 w-full accent-amber-500"
-          />
-        </label>
-        <label className="text-xs text-slate-300">
-          Horizontal crop <span className="float-right font-mono">{Math.round(position.x * 100)}%</span>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={Math.round(position.x * 100)}
-            onChange={(event) => updatePosition('x', event.target.value)}
-            aria-label={`Adjust horizontal crop for ${title}`}
-            className="mt-1 w-full cursor-ew-resize accent-amber-500"
-          />
-        </label>
-        <label className="text-xs text-slate-300">
-          Vertical crop <span className="float-right font-mono">{Math.round(position.y * 100)}%</span>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={Math.round(position.y * 100)}
-            onChange={(event) => updatePosition('y', event.target.value)}
-            aria-label={`Adjust vertical crop for ${title}`}
-            className="mt-1 w-full cursor-ns-resize accent-amber-500"
-          />
-        </label>
-      </div>
-      <p className="text-[11px] text-slate-500">Zoom out to fit the whole photo inside the frame, or use the horizontal and vertical controls to position it precisely.</p>
+      {!dragOnly && (
+        <>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <label className="text-xs text-slate-300">
+              Zoom <span className="float-right font-mono">{Math.round(zoom * 100)}%</span>
+              <input
+                type="range"
+                min={minimumZoom}
+                max="3"
+                step="0.05"
+                value={zoom}
+                onChange={(event) => updateZoom(Number(event.target.value))}
+                aria-label={`Adjust zoom for ${title}`}
+                className="mt-1 w-full accent-amber-500"
+              />
+            </label>
+            <label className="text-xs text-slate-300">
+              Horizontal crop <span className="float-right font-mono">{Math.round(position.x * 100)}%</span>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={Math.round(position.x * 100)}
+                onChange={(event) => updatePosition('x', event.target.value)}
+                aria-label={`Adjust horizontal crop for ${title}`}
+                className="mt-1 w-full cursor-ew-resize accent-amber-500"
+              />
+            </label>
+            <label className="text-xs text-slate-300">
+              Vertical crop <span className="float-right font-mono">{Math.round(position.y * 100)}%</span>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={Math.round(position.y * 100)}
+                onChange={(event) => updatePosition('y', event.target.value)}
+                aria-label={`Adjust vertical crop for ${title}`}
+                className="mt-1 w-full cursor-ns-resize accent-amber-500"
+              />
+            </label>
+          </div>
+          <p className="text-[11px] text-slate-500">Zoom out to fit the whole photo inside the frame, or use the horizontal and vertical controls to position it precisely.</p>
+        </>
+      )}
 
       {error && <p role="alert" className="text-xs text-rose-400">{error}</p>}
       <div className="flex justify-end gap-2">
         <button
           type="button"
           onClick={() => {
-            setZoom(1.15);
+            updateZoom(dragOnly ? 1 : 1.15);
             setPosition({ x: 0.5, y: 0.5 });
           }}
+          disabled={isApplying}
           className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-800"
         >
           <RotateCcw className="h-3.5 w-3.5" />
@@ -209,11 +291,14 @@ export const ImageCropEditor = ({ file, previewUrl, title, aspectRatio = 1, roun
         <button
           type="button"
           onClick={applyCrop}
-          disabled={!imageSize}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-2 text-xs font-bold text-slate-950 hover:bg-amber-400 disabled:opacity-50"
+          disabled={!imageSize || isApplying}
+          aria-busy={isApplying}
+          className="inline-flex min-h-11 touch-manipulation items-center justify-center gap-1.5 rounded-lg bg-amber-500 px-3 py-2 text-xs font-bold text-slate-950 hover:bg-amber-400 disabled:cursor-wait disabled:opacity-50"
         >
-          <Check className="h-3.5 w-3.5" />
-          Use this crop
+          {isApplying
+            ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-950/30 border-t-slate-950" />
+            : <Check className="h-3.5 w-3.5" />}
+          {isApplying ? 'Saving crop…' : 'Use this crop'}
         </button>
       </div>
       </section>

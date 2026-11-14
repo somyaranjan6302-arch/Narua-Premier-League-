@@ -128,7 +128,7 @@ export const TeamDetailsModal = ({ team, onClose }) => {
             type="button"
             onClick={onClose}
             aria-label="Close team profile"
-            className="absolute right-4 top-3 rounded-xl border border-white/15 bg-black/25 p-2 text-slate-200 transition hover:bg-white/10 hover:text-white"
+            className="absolute right-2 top-1/2 z-40 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-xl border border-white/20 bg-slate-950 text-slate-100 shadow-lg transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 sm:right-4"
           >
             <X className="h-5 w-5" />
           </button>

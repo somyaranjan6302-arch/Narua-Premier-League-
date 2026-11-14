@@ -146,6 +146,41 @@ export const MatchDetailsModal = ({ match: initialMatch, onClose }) => {
   const team1Obj = teams.find(t => t.id === match.team1?.id || t.id === match.teamAId) || match.team1 || { name: match.teamAName, shortName: match.teamAShort };
   const team2Obj = teams.find(t => t.id === match.team2?.id || t.id === match.teamBId) || match.team2 || { name: match.teamBName, shortName: match.teamBShort };
 
+  const getInningsRuns = (innings) => {
+    if (!innings) return 0;
+    for (const value of [innings.totalRuns, innings.total]) {
+      if (value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value))) {
+        return Number(value);
+      }
+    }
+    if (typeof innings.score === 'string') {
+      const [runsPart] = innings.score.split('/');
+      const runs = Number(runsPart);
+      if (Number.isFinite(runs)) return runs;
+    }
+    if (Array.isArray(innings.batting)) {
+      const battingRuns = innings.batting.reduce((total, batter) => total + (Number(batter.runs) || 0), 0);
+      return battingRuns + (Number(innings.extras?.total) || 0);
+    }
+    return Number(innings.runs) || 0;
+  };
+
+  const getInningsWickets = (innings) => {
+    if (!innings) return 0;
+    if (innings.wickets !== null && innings.wickets !== undefined &&
+      innings.wickets !== '' && Number.isFinite(Number(innings.wickets))) {
+      return Number(innings.wickets);
+    }
+    if (typeof innings.score === 'string') {
+      const [, wicketsPart] = innings.score.split('/');
+      const wickets = Number(wicketsPart);
+      if (Number.isFinite(wickets)) return wickets;
+    }
+    return Number(innings.wickets || 0);
+  };
+
+  const formatInningsScore = (innings) => `${getInningsRuns(innings)}/${getInningsWickets(innings)}`;
+
   const scorecardInnings = scorecard?.innings || match.innings || [];
 
   const liveSummary = scorecard?.liveSummary || null;
@@ -169,8 +204,8 @@ export const MatchDetailsModal = ({ match: initialMatch, onClose }) => {
     ? (mobileInnings.teamId === firstTeamId ? team1Obj : team2Obj)
     : (liveInningsIndex === 0 ? team1Obj : team2Obj);
   const mobileScore = liveSummary?.score || (
-    mobileInnings?.totalRuns !== undefined
-      ? `${mobileInnings.totalRuns}/${mobileInnings.wickets}`
+    mobileInnings
+      ? formatInningsScore(mobileInnings)
       : (liveInningsIndex === 0 ? match.team1?.score : match.team2?.score) || '0/0'
   );
   const mobileOvers = liveSummary?.overs || mobileInnings?.overs ||
@@ -517,7 +552,7 @@ export const MatchDetailsModal = ({ match: initialMatch, onClose }) => {
                         : (index === 0 ? team1Obj : team2Obj);
                       return (
                         <p key={`note-${innings.inningsNumber || index}`} className="border-b border-[#303033] py-5 text-[17px] text-[#dedee0]">
-                          {battingTeam.name}: {innings.totalRuns}/{innings.wickets} in {innings.overs || '0.0'} overs
+                          {battingTeam.name}: {formatInningsScore(innings)} in {innings.overs || '0.0'} overs
                         </p>
                       );
                     })}
@@ -560,7 +595,7 @@ export const MatchDetailsModal = ({ match: initialMatch, onClose }) => {
                     {index > 0 && <p className="mb-2 text-[18px] font-normal">{battingTeam.name}</p>}
                     <div className="flex flex-wrap items-baseline gap-x-3">
                       <strong className="text-[40px] font-normal leading-none tracking-tight">
-                        {innings.totalRuns}/{innings.wickets}
+                        {formatInningsScore(innings)}
                       </strong>
                       <span className="text-[19px] text-[#929296]">({innings.overs || '0.0'} Ov)</span>
                     </div>
@@ -632,23 +667,42 @@ export const MatchDetailsModal = ({ match: initialMatch, onClose }) => {
                   <div key={`${match.id}-mobile-innings-${inningsIndex}`} className="overflow-hidden rounded-[24px] border border-[#303033] bg-[#1d1d1f] p-4">
                     <div className="mb-3 flex items-baseline justify-between gap-2 border-b border-[#363639] pb-3">
                       <h2 className="text-lg font-semibold">{innings.teamName || battingTeam?.name}</h2>
-                      <span className="text-lg font-bold text-[#ed1c2b]">{innings.totalRuns}/{innings.wickets}<span className="ml-1 text-xs text-[#a3a3a6]">({innings.overs || '0.0'} Ov)</span></span>
+                      <span className="text-lg font-bold text-[#ed1c2b]">{formatInningsScore(innings)}<span className="ml-1 text-xs text-[#a3a3a6]">({innings.overs || '0.0'} Ov)</span></span>
                     </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full min-w-[520px] text-left text-xs">
+                    <div className="overflow-x-auto overscroll-x-contain">
+                      <table className="w-full min-w-[680px] table-fixed border-separate border-spacing-0 text-left text-xs">
+                        <colgroup>
+                          <col className="w-[160px]" />
+                          <col className="w-[220px]" />
+                          <col className="w-[58px]" />
+                          <col className="w-[58px]" />
+                          <col className="w-[58px]" />
+                          <col className="w-[58px]" />
+                          <col className="w-[72px]" />
+                        </colgroup>
                         <thead className="text-[10px] uppercase text-[#929296]">
                           <tr className="border-b border-[#363639]">
-                            <th className="py-2">Batter</th><th>Dismissal</th><th className="text-right">R</th><th className="text-right">B</th><th className="text-right">4s</th><th className="text-right">6s</th><th className="text-right">SR</th>
+                            <th className="py-3 pr-4">Batter</th>
+                            <th className="py-3 pr-4">Dismissal</th>
+                            <th className="border-l border-[#363639] px-3 py-3 text-right">R</th>
+                            <th className="border-l border-[#363639] px-3 py-3 text-right">B</th>
+                            <th className="border-l border-[#363639] px-3 py-3 text-right">4s</th>
+                            <th className="border-l border-[#363639] px-3 py-3 text-right">6s</th>
+                            <th className="border-l border-[#363639] px-3 py-3 text-right">SR</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#303033]">
-                          {(innings.batting || []).map((batter, index) => (
-                            <tr key={batter.id || batter.name || index}>
-                              <td className="py-3 font-semibold text-[#75c6c1]">{batter.name}{!batter.isOut && '*'}</td>
-                              <td className="text-[#a3a3a6]">{batter.dismissal}</td>
-                              <td className="text-right">{batter.runs}</td><td className="text-right">{batter.balls}</td><td className="text-right">{batter.fours}</td><td className="text-right">{batter.sixes}</td><td className="text-right">{batter.sr || batter.strikeRate}</td>
-                            </tr>
-                          ))}
+                        {(innings.batting || []).map((batter, index) => (
+                          <tr key={batter.id || batter.name || index}>
+                            <td className="py-3 pr-4 font-semibold text-[#75c6c1]">{batter.name}{!batter.isOut && '*'}</td>
+                            <td className="py-3 pr-4 text-[#a3a3a6]">{batter.dismissal || 'Not out'}</td>
+                            <td className="border-l border-[#303033] px-3 py-3 text-right tabular-nums">{batter.runs}</td>
+                            <td className="border-l border-[#303033] px-3 py-3 text-right tabular-nums">{batter.balls}</td>
+                            <td className="border-l border-[#303033] px-3 py-3 text-right tabular-nums">{batter.fours}</td>
+                            <td className="border-l border-[#303033] px-3 py-3 text-right tabular-nums">{batter.sixes}</td>
+                            <td className="border-l border-[#303033] px-3 py-3 text-right tabular-nums">{batter.sr || batter.strikeRate || '0.00'}</td>
+                          </tr>
+                        ))}
                         </tbody>
                       </table>
                     </div>
@@ -709,8 +763,8 @@ export const MatchDetailsModal = ({ match: initialMatch, onClose }) => {
               </span>
               <div className="mt-2 flex flex-wrap items-baseline justify-center gap-x-2 gap-y-1">
                 <span className="font-sports text-xl leading-none text-amber-400 sm:text-4xl">
-                  {scorecard?.innings?.[0]?.totalRuns !== undefined
-                    ? `${scorecard.innings[0].totalRuns}/${scorecard.innings[0].wickets}`
+                  {scorecard?.innings?.[0]
+                    ? formatInningsScore(scorecard.innings[0])
                     : (match.team1?.score || 'Yet to bat')}
                 </span>
                 <span className="text-xs text-slate-400">
@@ -728,8 +782,8 @@ export const MatchDetailsModal = ({ match: initialMatch, onClose }) => {
               </span>
               <div className="mt-2 flex flex-wrap items-baseline justify-center gap-x-2 gap-y-1">
                 <span className="font-sports text-xl leading-none text-white sm:text-4xl">
-                  {scorecard?.innings?.[1]?.totalRuns !== undefined
-                    ? `${scorecard.innings[1].totalRuns}/${scorecard.innings[1].wickets}`
+                  {scorecard?.innings?.[1]
+                    ? formatInningsScore(scorecard.innings[1])
                     : (match.team2?.score || 'Yet to bat')}
                 </span>
                 <span className="text-xs text-slate-400">
@@ -823,7 +877,7 @@ export const MatchDetailsModal = ({ match: initialMatch, onClose }) => {
                           {innings.teamName || battingTeam?.name} Innings
                         </h4>
                         <span className="font-sports text-2xl text-amber-400">
-                          {innings.totalRuns !== undefined ? `${innings.totalRuns}/${innings.wickets}` : (battingTeam?.score || '0/0')}
+                          {formatInningsScore(innings) || (battingTeam?.score || '0/0')}
                           <span className="text-xs text-slate-400 font-sans ml-1">
                             ({innings.overs || battingTeam?.overs || '0.0'} ov)
                           </span>

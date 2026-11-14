@@ -1,3 +1,5 @@
+import { isRegistrationOpen } from '../../src/utils/registrationWindow.js';
+
 const allowedPlayerRoles = new Set(['Batsman', 'Bowler', 'All-Rounder', 'Wicketkeeper']);
 
 export class PlayerRegistrationError extends Error {
@@ -7,11 +9,14 @@ export class PlayerRegistrationError extends Error {
   }
 }
 
-export const isRegistrationOpen = (season, now = new Date()) => {
-  if (season?.registrationStatus !== 'OPEN') return false;
-  const today = now.toISOString().slice(0, 10);
-  return (!season.registrationOpensAt || today >= season.registrationOpensAt) &&
-    (!season.registrationClosesAt || today <= season.registrationClosesAt);
+export { isRegistrationOpen };
+
+export const formatAuctionRegistrationId = (year, seasonNumber, sequence) => {
+  if (!/^\d{4}$/.test(String(year)) || !/^\d{1,2}$/.test(String(seasonNumber)) ||
+    !Number.isSafeInteger(sequence) || sequence < 1) {
+    throw new RangeError('Auction registration ID parts are invalid.');
+  }
+  return `NPL${year}-S${seasonNumber}${String(sequence).padStart(2, '0')}`;
 };
 
 export const createPublicRegistration = (body, season, identity, now = new Date()) => {

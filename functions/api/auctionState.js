@@ -129,6 +129,18 @@ export const auditAuctionTransition = (previousState, nextState, {
     }
   }
 
+  const resetPreviousSoldCount = (previousState.soldPlayers || []).length;
+  const resetPreviousUnsoldCount = (previousState.unsoldPlayers || []).length;
+  if (nextState.status === 'waiting' && !nextState.currentPlayer &&
+    (nextState.soldPlayers || []).length === 0 && (nextState.unsoldPlayers || []).length === 0 &&
+    (previousPlayerId || previousState.status !== 'waiting' || resetPreviousSoldCount || resetPreviousUnsoldCount)) {
+    entries.push(createAuditEntry(actor, 'AUCTION_RESET', {
+      soldPlayersReturned: resetPreviousSoldCount,
+      unsoldPlayersReturned: resetPreviousUnsoldCount,
+      currentPlayerReturned: Boolean(previousPlayerId)
+    }, now));
+  }
+
   return {
     ...nextState,
     auditLog: [...(previousState.auditLog || []), ...entries]
@@ -176,6 +188,37 @@ export const isAuctionPlayerPhotoUrl = (value) => (
   typeof value === 'string' &&
   /^\/api\/media\/auction-player-photo%3A[A-Za-z0-9._-]{1,120}(?:\?v=[A-Za-z0-9_-]{1,32})?$/.test(value)
 );
+
+export const isAuctionPlayerCutoutUrl = (value) => (
+  typeof value === 'string' &&
+  /^\/api\/media\/auction-player-cutout%3A[A-Za-z0-9._-]{1,120}(?:\?v=[A-Za-z0-9_-]{1,32})?$/.test(value)
+);
+
+export const auctionPlayerPhotoForDisplay = (photo, originalPhoto = '') => {
+  for (const candidate of [photo, originalPhoto]) {
+    if (typeof candidate === 'string' && candidate && !isAuctionPlayerCutoutUrl(candidate)) {
+      return candidate;
+    }
+  }
+
+  const cutoutPhoto = [photo, originalPhoto].find(isAuctionPlayerCutoutUrl);
+  if (!cutoutPhoto) return '';
+  return cutoutPhoto
+    .replace('auction-player-cutout%3A', 'auction-player-photo%3A')
+    .replace(/\?v=[A-Za-z0-9_-]{1,32}$/, '');
+};
+
+export const isValidAuctionCutoutImage = (contentType, bytes) => {
+  if (!(bytes instanceof Uint8Array) || bytes.length < 12) return false;
+  if (contentType === 'image/png') {
+    return [137, 80, 78, 71, 13, 10, 26, 10].every((byte, index) => bytes[index] === byte);
+  }
+  if (contentType === 'image/webp') {
+    return String.fromCharCode(...bytes.slice(0, 4)) === 'RIFF' &&
+      String.fromCharCode(...bytes.slice(8, 12)) === 'WEBP';
+  }
+  return false;
+};
 
 export const auctionPhotoByteLength = (base64) => {
   const padding = base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0;

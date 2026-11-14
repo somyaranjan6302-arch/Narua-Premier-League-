@@ -20,6 +20,8 @@ import {
 } from '../data/nplData';
 import confetti from 'canvas-confetti';
 import { sound } from '../utils/audio';
+import { isRegistrationOpen } from '../utils/registrationWindow';
+import { resetAuctionForSeason } from '../utils/auctionReset';
 import {
   auctionDemoLiveState,
   auctionDemoPlayers,
@@ -27,6 +29,7 @@ import {
   auctionDemoTeams
 } from '../data/auctionDemoData';
 import {
+  auctionPlayerPhotoForDisplay,
   hasAuctionProcessedPlayer,
   setAuctionTeamPurseCap
 } from '../../functions/api/auctionState.js';
@@ -634,8 +637,31 @@ export const NplProvider = ({ children }) => {
     const scoreForTeam = (teamId) => {
       const inningsScore = innings.find((entry) => entry.teamId === teamId);
       if (!inningsScore) return null;
+
+      const parseScorePart = (value, index) => {
+        if (value === null || value === undefined || value === '') return 0;
+        if (typeof value === 'string') {
+          const cleaned = value.trim().replace(/[–—]/g, '-');
+          const splitValues = cleaned.split('/');
+          const numericValue = splitValues[index]?.trim();
+          const normalized = numericValue && numericValue.includes('-') ? numericValue.split('-')[0] : numericValue;
+          const parsed = Number(normalized);
+          return Number.isFinite(parsed) ? parsed : 0;
+        }
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : 0;
+      };
+
+      const scoreText = typeof inningsScore.score === 'string' ? inningsScore.score : '';
+      const totalRuns = Number.isFinite(Number(inningsScore.totalRuns))
+        ? Number(inningsScore.totalRuns)
+        : parseScorePart(scoreText, 0) || (inningsScore.batting || []).reduce((sum, batter) => sum + (Number(batter.runs) || 0), 0);
+      const wickets = Number.isFinite(Number(inningsScore.wickets))
+        ? Number(inningsScore.wickets)
+        : parseScorePart(scoreText, 1) || 0;
+
       return {
-        score: `${inningsScore.totalRuns || 0}/${inningsScore.wickets || 0}`,
+        score: `${totalRuns}/${wickets}`,
         overs: inningsScore.overs || '0.0'
       };
     };
@@ -768,10 +794,7 @@ export const NplProvider = ({ children }) => {
   // Auction Registration submission
   const registerPlayerForAuction = async (formData) => {
     const season = seasons.find((item) => item.edition === selectedSeason);
-    const today = new Date().toISOString().slice(0, 10);
-    if (season?.registrationStatus !== 'OPEN' ||
-      (season.registrationOpensAt && today < season.registrationOpensAt) ||
-      (season.registrationClosesAt && today > season.registrationClosesAt)) {
+    if (!isRegistrationOpen(season)) {
       throw new Error('Player registration is closed for this season.');
     }
 
@@ -784,6 +807,7 @@ export const NplProvider = ({ children }) => {
       photo: formData.photo || ''
     };
     let newPlayer = registration;
+    let posterSessionToken = '';
     if (import.meta.env.PROD && !isAuctionDemo) {
       const response = await fetch('/api/auction-registrations', {
         method: 'POST',
@@ -796,8 +820,13 @@ export const NplProvider = ({ children }) => {
         ...registration,
         id: result.id,
         registrationId: result.registrationId,
+        photo: result.photo || '',
+        auctionCutoutPhoto: '',
         status: result.status || 'PENDING'
       };
+      posterSessionToken = typeof result.posterSessionToken === 'string'
+        ? result.posterSessionToken
+        : '';
     } else {
       const randomNum = Math.floor(1000 + Math.random() * 9000);
       newPlayer = {
@@ -815,7 +844,37 @@ export const NplProvider = ({ children }) => {
       origin: { y: 0.6 }
     });
     sound.playCheer();
-    return newPlayer;
+    return { ...newPlayer, posterSessionToken };
+  };
+
+  const generateAuctionCutout = async (id, sessionToken, cutoutBlob) => {
+    if (typeof id !== 'string' || !id || typeof sessionToken !== 'string' || !sessionToken) {
+      throw new Error('A valid registration session is required to generate the poster.');
+    }
+    if (!(cutoutBlob instanceof Blob) || !['image/png', 'image/webp'].includes(cutoutBlob.type)) {
+      throw new Error('Prepare a transparent PNG or WebP cutout before uploading.');
+    }
+
+    const formData = new FormData();
+    formData.append('id', id);
+    formData.append('sessionToken', sessionToken);
+    formData.append('cutout', cutoutBlob, `auction-player-cutout.${cutoutBlob.type === 'image/webp' ? 'webp' : 'png'}`);
+    const response = await fetch('/api/auction-registrations/cutout', {
+      method: 'POST',
+      body: formData
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || 'Could not generate the auction poster. Please retry.');
+    setAuctionRegistrations((previous) => previous.map((registration) => (
+      registration.id === id
+        ? {
+          ...registration,
+          auctionCutoutPhoto: result.auctionCutoutPhoto,
+          auctionCutoutGeneratedAt: result.auctionCutoutGeneratedAt
+        }
+        : registration
+    )));
+    return result;
   };
 
   const checkAuctionRegistrationStatus = async (registrationId, phone) => {
@@ -885,6 +944,23 @@ export const NplProvider = ({ children }) => {
     showToast(Object.hasOwn(extra, 'adminRemarks') ? 'Administrative remarks saved.' : `Player status updated to ${newStatus}`);
   };
 
+  const removeAuctionRegistration = async (id) => {
+    if (isAuctionDemo) throw new Error('Demo auction registrations cannot be removed.');
+    if (!adminUser) throw new Error('Sign in as an administrator to remove a registration.');
+    if (typeof id !== 'string' || !/^[A-Za-z0-9._:-]{1,120}$/.test(id)) {
+      throw new Error('Choose a valid player registration.');
+    }
+
+    const response = await fetch(`/api/admin/registrations/${encodeURIComponent(id)}`, {
+      method: 'DELETE'
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || 'Could not remove the player registration.');
+
+    setAuctionRegistrations((previous) => previous.filter((registration) => registration.id !== id));
+    showToast('Player registration removed.');
+  };
+
   const updateAuctionPlayerBasePrice = (id, basePrice) => {
     if (!Number.isSafeInteger(basePrice) || basePrice <= 0) {
       throw new Error('Player base price must be a whole number greater than zero.');
@@ -922,6 +998,23 @@ export const NplProvider = ({ children }) => {
     return result.state;
   };
 
+  const resetLiveAuction = async (season = selectedSeason) => {
+    if (isAuctionDemo) throw new Error('The Session 6 demo is read-only and cannot reset the real auction.');
+    if (!adminUser) throw new Error('Sign in as an administrator to reset the live auction.');
+
+    const reset = resetAuctionForSeason({
+      state: auctionLiveStates[season] || initialAuctionLiveState,
+      registrations: auctionRegistrations,
+      teams,
+      season
+    });
+    const savedState = await updateAuctionLiveState(season, reset.auctionLiveState);
+    setAuctionRegistrations(reset.registrations);
+    setTeams(reset.teams);
+    showToast(`The ${season} auction was reset. All registration forms and details were kept.`);
+    return savedState;
+  };
+
   const callLiveAuctionPlayer = async (player, season = selectedSeason, { exceptionReason } = {}) => {
     const previousState = auctionLiveStates[season] || initialAuctionLiveState;
     const isReauction = player?.status === 'UNSOLD';
@@ -939,13 +1032,11 @@ export const NplProvider = ({ children }) => {
     }
     const basePrice = Number(String(player.basePrice || '').replace(/[^\d]/g, '')) || 100;
     const publicPlayer = Object.fromEntries(
-      ['id', 'registrationId', 'fullName', 'name', 'role', 'basePrice']
+      ['id', 'registrationId', 'fullName', 'name', 'role', 'basePrice', 'battingStyle', 'bowlingStyle']
         .filter((key) => typeof player[key] === 'string')
         .map((key) => [key, player[key]])
     );
-    publicPlayer.photo = player.photo?.startsWith('/api/media/auction-player-photo%3A')
-      ? player.photo
-      : '';
+    publicPlayer.photo = auctionPlayerPhotoForDisplay(player.photo, player.auctionCutoutPhoto);
     publicPlayer.basePrice = `₹${basePrice.toLocaleString('en-IN')}`;
     const seasonTeams = teams.filter((team) => {
       const sessions = Array.isArray(team.sessions) ? team.sessions
@@ -1149,6 +1240,7 @@ export const NplProvider = ({ children }) => {
       : Array.isArray(winningTeam.seasons) ? winningTeam.seasons
         : winningTeam.session ? [winningTeam.session] : [season];
     if (!teamSessions.includes(season)) throw new Error('The winning franchise is not assigned to this auction season.');
+    const registeredPlayer = auctionRegistrations.find((registration) => registration.id === player.id);
     await updateAuctionLiveState(season, (previous) => {
       if (previous.status !== 'live' || previous.currentPlayer?.id !== player?.id ||
         previous.currentBiddingTeam !== winningTeamId || previous.currentBid !== finalAmount) {
@@ -1172,7 +1264,8 @@ export const NplProvider = ({ children }) => {
           teamId: winningTeam.id,
           team: winningTeam.name,
           teamShort: winningTeam.shortName,
-          teamColor: winningTeam.primaryColor
+          teamColor: winningTeam.primaryColor,
+          photo: auctionPlayerPhotoForDisplay(player.photo, registeredPlayer?.photo)
         }, ...(previous.soldPlayers || [])],
         teamPurses: {
           ...previous.teamPurses,
@@ -1182,6 +1275,7 @@ export const NplProvider = ({ children }) => {
     });
 
     updateRegistrationStatus(player.id, 'AUCTIONED', {
+      auctionPreviousStatus: registeredPlayer?.status === 'SHORTLISTED' ? 'SHORTLISTED' : 'VERIFIED',
       soldTo: winningTeam.name,
       soldToTeamId: winningTeam.id,
       soldPrice: `₹${finalAmount.toLocaleString('en-IN')}`
@@ -1197,7 +1291,7 @@ export const NplProvider = ({ children }) => {
           registrationId: player.registrationId,
           name: player.fullName || player.name,
           role: player.role || 'Player',
-          photo: player.photo || '',
+          photo: registeredPlayer?.photo || '',
           battingStyle: player.battingStyle || '',
           bowlingStyle: player.bowlingStyle || '',
           soldPrice: `₹${finalAmount.toLocaleString('en-IN')}`,
@@ -1216,6 +1310,7 @@ export const NplProvider = ({ children }) => {
 
   const markLivePlayerUnsold = async (player, season = selectedSeason) => {
     if (!player?.id) throw new Error('Call a player to the auction stage first.');
+    const registeredPlayer = auctionRegistrations.find((registration) => registration.id === player.id);
     await updateAuctionLiveState(season, (previous) => {
       if (previous.currentPlayer?.id !== player.id) throw new Error('The current auction player has changed.');
       return {
@@ -1227,7 +1322,8 @@ export const NplProvider = ({ children }) => {
         unsoldPlayers: [{
           playerId: player.id,
           playerName: player.fullName || player.name,
-          role: player.role || 'Player'
+          role: player.role || 'Player',
+          photo: auctionPlayerPhotoForDisplay(player.photo, registeredPlayer?.photo)
         }, ...(previous.unsoldPlayers || []).filter((entry) =>
           (entry.playerId || entry.id) !== player.id
         )]
@@ -1331,11 +1427,14 @@ export const NplProvider = ({ children }) => {
         setNews,
         auctionRegistrations,
         registerPlayerForAuction,
+        generateAuctionCutout,
         checkAuctionRegistrationStatus,
         addDemoAuctionPlayers,
         updateRegistrationStatus,
+        removeAuctionRegistration,
         updateAuctionPlayerBasePrice,
         auctionLiveState,
+        auctionLiveStates,
         auctionSyncStatus,
         callLiveAuctionPlayer,
         setLiveAuctionPurseCap,
@@ -1343,6 +1442,7 @@ export const NplProvider = ({ children }) => {
         setLiveAuctionMinimumBidIncrement,
         setLiveAuctionMaxSquadSize,
         setLiveAuctionStatus,
+        resetLiveAuction,
         placeLiveBid,
         sellLivePlayer,
         markLivePlayerUnsold,

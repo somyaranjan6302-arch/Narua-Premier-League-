@@ -2,6 +2,7 @@ import React from 'react';
 import { ArrowRight, MapPin, Trophy } from 'lucide-react';
 import { useNpl } from '../context/NplContext';
 import { TopPerformers } from './TopPerformers';
+import { FranchiseOwners } from './FranchiseOwners';
 import { getChampionFallbackMedia, getChampionMediaKey, getSiteMedia } from '../utils/siteMedia';
 
 const getEditionKey = (edition) => (
@@ -29,7 +30,13 @@ export const HistoryOfNpl = ({ scrollToSection }) => {
   const championImage = champion
     ? getSiteMedia(siteMedia, getChampionMediaKey(champions, champion), champion.edition, getChampionFallbackMedia(champion))
     : '';
-  const aboutPhoto = siteMedia.stadium || '/assets/stadium.jpg';
+  const hasCustomAboutPhoto = Boolean(siteMedia['section-photo:about-npl']);
+  const aboutPhoto = getSiteMedia(
+    siteMedia,
+    'section-photo:about-npl',
+    undefined,
+    siteMedia.stadium || '/assets/stadium.jpg'
+  );
 
   return (
     <section id="npl-history" className="npl-section-bg overflow-hidden text-white">
@@ -92,18 +99,24 @@ export const HistoryOfNpl = ({ scrollToSection }) => {
 
       <TopPerformers seasonOverride={edition} showSeasonSelector={false} featured scrollToSection={scrollToSection} />
 
+      <FranchiseOwners seasonOverride={edition} showSeasonSelector={false} featured scrollToSection={scrollToSection} />
+
       <section className="grid bg-white text-slate-800 lg:min-h-[480px] lg:grid-cols-[0.95fr_1.05fr]">
-        <div className="relative min-h-72 overflow-hidden bg-slate-900 sm:min-h-96 lg:min-h-full">
+        <div className="relative min-h-72 overflow-hidden bg-slate-950 sm:min-h-96 lg:min-h-full">
           <img
             src={aboutPhoto}
-            alt="Narua Premier League cricket ground"
-            className="absolute inset-0 h-full w-full object-cover"
+            alt={hasCustomAboutPhoto ? 'Narua Premier League Under-19 tournament poster' : 'Narua Premier League cricket ground'}
+            className={`absolute inset-0 h-full w-full ${hasCustomAboutPhoto ? 'object-contain' : 'object-cover'}`}
             loading="lazy"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/50 via-transparent to-transparent" />
-          <span className="absolute bottom-5 left-5 rounded-full bg-slate-950/75 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-white backdrop-blur">
-            Narua Premier League · Est. {tournamentInfo.established || 2024}
-          </span>
+          {!hasCustomAboutPhoto && (
+            <>
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/50 via-transparent to-transparent" />
+              <span className="absolute bottom-5 left-5 rounded-full bg-slate-950/75 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-white backdrop-blur">
+                Narua Premier League · Est. {tournamentInfo.established || 2024}
+              </span>
+            </>
+          )}
         </div>
         <div className="relative flex items-center overflow-hidden px-6 py-12 sm:px-10 lg:px-16 lg:py-16">
           <span aria-hidden="true" className="pointer-events-none absolute -right-6 top-1/2 -translate-y-1/2 font-sports text-[20rem] leading-none text-slate-100">

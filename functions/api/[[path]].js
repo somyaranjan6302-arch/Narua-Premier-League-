@@ -9,15 +9,19 @@ import {
   auctionBidSnapshot,
   auditAuctionTransition,
   AuctionBidError,
+  auctionPlayerPhotoForDisplay,
   commitAuctionBid,
   compactAuctionState,
   isAuctionTeamEligible,
+  isAuctionPlayerCutoutUrl,
   isAuctionPlayerPhotoUrl,
+  isValidAuctionCutoutImage,
   MAX_AUCTION_PHOTO_BYTES,
   publicAuctionState
 } from './auctionState.js';
 import {
   createPublicRegistration,
+  formatAuctionRegistrationId,
   matchesRegistrationIdentity,
   PlayerRegistrationError
 } from './registrationState.js';
@@ -28,7 +32,7 @@ const SESSION_SECONDS = 8 * 60 * 60;
 const PASSWORD_ITERATIONS = 100000;
 const MEDIA_CHUNK_SIZE = 96 * 1024;
 const mediaTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
-const mediaKeyPattern = /^(news|champion|team-logo|team|match-banner|gallery|memory-photo|highlight|performer|featured-performer|player-photo|auction-player-photo|season|section-photo|record):[A-Za-z0-9 ._-]{1,80}$/;
+const mediaKeyPattern = /^(news|champion|team-logo|team|match-banner|gallery|memory-photo|highlight|performer|featured-performer|player-photo|auction-player-photo|auction-player-cutout|season|section-photo|record):[A-Za-z0-9 ._-]{1,80}$/;
 const allowedMediaKeys = new Set(['logo', 'trophy', 'stadium']);
 const AUCTION_PHOTO_PATTERN = /^data:image\/(jpeg|png|webp|gif);base64,([A-Za-z0-9+/]+={0,2})$/;
 
@@ -58,6 +62,39 @@ const all = async (env, query, ...values) => {
   return result.results || [];
 };
 const run = (env, query, ...values) => database(env).prepare(query).bind(...values).run();
+const reserveAuctionRegistrationSequence = async (env, prefix) => {
+  const suffixStart = prefix.length + 1;
+  const existing = await first(
+    env,
+    `SELECT MAX(CAST(substr(json_extract(value, '$.registrationId'), ?) AS INTEGER)) AS maxSequence
+     FROM npl_auction_registrations
+     WHERE substr(json_extract(value, '$.registrationId'), 1, ?) = ?
+       AND substr(json_extract(value, '$.registrationId'), ?) <> ''
+       AND substr(json_extract(value, '$.registrationId'), ?) NOT GLOB '*[^0-9]*'`,
+    suffixStart,
+    prefix.length,
+    prefix,
+    suffixStart,
+    suffixStart
+  );
+  const maxSequence = Number.isSafeInteger(existing?.maxSequence) ? existing.maxSequence : 0;
+  const row = await first(
+    env,
+    `INSERT INTO npl_site_data (data_key, value) VALUES (?, ?)
+     ON CONFLICT(data_key) DO UPDATE SET
+       value = CAST(MAX(CAST(npl_site_data.value AS INTEGER), ?) + 1 AS TEXT),
+       updated_at = CURRENT_TIMESTAMP
+     RETURNING value`,
+    `auction-registration-sequence:${prefix}`,
+    String(Math.max(1, maxSequence + 1)),
+    maxSequence
+  );
+  const sequence = Number(row?.value);
+  if (!Number.isSafeInteger(sequence) || sequence < 1) {
+    throw new Error('The registration sequence could not be reserved.');
+  }
+  return sequence;
+};
 const readSiteValue = async (env, key) => {
   const row = await first(env, 'SELECT value FROM npl_site_data WHERE data_key = ?', key);
   return row ? JSON.parse(row.value) : null;
@@ -90,22 +127,25 @@ const publishAuctionUpdate = async (env, season, update, executionContext) => {
 
 const compactStoredAuction = async (env, season, state, executionContext) => {
   const playerId = state?.currentPlayer?.id;
-  let photo = state?.currentPlayer?.photo || '';
-  if (playerId && !photo) {
-    const registration = await first(
+  let photo = '';
+  if (playerId) {
+    const row = await first(
       env,
       'SELECT value FROM npl_auction_registrations WHERE registration_id = ?',
       playerId
     );
-    photo = registration ? JSON.parse(registration.value).photo || '' : '';
+    const registration = row ? JSON.parse(row.value) : null;
+    const originalPhoto = auctionPlayerPhotoForDisplay(
+      registration?.photo,
+      registration?.auctionCutoutPhoto
+    );
+    photo = isAuctionPlayerPhotoUrl(originalPhoto) ? originalPhoto : '';
   }
-  const photoUrl = playerId && photo.startsWith('data:image/')
-    ? await ensureAuctionPlayerPhoto(env, playerId, photo, true)
-    : playerId && photo.startsWith('/api/auction/player-photo?')
-      ? await ensureAuctionPlayerPhoto(env, playerId, photo, true)
-      : photo;
+  const photoUrl = photo;
   if (photoUrl && photoUrl !== state?.currentPlayer?.photo) {
     state = { ...state, currentPlayer: { ...state.currentPlayer, photo: photoUrl } };
+  } else if (state?.currentPlayer && state.currentPlayer.photo && !photoUrl) {
+    state = { ...state, currentPlayer: { ...state.currentPlayer, photo: '' } };
   }
   const compacted = compactAuctionState(state, photoUrl);
   if (!compacted) return state;
@@ -303,6 +343,26 @@ const listRegistrations = (env) => all(
   return registration;
 })));
 
+const saveAuctionImage = async (env, mediaKey, contentType, bytes) => {
+  const chunkCount = Math.ceil(bytes.length / MEDIA_CHUNK_SIZE);
+  const statements = [
+    database(env).prepare('DELETE FROM npl_media_chunks WHERE media_key = ?').bind(mediaKey),
+    database(env).prepare(
+      `INSERT INTO npl_media (media_key, content_type, chunk_count)
+       VALUES (?, ?, ?)
+       ON CONFLICT(media_key) DO UPDATE SET
+         content_type = excluded.content_type, chunk_count = excluded.chunk_count, updated_at = CURRENT_TIMESTAMP`
+    ).bind(mediaKey, contentType, chunkCount)
+  ];
+  for (let index = 0; index < chunkCount; index += 1) {
+    statements.push(database(env).prepare(
+      'INSERT INTO npl_media_chunks (media_key, chunk_index, content) VALUES (?, ?, ?)'
+    ).bind(mediaKey, index, bytes.slice(index * MEDIA_CHUNK_SIZE, (index + 1) * MEDIA_CHUNK_SIZE)));
+  }
+  await database(env).batch(statements);
+  return `/api/media/${encodeURIComponent(mediaKey)}?v=${toBase64Url(randomBytes(8))}`;
+};
+
 const saveAuctionPlayerPhoto = async (env, playerId, photo, maxBytes = MAX_AUCTION_PHOTO_BYTES) => {
   if (!photo) return '';
   if (typeof playerId !== 'string' || !/^[A-Za-z0-9._:-]{1,120}$/.test(playerId)) {
@@ -317,23 +377,37 @@ const saveAuctionPlayerPhoto = async (env, playerId, photo, maxBytes = MAX_AUCTI
 
   const mediaKey = `auction-player-photo:${playerId}`;
   const bytes = Uint8Array.from(atob(match[2]), (character) => character.charCodeAt(0));
-  const chunkCount = Math.ceil(bytes.length / MEDIA_CHUNK_SIZE);
-  const statements = [
-    database(env).prepare('DELETE FROM npl_media_chunks WHERE media_key = ?').bind(mediaKey),
-    database(env).prepare(
-      `INSERT INTO npl_media (media_key, content_type, chunk_count)
-       VALUES (?, ?, ?)
-       ON CONFLICT(media_key) DO UPDATE SET
-         content_type = excluded.content_type, chunk_count = excluded.chunk_count, updated_at = CURRENT_TIMESTAMP`
-    ).bind(mediaKey, `image/${match[1]}`, chunkCount)
-  ];
-  for (let index = 0; index < chunkCount; index += 1) {
-    statements.push(database(env).prepare(
-      'INSERT INTO npl_media_chunks (media_key, chunk_index, content) VALUES (?, ?, ?)'
-    ).bind(mediaKey, index, bytes.slice(index * MEDIA_CHUNK_SIZE, (index + 1) * MEDIA_CHUNK_SIZE)));
+  return saveAuctionImage(env, mediaKey, `image/${match[1]}`, bytes);
+};
+
+const saveAuctionPlayerCutout = async (env, playerId, contentType, bytes) => {
+  if (typeof playerId !== 'string' || !/^[A-Za-z0-9._:-]{1,120}$/.test(playerId)) {
+    throw new Error('Player registration ID is invalid.');
   }
-  await database(env).batch(statements);
-  return `/api/media/${encodeURIComponent(mediaKey)}?v=${toBase64Url(randomBytes(8))}`;
+  if (!bytes.length || bytes.length > 8 * 1024 * 1024) {
+    throw new Error('The processed player cutout is too large to store.');
+  }
+  if (!isValidAuctionCutoutImage(contentType, bytes)) {
+    throw new Error('Upload a valid transparent PNG or WebP cutout.');
+  }
+  return saveAuctionImage(env, `auction-player-cutout:${playerId}`, contentType, bytes);
+};
+
+const createPosterSessionToken = async () => {
+  const token = toBase64Url(randomBytes(32));
+  const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token)));
+  return { token, hash: toHex(hash) };
+};
+
+const verifyPosterSessionToken = async (token, expectedHash) => {
+  if (typeof token !== 'string' || token.length < 40 || typeof expectedHash !== 'string') return false;
+  const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token)));
+  const actualHash = toHex(hash);
+  let difference = actualHash.length ^ expectedHash.length;
+  for (let index = 0; index < Math.max(actualHash.length, expectedHash.length); index += 1) {
+    difference |= (actualHash.charCodeAt(index) || 0) ^ (expectedHash.charCodeAt(index) || 0);
+  }
+  return difference === 0;
 };
 
 const ensureAuctionPlayerPhoto = async (env, playerId, photo, allowLegacyLarge = false) => {
@@ -401,7 +475,13 @@ const apiRequest = async (request, env, executionContext) => {
   }
 
   if (method === 'GET' && path === '/api/site-media') {
-    return json({ ...staticSiteMedia, ...(await readSiteValue(env, 'site-media') || {}) });
+    const storedMedia = await readSiteValue(env, 'site-media') || {};
+    const storedMediaKeys = new Set((await all(env, 'SELECT media_key FROM npl_media'))
+      .map(({ media_key }) => media_key));
+    const currentMedia = Object.fromEntries(Object.entries(storedMedia).filter(
+      ([mediaKey]) => storedMediaKeys.has(mediaKey) || !(mediaKey in staticSiteMedia)
+    ));
+    return json({ ...staticSiteMedia, ...currentMedia });
   }
 
   if (method === 'GET' && path === '/api/site-data') {
@@ -418,7 +498,17 @@ const apiRequest = async (request, env, executionContext) => {
   if (method === 'GET' && path.startsWith('/api/media/')) {
     const mediaKey = decodeURIComponent(path.slice('/api/media/'.length));
     const media = await first(env, 'SELECT content_type, chunk_count FROM npl_media WHERE media_key = ?', mediaKey);
-    if (!media) return new Response(null, { status: 404 });
+    if (!media) {
+      const staticImage = staticSiteMedia[mediaKey];
+      if (!staticImage) return new Response(null, { status: 404 });
+      return new Response(null, {
+        status: 302,
+        headers: {
+          'Cache-Control': 'no-store',
+          Location: new URL(staticImage, url).toString()
+        }
+      });
+    }
     const bytes = new Uint8Array(media.chunk_count * MEDIA_CHUNK_SIZE);
     let length = 0;
     for (let index = 0; index < media.chunk_count; index += 1) {
@@ -478,12 +568,14 @@ const apiRequest = async (request, env, executionContext) => {
     try {
       registration = createPublicRegistration(body, season, {
         id: `reg-${crypto.randomUUID()}`,
-        registrationId: `NPL${year || new Date().getFullYear()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`
+        registrationId: ''
       });
     } catch (error) {
       if (error instanceof PlayerRegistrationError) return errorResponse(error.message, error.status);
       throw error;
     }
+    const seasonNumber = String(season.edition).match(/\d+/)?.[0];
+    if (!seasonNumber) return errorResponse('The registration season is invalid.', 400);
     let playerPhoto = '';
     try {
       playerPhoto = await saveAuctionPlayerPhoto(env, registration.id, registration.photo || '');
@@ -491,6 +583,19 @@ const apiRequest = async (request, env, executionContext) => {
       return errorResponse(error.message, 400);
     }
     registration.photo = playerPhoto;
+    const yearPrefix = year || String(new Date().getFullYear());
+    try {
+      const sequence = await reserveAuctionRegistrationSequence(
+        env,
+        `NPL${yearPrefix}-S${seasonNumber}`
+      );
+      registration.registrationId = formatAuctionRegistrationId(yearPrefix, seasonNumber, sequence);
+    } catch (error) {
+      console.error('Could not assign an auction registration ID:', error);
+      return errorResponse('Could not assign a registration ID. Please try again.', 500);
+    }
+    const posterSession = await createPosterSessionToken();
+    registration.posterSessionTokenHash = posterSession.hash;
     await run(
       env,
       `INSERT INTO npl_auction_registrations (registration_id, value, created_at)
@@ -499,7 +604,64 @@ const apiRequest = async (request, env, executionContext) => {
       JSON.stringify(registration),
       Date.now()
     );
-    return json({ id: registration.id, registrationId: registration.registrationId, status: registration.status }, 201);
+    return json({
+      id: registration.id,
+      registrationId: registration.registrationId,
+      status: registration.status,
+      photo: registration.photo,
+      posterSessionToken: posterSession.token
+    }, 201);
+  }
+
+  if (method === 'POST' && path === '/api/auction-registrations/cutout') {
+    const body = await request.formData();
+    const idValue = body.get('id');
+    const id = typeof idValue === 'string' ? idValue.trim() : '';
+    if (!/^[A-Za-z0-9._:-]{1,120}$/.test(id)) {
+      return errorResponse('Choose a valid registration session.', 400);
+    }
+    const row = await first(env, 'SELECT value FROM npl_auction_registrations WHERE registration_id = ?', id);
+    const registration = row ? JSON.parse(row.value) : null;
+    if (!registration || !await verifyPosterSessionToken(body.get('sessionToken'), registration.posterSessionTokenHash)) {
+      return errorResponse('This registration session is invalid or has expired.', 401);
+    }
+    if (isAuctionPlayerCutoutUrl(registration.auctionCutoutPhoto)) {
+      return json({
+        auctionCutoutPhoto: registration.auctionCutoutPhoto,
+        auctionCutoutGeneratedAt: registration.auctionCutoutGeneratedAt || null
+      });
+    }
+
+    try {
+      const file = body.get('cutout');
+      if (!file || typeof file.arrayBuffer !== 'function' ||
+        !['image/png', 'image/webp'].includes(file.type)) {
+        return errorResponse('Upload a transparent PNG or WebP cutout.', 400);
+      }
+      if (!file.size || file.size > 8 * 1024 * 1024) {
+        return errorResponse('The processed player cutout must be smaller than 8 MB.', 413);
+      }
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      if (!isValidAuctionCutoutImage(file.type, bytes)) {
+        return errorResponse('Upload a valid transparent PNG or WebP cutout.', 400);
+      }
+      const cutout = {
+        auctionCutoutPhoto: await saveAuctionPlayerCutout(env, registration.id, file.type, bytes),
+        auctionCutoutGeneratedAt: new Date().toISOString()
+      };
+      registration.auctionCutoutPhoto = cutout.auctionCutoutPhoto;
+      registration.auctionCutoutGeneratedAt = cutout.auctionCutoutGeneratedAt;
+      await run(
+        env,
+        'UPDATE npl_auction_registrations SET value = ? WHERE registration_id = ?',
+        JSON.stringify(registration),
+        registration.id
+      );
+      return json(cutout);
+    } catch (error) {
+      console.error('Could not generate auction player cutout:', error);
+      return errorResponse(error.message || 'Could not generate the auction poster. Your registration is saved; please retry.', 502);
+    }
   }
 
   if (method === 'POST' && path === '/api/auction-registrations/status') {
@@ -730,7 +892,10 @@ const apiRequest = async (request, env, executionContext) => {
     try {
       storedRegistrations = await Promise.all(body.registrations.map(async (registration) => ({
         ...registration,
-        photo: await ensureAuctionPlayerPhoto(env, registration.id, registration.photo)
+        photo: await ensureAuctionPlayerPhoto(env, registration.id, registration.photo),
+        auctionCutoutPhoto: isAuctionPlayerCutoutUrl(registration.auctionCutoutPhoto)
+          ? registration.auctionCutoutPhoto
+          : ''
       })));
     } catch (error) {
       return errorResponse(error.message, 400);
@@ -746,6 +911,27 @@ const apiRequest = async (request, env, executionContext) => {
          WHERE json_type(value, '$.id') = 'text'`
       ).bind(registrations, registrations)
     ]);
+    return new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
+  }
+
+  const registrationDeletePrefix = '/api/admin/registrations/';
+  if (method === 'DELETE' && path.startsWith(registrationDeletePrefix)) {
+    const denied = requireAdmin();
+    if (denied) return denied;
+    const registrationId = path.slice(registrationDeletePrefix.length);
+    if (!/^[A-Za-z0-9._:-]{1,120}$/.test(registrationId)) {
+      return errorResponse('Choose a valid player registration.', 400);
+    }
+
+    const results = await database(env).batch([
+      database(env).prepare('DELETE FROM npl_auction_registrations WHERE registration_id = ?')
+        .bind(registrationId),
+      database(env).prepare('DELETE FROM npl_media WHERE media_key = ?')
+        .bind(`auction-player-photo:${registrationId}`),
+      database(env).prepare('DELETE FROM npl_media WHERE media_key = ?')
+        .bind(`auction-player-cutout:${registrationId}`)
+    ]);
+    if (!results[0]?.meta?.changes) return errorResponse('Player registration was not found.', 404);
     return new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
   }
 
@@ -827,17 +1013,11 @@ const apiRequest = async (request, env, executionContext) => {
       return errorResponse('Auction state is invalid.', 400);
     }
     const currentPlayer = state.currentPlayer ? Object.fromEntries(
-      ['id', 'registrationId', 'fullName', 'name', 'role', 'basePrice']
+      ['id', 'registrationId', 'fullName', 'name', 'role', 'basePrice', 'battingStyle', 'bowlingStyle']
         .filter((key) => typeof state.currentPlayer[key] === 'string')
         .map((key) => [key, state.currentPlayer[key].slice(0, 2000)])
     ) : null;
-    if (typeof state.currentPlayer?.photo === 'string' &&
-      state.currentPlayer.photo.length <= 8 * 1024 * 1024 &&
-      (state.currentPlayer.photo.startsWith('/uploads/') ||
-        state.currentPlayer.photo.startsWith('/assets/') ||
-        state.currentPlayer.photo.startsWith('/api/auction/player-photo?') ||
-        isAuctionPlayerPhotoUrl(state.currentPlayer.photo) ||
-        /^https?:\/\/[^/]+\/.{1,2048}$/i.test(state.currentPlayer.photo))) {
+    if (isAuctionPlayerPhotoUrl(state.currentPlayer?.photo)) {
       currentPlayer.photo = state.currentPlayer.photo;
     }
     const safeState = {

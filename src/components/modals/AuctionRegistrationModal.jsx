@@ -1,9 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNpl } from '../../context/NplContext';
 import { ImageCropEditor } from '../ImageCropEditor';
+import { AuctionPlayerPoster } from '../auction/AuctionPlayerPoster';
+import { createAuctionPlayerCutout, prepareManualAuctionCutout } from '../../utils/auctionCutout';
 import { X, Flame, CheckCircle2, User, Award, Camera, QrCode, Printer } from 'lucide-react';
 
 const MAX_AUCTION_PHOTO_BYTES = 250 * 1024;
+const MAX_AUCTION_PHOTO_WIDTH = 640;
+const MAX_AUCTION_PHOTO_HEIGHT = 960;
 const AUCTION_PHOTO_QUALITIES = [0.82, 0.72, 0.62, 0.52, 0.42];
 
 const compressAuctionPhoto = async (file) => {
@@ -13,7 +17,11 @@ const compressAuctionPhoto = async (file) => {
     image.src = previewUrl;
     await image.decode();
 
-    let scale = Math.min(1, 720 / image.naturalWidth, 1080 / image.naturalHeight);
+    let scale = Math.min(
+      1,
+      MAX_AUCTION_PHOTO_WIDTH / image.naturalWidth,
+      MAX_AUCTION_PHOTO_HEIGHT / image.naturalHeight
+    );
     while (true) {
       const canvas = document.createElement('canvas');
       canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
@@ -42,11 +50,20 @@ const compressAuctionPhoto = async (file) => {
 };
 
 export const AuctionRegistrationModal = ({ onClose }) => {
-  const { registerPlayerForAuction, checkAuctionRegistrationStatus, selectedSeason } = useNpl();
+  const {
+    registerPlayerForAuction,
+    generateAuctionCutout,
+    checkAuctionRegistrationStatus,
+    selectedSeason,
+    siteMedia
+  } = useNpl();
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registeredData, setRegisteredData] = useState(null);
   const [submissionError, setSubmissionError] = useState('');
+  const [posterGenerationError, setPosterGenerationError] = useState('');
+  const [isGeneratingPoster, setIsGeneratingPoster] = useState(false);
+  const [posterProgress, setPosterProgress] = useState(null);
   const [statusLookup, setStatusLookup] = useState({ registrationId: '', phone: '' });
   const [lookedUpStatus, setLookedUpStatus] = useState(null);
   const [statusLookupError, setStatusLookupError] = useState('');
@@ -72,6 +89,7 @@ export const AuctionRegistrationModal = ({ onClose }) => {
   const [photoError, setPhotoError] = useState('');
   const [photoCropFile, setPhotoCropFile] = useState(null);
   const photoPreviewUrl = useRef(null);
+  const cutoutGenerationInFlight = useRef(false);
 
   useEffect(() => () => {
     if (photoPreviewUrl.current) URL.revokeObjectURL(photoPreviewUrl.current);
@@ -102,25 +120,21 @@ export const AuctionRegistrationModal = ({ onClose }) => {
   };
 
   const handlePhotoCrop = async (file) => {
-    try {
-      const compressedFile = await compressAuctionPhoto(file);
-      const reader = new FileReader();
-      const photoData = await new Promise((resolve, reject) => {
-        reader.onload = () => typeof reader.result === 'string'
-          ? resolve(reader.result)
-          : reject(new Error('This photo could not be prepared. Try another image.'));
-        reader.onerror = () => reject(new Error('This photo could not be prepared. Try another image.'));
-        reader.readAsDataURL(compressedFile);
-      });
+    const compressedFile = await compressAuctionPhoto(file);
+    const reader = new FileReader();
+    const photoData = await new Promise((resolve, reject) => {
+      reader.onload = () => typeof reader.result === 'string'
+        ? resolve(reader.result)
+        : reject(new Error('This photo could not be prepared. Try another image.'));
+      reader.onerror = () => reject(new Error('This photo could not be prepared. Try another image.'));
+      reader.readAsDataURL(compressedFile);
+    });
 
-      setFormData((current) => ({ ...current, photo: photoData }));
-      if (photoPreviewUrl.current) URL.revokeObjectURL(photoPreviewUrl.current);
-      photoPreviewUrl.current = null;
-      setPhotoCropFile(null);
-      setPhotoError('');
-    } catch (error) {
-      setPhotoError(error.message || 'This photo could not be prepared. Try another image.');
-    }
+    setFormData((current) => ({ ...current, photo: photoData }));
+    if (photoPreviewUrl.current) URL.revokeObjectURL(photoPreviewUrl.current);
+    photoPreviewUrl.current = null;
+    setPhotoCropFile(null);
+    setPhotoError('');
   };
 
   const cancelPhotoCrop = () => {
@@ -138,14 +152,71 @@ export const AuctionRegistrationModal = ({ onClose }) => {
     }
 
     setIsSubmitting(true);
+    let newPlayer;
     try {
-      const newPlayer = await registerPlayerForAuction(formData);
+      newPlayer = await registerPlayerForAuction(formData);
+      newPlayer = { ...newPlayer, cutoutSourcePhoto: formData.photo };
       setRegisteredData(newPlayer);
       setIsSubmitted(true);
     } catch (error) {
       setSubmissionError(error.message || 'Could not submit the registration. Please try again.');
-    } finally {
       setIsSubmitting(false);
+      return;
+    }
+    setIsSubmitting(false);
+    if (newPlayer.posterSessionToken) void handleGeneratePoster(newPlayer);
+  };
+
+  const handleGeneratePoster = async (player) => {
+    if (!player?.posterSessionToken || !player?.id) {
+      setPosterGenerationError('Your registration session could not be verified. Keep your registration card and contact the NPL team.');
+      return;
+    }
+    if (cutoutGenerationInFlight.current) return;
+
+    cutoutGenerationInFlight.current = true;
+    setPosterGenerationError('');
+    setIsGeneratingPoster(true);
+    setPosterProgress({ stage: 'preparing', progress: 0, message: 'Preparing your photo...' });
+    try {
+      const cutout = await createAuctionPlayerCutout(player.cutoutSourcePhoto, setPosterProgress);
+      setPosterProgress({ stage: 'finishing', progress: 1, message: 'Saving your private cutout...' });
+      const generated = await generateAuctionCutout(player.id, player.posterSessionToken, cutout);
+      setRegisteredData((current) => ({
+        ...current,
+        ...generated,
+        cutoutSourcePhoto: ''
+      }));
+    } catch (error) {
+      setPosterGenerationError(error.message || 'The poster could not be generated. Retry without registering again.');
+    } finally {
+      cutoutGenerationInFlight.current = false;
+      setIsGeneratingPoster(false);
+    }
+  };
+
+  const handleUploadManualCutout = async (player, file) => {
+    if (!player?.posterSessionToken || !player?.id) {
+      setPosterGenerationError('Your registration session could not be verified. Keep your registration card and contact the NPL team.');
+      return;
+    }
+
+    setPosterGenerationError('');
+    setIsGeneratingPoster(true);
+    setPosterProgress({ stage: 'preparing', progress: 0, message: 'Preparing your transparent image...' });
+    try {
+      const cutout = await prepareManualAuctionCutout(file);
+      setPosterProgress({ stage: 'finishing', progress: 1, message: 'Saving your private cutout...' });
+      const generated = await generateAuctionCutout(player.id, player.posterSessionToken, cutout);
+      setRegisteredData((current) => ({
+        ...current,
+        ...generated,
+        cutoutSourcePhoto: ''
+      }));
+    } catch (error) {
+      setPosterGenerationError(error.message || 'The cutout could not be uploaded. Retry without registering again.');
+    } finally {
+      setIsGeneratingPoster(false);
     }
   };
 
@@ -183,7 +254,9 @@ export const AuctionRegistrationModal = ({ onClose }) => {
 
           <button
             onClick={onClose}
-            className="p-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            disabled={isGeneratingPoster}
+            aria-label={isGeneratingPoster ? 'Wait for the auction badge to finish generating' : 'Close registration'}
+            className="p-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors disabled:cursor-wait disabled:opacity-50"
           >
             <X className="w-5 h-5" />
           </button>
@@ -331,6 +404,7 @@ export const AuctionRegistrationModal = ({ onClose }) => {
                         previewUrl={photoCropFile.previewUrl}
                         title="player profile"
                         aspectRatio={2 / 3}
+                        dragOnly
                         onApply={handlePhotoCrop}
                         onCancel={cancelPhotoCrop}
                       />
@@ -425,7 +499,7 @@ export const AuctionRegistrationModal = ({ onClose }) => {
                     className="w-4 h-4 mt-0.5 rounded border-slate-700 text-amber-500 focus:ring-amber-400"
                   />
                   <span className="text-xs text-slate-300 leading-relaxed">
-                    "I confirm that the information provided is accurate and agree to adhere to all Narua Premier League rules and technical committee trial guidelines."
+                    "I confirm that the information provided is accurate and agree to NPL rules and trial guidelines. I consent to NPL securely storing my original photo and the auction cutout. Background removal runs on my device, and the original photo is kept separate from the processed cutout."
                   </span>
                 </label>
               </div>
@@ -511,6 +585,18 @@ export const AuctionRegistrationModal = ({ onClose }) => {
                 </div>
               </div>
 
+              {registeredData?.posterSessionToken && (
+                <AuctionPlayerPoster
+                  player={registeredData}
+                  logoUrl={siteMedia?.logo}
+                  isRetrying={isGeneratingPoster}
+                  generationError={posterGenerationError}
+                  generationProgress={posterProgress}
+                  onRetry={() => handleGeneratePoster(registeredData)}
+                  onManualUpload={(file) => handleUploadManualCutout(registeredData, file)}
+                />
+              )}
+
               {/* Action buttons */}
               <div className="flex items-center justify-center gap-4 pt-2">
                 <button
@@ -522,9 +608,10 @@ export const AuctionRegistrationModal = ({ onClose }) => {
                 </button>
                 <button
                   onClick={onClose}
-                  className="px-6 py-2.5 rounded-xl bg-amber-500 text-slate-950 text-xs font-sports tracking-wider text-base hover:bg-amber-400"
+                  disabled={isGeneratingPoster}
+                  className="px-6 py-2.5 rounded-xl bg-amber-500 text-slate-950 text-xs font-sports tracking-wider text-base hover:bg-amber-400 disabled:cursor-wait disabled:opacity-50"
                 >
-                  DONE & RETURN TO SITE
+                  {isGeneratingPoster ? 'PREPARING BADGE…' : 'DONE & RETURN TO SITE'}
                 </button>
               </div>
             </div>

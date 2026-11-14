@@ -8,6 +8,7 @@ import { MatchCenter } from './components/MatchCenter';
 import { PointsTable } from './components/PointsTable';
 import { TeamsSection } from './components/TeamsSection';
 import { TopPerformers } from './components/TopPerformers';
+import { FranchiseOwners } from './components/FranchiseOwners';
 import { PlayerSection } from './components/PlayerSection';
 import { NplRecords } from './components/NplRecords';
 import { GallerySection } from './components/GallerySection';
@@ -34,18 +35,15 @@ const AdminDashboardModal = lazy(() => import('./components/modals/AdminDashboar
   .then((module) => ({ default: module.AdminDashboardModal })));
 
 export const App = () => {
-  const [activeSection, setActiveSection] = useState(() => (
-    import.meta.env.DEV &&
-    new URLSearchParams(window.location.search).get('demoAuction') === '1'
-      ? 'teams'
-      : import.meta.env.DEV &&
-        new URLSearchParams(window.location.search).get('demoStandings') === '1'
-      ? 'standings'
-      : import.meta.env.DEV &&
-        new URLSearchParams(window.location.search).get('demoMatches') === '1'
-        ? 'matches'
-        : 'home'
-  ));
+  const [activeSection, setActiveSection] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedSection = params.get('section');
+    if (requestedSection) return requestedSection;
+    if (import.meta.env.DEV && params.get('demoAuction') === '1') return 'teams';
+    if (import.meta.env.DEV && params.get('demoStandings') === '1') return 'standings';
+    if (import.meta.env.DEV && params.get('demoMatches') === '1') return 'matches';
+    return 'home';
+  });
   const {
     activeModal,
     closeModal,
@@ -132,6 +130,7 @@ export const App = () => {
         {activeSection === 'teams' && <TeamsSection />}
         {activeSection === 'players' && <PlayerSection />}
         {activeSection === 'performers' && <TopPerformers />}
+        {activeSection === 'owners' && <FranchiseOwners scrollToSection={scrollToSection} />}
         {activeSection === 'records' && <NplRecords />}
         {activeSection === 'gallery' && <GallerySection />}
         {activeSection === 'highlights' && <VideoHighlights />}

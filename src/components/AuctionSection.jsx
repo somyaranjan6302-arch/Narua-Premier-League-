@@ -1,35 +1,42 @@
 import React from 'react';
 import { useNpl } from '../context/NplContext';
-import { SessionSelector } from './SessionSelector';
+import { initialAuctionLiveState } from '../data/nplData';
 import { Flame, Calendar, Clock, MapPin, AlertCircle, Sparkles, Gavel, ShieldCheck } from 'lucide-react';
+import { getRegistrationWindowStatus } from '../utils/registrationWindow';
 
 export const AuctionSection = () => {
   const {
     tournamentInfo,
     auctionRegistrations,
-    auctionLiveState,
-    openModal,
+    auctionLiveStates,
     seasons,
     selectedSeason,
-    setSelectedSeason,
     isAuctionDemo
   } = useNpl();
 
-  const sessionRegistrations = auctionRegistrations.filter((registration) => registration.season === selectedSeason);
+  const auctionSeason = seasons[0]?.edition || selectedSeason;
+  const auctionLiveState = auctionLiveStates[auctionSeason] || initialAuctionLiveState;
+  const sessionRegistrations = auctionRegistrations.filter((registration) => registration.season === auctionSeason);
   const totalRegistered = sessionRegistrations.length;
   const verifiedCount = sessionRegistrations.filter(r => r.status === 'VERIFIED' || r.status === 'SHORTLISTED' || r.status === 'AUCTIONED').length;
-    const selectedSeasonData = seasons.find((season) => season.edition === selectedSeason);
-    const today = new Date().toISOString().slice(0, 10);
-    const isRegistrationOpen = selectedSeasonData?.registrationStatus === 'OPEN' &&
-      (!selectedSeasonData.registrationOpensAt || today >= selectedSeasonData.registrationOpensAt) &&
-      (!selectedSeasonData.registrationClosesAt || today <= selectedSeasonData.registrationClosesAt);
+    const selectedSeasonData = seasons.find((season) => season.edition === auctionSeason);
+    const registrationWindowStatus = getRegistrationWindowStatus(selectedSeasonData);
+    const isRegistrationOpen = registrationWindowStatus === 'OPEN';
     const registrationStatusLabel = isRegistrationOpen
       ? 'REGISTRATION OPEN'
-      : selectedSeasonData?.registrationStatus === 'PAUSED'
+      : registrationWindowStatus === 'PAUSED'
         ? 'REGISTRATION PAUSED'
-        : 'REGISTRATION CLOSED';
+        : registrationWindowStatus === 'SCHEDULED'
+          ? 'REGISTRATION SCHEDULED'
+          : 'REGISTRATION CLOSED';
   const isAuctionLive = auctionLiveState.status === 'live';
-  const isAuctionActive = isAuctionLive || auctionLiveState.status === 'paused';
+  const auctionStatusLabel = isAuctionLive
+    ? 'AUCTION LIVE'
+    : auctionLiveState.status === 'paused'
+      ? 'AUCTION PAUSED'
+      : auctionLiveState.status === 'completed'
+        ? 'AUCTION COMPLETE'
+        : registrationStatusLabel;
 
   return (
     <section id="auction" className="npl-section-bg relative overflow-hidden border-b border-t border-amber-500/30 py-24">
@@ -48,7 +55,7 @@ export const AuctionSection = () => {
             <div className="lg:col-span-7 space-y-6">
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/50 text-amber-300 text-xs font-sports tracking-widest uppercase">
                 <Flame className="w-4 h-4 text-amber-400 fill-current animate-bounce" />
-                <span>NPL MEGA AUCTION • {selectedSeason.toUpperCase()}</span>
+                <span>NPL MEGA AUCTION • {auctionSeason.toUpperCase()}</span>
               </div>
 
               <h2 className="font-sports text-4xl sm:text-6xl lg:text-7xl text-white tracking-wide uppercase leading-none">
@@ -56,7 +63,7 @@ export const AuctionSection = () => {
               </h2>
 
               <p className="text-base sm:text-lg text-slate-200 font-normal leading-relaxed max-w-xl">
-                "Register yourself for the upcoming NPL Auction. Showcase your skills in front of franchise owners, scouts, and thousands of fans across Bengal."
+                Follow the upcoming NPL Auction and see the players competing for a place in the next season.
               </p>
 
               {/* Auction Specs Grid */}
@@ -96,26 +103,13 @@ export const AuctionSection = () => {
 
               {/* Action Buttons */}
               <div className="pt-4 flex flex-wrap items-end gap-4">
-                <SessionSelector seasons={seasons} selectedSeason={selectedSeason} setSelectedSeason={setSelectedSeason} />
-                {/* Register Button */}
-                <button
-                  type="button"
-                  disabled={!isRegistrationOpen}
-                  onClick={() => openModal('auction-register')}
-                  className="px-8 py-4 rounded-2xl font-sports text-xl tracking-wider uppercase bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 text-slate-950 font-black shadow-[0_0_25px_rgba(245,158,11,0.6)] hover:shadow-[0_0_35px_rgba(245,158,11,0.9)] hover:scale-105 active:scale-95 transition-all flex items-center gap-2.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none disabled:hover:scale-100"
-                >
-                  <Flame className="w-5 h-5 text-slate-950 fill-current animate-pulse" />
-                  <span>{isRegistrationOpen ? 'REGISTER FOR AUCTION' : 'REGISTRATION CLOSED'}</span>
-                </button>
-
-                {/* Public auction broadcast */}
                 <a
-                  href={`/auction-live?season=${encodeURIComponent(selectedSeason)}${isAuctionDemo ? '&demoAuction=1' : ''}`}
+                  href={`/auction-live?season=${encodeURIComponent(auctionSeason)}${isAuctionDemo ? '&demoAuction=1' : ''}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="px-6 py-4 rounded-2xl font-sports text-xl tracking-wider uppercase bg-slate-900/90 text-white border-2 border-amber-500/60 hover:bg-slate-800 hover:border-amber-400 transition-all flex items-center gap-2.5 shadow-lg group"
+                  className="px-8 py-4 rounded-2xl font-sports text-xl tracking-wider uppercase bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 text-slate-950 border-2 border-amber-300/70 hover:brightness-110 transition-all flex items-center gap-2.5 shadow-lg group"
                 >
-                  <Gavel className="w-5 h-5 text-amber-400 group-hover:rotate-12 transition-transform" />
+                  <Gavel className="w-5 h-5 text-slate-950 group-hover:rotate-12 transition-transform" />
                   <span>WATCH LIVE AUCTION</span>
                 </a>
               </div>
@@ -140,51 +134,8 @@ export const AuctionSection = () => {
                           ? 'border-slate-600 bg-slate-700/40 text-slate-300'
                           : 'border-slate-600 bg-slate-700/40 text-slate-300'
                   }`}>
-                    {isAuctionLive ? 'AUCTION LIVE' : auctionLiveState.status === 'paused' ? 'AUCTION PAUSED' : auctionLiveState.status === 'completed' ? 'AUCTION COMPLETE' : 'REGISTRATION OPEN'}
+                    {auctionStatusLabel}
                   </span>
-                </div>
-
-                <div
-                  onClick={() => openModal('live-auction-arena')}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') openModal('live-auction-arena'); }}
-                  className={`rounded-2xl border p-4 cursor-pointer hover:border-amber-400/80 hover:bg-slate-900/90 transition-all ${
-                  isAuctionActive ? 'border-rose-500/40 bg-rose-950/20' : 'border-slate-800 bg-slate-950/70'
-                }`}>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <span className={`h-2.5 w-2.5 rounded-full ${isAuctionLive ? 'animate-pulse bg-rose-400' : isAuctionActive ? 'bg-amber-400' : 'bg-slate-500'}`} />
-                      <span className="text-xs font-black uppercase tracking-wider text-white">
-                        {isAuctionLive ? 'Live auction broadcast' : isAuctionActive ? 'Auction paused' : 'Live auction centre'}
-                      </span>
-                    </div>
-                    <span className="text-[10px] font-bold uppercase text-amber-300 bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 rounded-full">
-                      Open Arena ↗
-                    </span>
-                  </div>
-                  {isAuctionActive && auctionLiveState.currentPlayer ? (
-                    <div className="mt-3 flex items-end justify-between gap-3">
-                      <div className="min-w-0">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Now on the block</span>
-                        <p className="truncate font-heading text-base font-extrabold text-white">
-                          {auctionLiveState.currentPlayer.fullName || auctionLiveState.currentPlayer.name}
-                        </p>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Highest bid</span>
-                        <p className="font-sports text-2xl text-amber-300">
-                          ₹{(auctionLiveState.currentBid || 0).toLocaleString('en-IN')}
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="mt-2 text-xs leading-relaxed text-slate-400">
-                      {auctionLiveState.status === 'completed'
-                        ? "This session's auction is complete. View the final sale ledger."
-                        : 'Follow player calls, franchise bids, purse updates, and the sale ledger here.'}
-                    </p>
-                  )}
                 </div>
 
                 {/* Metrics */}

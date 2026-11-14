@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   createPublicRegistration,
+  formatAuctionRegistrationId,
   isRegistrationOpen,
   matchesRegistrationIdentity,
   PlayerRegistrationError
@@ -25,12 +26,27 @@ const body = {
 };
 const identity = { id: 'reg-authoritative', registrationId: 'NPL2027-ABC12345' };
 
+test('formats sequential season registration IDs with a two-digit starting number', () => {
+  assert.equal(formatAuctionRegistrationId('2026', '6', 1), 'NPL2026-S601');
+  assert.equal(formatAuctionRegistrationId('2026', '6', 2), 'NPL2026-S602');
+  assert.equal(formatAuctionRegistrationId('2026', '6', 6), 'NPL2026-S606');
+});
+
 test('registration windows honor configured status and inclusive date bounds', () => {
   assert.equal(isRegistrationOpen(season, new Date('2026-11-01T00:00:00.000Z')), true);
   assert.equal(isRegistrationOpen(season, new Date('2026-11-30T00:00:00.000Z')), true);
   assert.equal(isRegistrationOpen(season, new Date('2026-10-31T23:59:59.000Z')), false);
   assert.equal(isRegistrationOpen(season, new Date('2026-12-01T00:00:00.000Z')), false);
   assert.equal(isRegistrationOpen({ ...season, registrationStatus: 'PAUSED' }), false);
+});
+
+test('scheduled registration automatically opens only inside its configured window', () => {
+  const scheduledSeason = { ...season, registrationStatus: 'SCHEDULED' };
+  assert.equal(isRegistrationOpen(scheduledSeason, new Date('2026-10-31T23:59:59.000Z')), false);
+  assert.equal(isRegistrationOpen(scheduledSeason, new Date('2026-11-01T00:00:00.000Z')), true);
+  assert.equal(isRegistrationOpen(scheduledSeason, new Date('2026-11-30T00:00:00.000Z')), true);
+  assert.equal(isRegistrationOpen(scheduledSeason, new Date('2026-12-01T00:00:00.000Z')), false);
+  assert.equal(isRegistrationOpen({ ...scheduledSeason, registrationClosesAt: '' }), false);
 });
 
 test('registration records use server identity, pending status, and allowlisted fields', () => {

@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNpl } from '../../context/NplContext';
+import { TwoStepConfirmDialog } from '../TwoStepConfirmDialog';
 import { DEFAULT_AUCTION_PURSE_CAP } from '../../data/nplData';
 import { TeamBadge } from '../TeamBadge';
 import { PlayerPortrait } from '../PlayerPortrait';
 import { NplLogo } from '../NplLogo';
 import { sound } from '../../utils/audio';
+import { auctionPlayerPhotoForDisplay } from '../../../functions/api/auctionState.js';
 import confetti from 'canvas-confetti';
 import {
   Activity,
@@ -25,6 +27,7 @@ import {
   Trophy,
   Users,
   Wallet,
+  RotateCcw,
   X
 } from 'lucide-react';
 
@@ -46,6 +49,7 @@ export const LiveAuctionArenaModal = ({ onClose, isAdminControl = false, standal
     setLiveAuctionMinimumBidIncrement,
     setLiveAuctionMaxSquadSize,
     setLiveAuctionStatus,
+    resetLiveAuction,
     placeLiveBid,
     sellLivePlayer,
     markLivePlayerUnsold
@@ -57,7 +61,15 @@ export const LiveAuctionArenaModal = ({ onClose, isAdminControl = false, standal
     player.season === selectedSeason && ['VERIFIED', 'SHORTLISTED'].includes(player.status)
   );
 
-  const currentPlayer = auctionLiveState.currentPlayer;
+  const currentPlayer = useMemo(() => {
+    const player = auctionLiveState.currentPlayer;
+    if (!player) return null;
+    const registration = auctionRegistrations.find((item) => item.id === player.id);
+    return {
+      ...player,
+      photo: auctionPlayerPhotoForDisplay(player.photo, registration?.photo)
+    };
+  }, [auctionLiveState.currentPlayer, auctionRegistrations]);
   const currentBid = auctionLiveState.currentBid || 0;
   const currentBiddingTeamId = auctionLiveState.currentBiddingTeam;
   const currentBiddingTeam = teams.find((t) => t.id === currentBiddingTeamId);
@@ -98,6 +110,7 @@ export const LiveAuctionArenaModal = ({ onClose, isAdminControl = false, standal
   const [showUnsoldDrawer, setShowUnsoldDrawer] = useState(false);
   const [isPhotoExpanded, setIsPhotoExpanded] = useState(false);
   const [failedPlayerPhoto, setFailedPlayerPhoto] = useState('');
+  const [isResetConfirmationOpen, setIsResetConfirmationOpen] = useState(false);
 
   // Filters for Sold History
   const [soldTeamFilter, setSoldTeamFilter] = useState('ALL');
@@ -158,6 +171,7 @@ export const LiveAuctionArenaModal = ({ onClose, isAdminControl = false, standal
       const teamName = matchedTeam?.name || sp.team || sp.teamName || 'Acquired';
       const key = `${name}-${teamName}`;
       if (!seen.has(key)) {
+        const registration = auctionRegistrations.find((item) => item.id === sp.playerId);
         seen.add(key);
         list.push({
           id: sp.playerId || `sold-${idx}`,
@@ -169,7 +183,7 @@ export const LiveAuctionArenaModal = ({ onClose, isAdminControl = false, standal
           teamShort: matchedTeam?.shortName || sp.teamShort || '',
           teamColor: matchedTeam?.primaryColor || sp.teamColor || '#2563eb',
           teamId: matchedTeam?.id || sp.teamId || '',
-          photo: sp.photo || '',
+          photo: auctionPlayerPhotoForDisplay(sp.photo, registration?.photo),
           battingStyle: sp.battingStyle || '',
           bowlingStyle: sp.bowlingStyle || '',
           lotNumber: sp.lotNumber || '',
@@ -183,6 +197,7 @@ export const LiveAuctionArenaModal = ({ onClose, isAdminControl = false, standal
       (t.squad || []).forEach((m, mIdx) => {
         const key = `${m.name}-${t.name}`;
         if (!seen.has(key)) {
+          const registration = auctionRegistrations.find((item) => item.id === m.id);
           seen.add(key);
           list.push({
             id: m.id || `squad-${mIdx}`,
@@ -194,7 +209,7 @@ export const LiveAuctionArenaModal = ({ onClose, isAdminControl = false, standal
             teamShort: t.shortName,
             teamColor: t.primaryColor || '#2563eb',
             teamId: t.id,
-            photo: m.photo || '',
+            photo: auctionPlayerPhotoForDisplay(m.photo, registration?.photo),
             battingStyle: m.battingStyle || m.style || '',
             bowlingStyle: m.bowlingStyle || '',
             lotNumber: m.lotNumber || '',
@@ -224,7 +239,7 @@ export const LiveAuctionArenaModal = ({ onClose, isAdminControl = false, standal
             teamShort: matchedTeam?.shortName || '',
             teamColor: matchedTeam?.primaryColor || '#2563eb',
             teamId: matchedTeam?.id || r.soldToTeamId || '',
-            photo: r.photo || '',
+            photo: auctionPlayerPhotoForDisplay(r.photo, r.auctionCutoutPhoto),
             battingStyle: r.battingStyle || '',
             bowlingStyle: r.bowlingStyle || '',
             lotNumber: String(r.registrationId || '').match(/(\d+)\s*$/)?.[1] || '',
@@ -366,8 +381,10 @@ export const LiveAuctionArenaModal = ({ onClose, isAdminControl = false, standal
     setIsSaving(true);
     try {
       await action();
+      return true;
     } catch (error) {
       setAuctionError(error.message || 'The auction update could not be saved.');
+      return false;
     } finally {
       setIsSaving(false);
     }
@@ -453,6 +470,17 @@ export const LiveAuctionArenaModal = ({ onClose, isAdminControl = false, standal
 
   const handleUnsold = () => {
     if (currentPlayer) performAction(() => markLivePlayerUnsold(currentPlayer, selectedSeason));
+  };
+
+  const handleResetAuction = () => {
+    setAuctionError('');
+    setIsResetConfirmationOpen(true);
+  };
+
+  const confirmAuctionReset = async () => {
+    const resetSucceeded = await performAction(() => resetLiveAuction(selectedSeason));
+    if (resetSucceeded) setIsResetConfirmationOpen(false);
+    return resetSucceeded;
   };
 
   // Filtered sold players for the dedicated tab
@@ -701,6 +729,15 @@ export const LiveAuctionArenaModal = ({ onClose, isAdminControl = false, standal
                     >
                       Call to Stage
                     </button>
+                    <button
+                      type="button"
+                      disabled={isSaving}
+                      onClick={handleResetAuction}
+                      className="min-h-10 shrink-0 inline-flex items-center justify-center gap-2 rounded-full border border-rose-500/50 bg-rose-950/60 px-4 py-2 text-xs font-black uppercase text-rose-200 hover:bg-rose-900/80 disabled:opacity-40"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      Clear auction &amp; restart
+                    </button>
                   </div>
                 )}
 
@@ -731,7 +768,7 @@ export const LiveAuctionArenaModal = ({ onClose, isAdminControl = false, standal
                             src={currentPlayer.photo}
                             alt={currentPlayer.fullName || currentPlayer.name}
                             onError={() => setFailedPlayerPhoto(currentPlayer.photo)}
-                            className="absolute inset-0 h-full w-full object-cover object-top transition-transform duration-500 hover:scale-105"
+                            className="absolute inset-0 h-full w-full object-contain object-bottom transition-transform duration-500 hover:scale-105"
                           />
                         ) : (
                           <PlayerPortrait
@@ -1396,9 +1433,12 @@ export const LiveAuctionArenaModal = ({ onClose, isAdminControl = false, standal
                       <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-white/10">
                         {auctionLiveState.unsoldPlayers.map((u, i) => (
                           <div key={i} className="flex items-center justify-between rounded-xl bg-white/5 p-2 text-xs">
-                            <div>
+                            <div className="flex min-w-0 items-center gap-2">
+                              {u.photo && <img src={u.photo} alt="" className="h-10 w-9 shrink-0 object-contain" />}
+                              <div className="min-w-0">
                               <span className="text-white font-bold">{u.playerName || u.name}</span>
                               <span className="ml-2 text-slate-400">{u.role} • Base {u.basePrice}</span>
+                              </div>
                             </div>
                             {canControlAuction && (
                               <button
@@ -1640,6 +1680,18 @@ export const LiveAuctionArenaModal = ({ onClose, isAdminControl = false, standal
           </div>
         </div>
       </div>
+      {isResetConfirmationOpen && (
+        <TwoStepConfirmDialog
+          title={`Clear ${selectedSeason} live auction?`}
+          description="This clears the live auction state and results, returns sold players to their pool, and keeps all player registrations and details."
+          confirmationPhrase={`CLEAR ${selectedSeason.toUpperCase()} AUCTION`}
+          confirmLabel="Clear auction"
+          busy={isSaving}
+          error={auctionError}
+          onConfirm={confirmAuctionReset}
+          onCancel={() => setIsResetConfirmationOpen(false)}
+        />
+      )}
       {reauctionPlayer && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4">
           <section role="dialog" aria-modal="true" aria-labelledby="reauction-title" className="w-full max-w-md rounded-2xl border border-amber-400/30 bg-[#091535] p-5 text-white shadow-2xl">

@@ -5,10 +5,13 @@ import {
   appendAuctionBidAudit,
   auditAuctionTransition,
   auctionBidSnapshot,
+  auctionPlayerPhotoForDisplay,
   auctionPhotoByteLength,
   commitAuctionBid,
   compactAuctionState,
   hasAuctionProcessedPlayer,
+  isAuctionPlayerCutoutUrl,
+  isValidAuctionCutoutImage,
   isAuctionTeamEligible,
   isAuctionPlayerPhotoUrl,
   MAX_AUCTION_PHOTO_BYTES,
@@ -45,6 +48,17 @@ test('processed auction players are detected in sold and unsold history', () => 
   assert.equal(hasAuctionProcessedPlayer(state, 'other-player'), false);
 });
 
+test('cutout uploads accept PNG and WebP signatures but reject other image types', () => {
+  assert.equal(isValidAuctionCutoutImage('image/png', Uint8Array.from([
+    137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0
+  ])), true);
+  assert.equal(isValidAuctionCutoutImage('image/webp', Uint8Array.from([
+    82, 73, 70, 70, 0, 0, 0, 0, 87, 69, 66, 80
+  ])), true);
+  assert.equal(isValidAuctionCutoutImage('image/jpeg', new Uint8Array(12)), false);
+  assert.equal(isValidAuctionCutoutImage('image/png', new Uint8Array(11)), false);
+});
+
 test('auction purse rules keep a team-specific cap separate from the default cap', () => {
   const state = setAuctionTeamPurseCap({
     ...initialState,
@@ -77,6 +91,36 @@ test('audits a re-auction only when an unsold player has an exception reason', (
   assert.equal(audited.auditLog[0].action, 'PLAYER_REAUCTIONED');
   assert.equal(audited.auditLog[0].actorId, 'owner');
   assert.match(audited.auditLog[0].details.reason, /Correction approved/);
+});
+
+test('records an administrator reset after clearing auction results', () => {
+  const previous = {
+    ...initialState,
+    currentPlayer: { id: 'player-1' },
+    soldPlayers: [{ playerId: 'player-2' }],
+    unsoldPlayers: [{ playerId: 'player-3' }]
+  };
+  const reset = auditAuctionTransition(previous, {
+    ...previous,
+    status: 'waiting',
+    currentPlayer: null,
+    currentBid: 0,
+    currentBiddingTeam: null,
+    bidHistory: [],
+    soldPlayers: [],
+    unsoldPlayers: [],
+    teamPurses: { teamA: 5000 }
+  }, {
+    actor: { adminId: 'owner', role: 'owner' },
+    now: new Date('2026-11-07T00:02:00.000Z')
+  });
+
+  assert.equal(reset.auditLog.at(-1).action, 'AUCTION_RESET');
+  assert.deepEqual(reset.auditLog.at(-1).details, {
+    soldPlayersReturned: 1,
+    unsoldPlayersReturned: 1,
+    currentPlayerReturned: true
+  });
 });
 
 test('rejects re-auction of sold players even with an exception reason', () => {
@@ -215,8 +259,27 @@ test('calculates the decoded photo size used by the 250 KB upload limit', () => 
 test('allows only auction player media URLs through the auction state photo filter', () => {
   assert.equal(isAuctionPlayerPhotoUrl('/api/media/auction-player-photo%3Aplayer-1?v=abc_123'), true);
   assert.equal(isAuctionPlayerPhotoUrl('/api/media/auction-player-photo%3Aplayer-1'), true);
+  assert.equal(isAuctionPlayerCutoutUrl('/api/media/auction-player-cutout%3Aplayer-1?v=abc_123'), true);
+  assert.equal(isAuctionPlayerCutoutUrl('/api/media/auction-player-photo%3Aplayer-1'), false);
   assert.equal(isAuctionPlayerPhotoUrl('/api/media/team-logo%3Ateam-1'), false);
   assert.equal(isAuctionPlayerPhotoUrl('https://example.com/photo.jpg'), false);
+});
+
+test('uses the original player photo in the auction instead of its badge cutout', () => {
+  const originalPhoto = '/api/media/auction-player-photo%3Aplayer-1?v=original123';
+  const cutoutPhoto = '/api/media/auction-player-cutout%3Aplayer-1?v=cutout123';
+
+  assert.equal(auctionPlayerPhotoForDisplay(originalPhoto, cutoutPhoto), originalPhoto);
+  assert.equal(auctionPlayerPhotoForDisplay(cutoutPhoto, originalPhoto), originalPhoto);
+  assert.equal(
+    auctionPlayerPhotoForDisplay(cutoutPhoto),
+    '/api/media/auction-player-photo%3Aplayer-1'
+  );
+  assert.equal(
+    auctionPlayerPhotoForDisplay('', cutoutPhoto),
+    '/api/media/auction-player-photo%3Aplayer-1'
+  );
+  assert.equal(auctionPlayerPhotoForDisplay('', ''), '');
 });
 
 test('retries a bid after a concurrent team update using the new current bid', async () => {

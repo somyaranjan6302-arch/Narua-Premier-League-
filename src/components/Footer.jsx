@@ -1,7 +1,7 @@
 import React from 'react';
 import { NplLogo } from './NplLogo';
 import { useNpl } from '../context/NplContext';
-import { Mail, Phone, MapPin, MessageCircle, Shield, Award, Heart } from 'lucide-react';
+import { Mail, Phone, MapPin, MessageCircle, Smartphone, Shield, Award, Heart } from 'lucide-react';
 
 
 export const Footer = ({ scrollToSection }) => {
@@ -80,14 +80,13 @@ export const Footer = ({ scrollToSection }) => {
                 </svg>
               </a>
               <a
-                href="#social"
-                onClick={(e) => e.preventDefault()}
-                aria-label="YouTube"
+                href="/downloads/npl-app.apk"
+                download="npl-app.apk"
+                aria-label="Download NPL app APK"
+                title="Download the NPL app"
                 className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-[#080852]/60 text-slate-100 transition-colors hover:border-[#ffdb19] hover:text-[#ffdb19]"
               >
-                <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                  <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-                </svg>
+                <Smartphone className="w-4 h-4" />
               </a>
               <a
                 href="https://chat.whatsapp.com/DwUomPVQh0oEfixMt1lOrs"
@@ -120,6 +119,11 @@ export const Footer = ({ scrollToSection }) => {
               <li>
                 <button onClick={() => scrollToSection('teams')} className="transition-colors hover:text-[#ffdb19]">
                   Franchise Teams & Squads
+                </button>
+              </li>
+              <li>
+                <button onClick={() => scrollToSection('owners')} className="transition-colors hover:text-[#ffdb19]">
+                  Franchise Owners & Patrons
                 </button>
               </li>
               <li>
